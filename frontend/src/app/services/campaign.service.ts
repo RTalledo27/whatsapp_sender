@@ -62,6 +62,10 @@ export class CampaignService {
     return this.http.get<Campaign>(`${this.apiUrl}/${id}`);
   }
 
+  getCampaignDetails(id: number): Observable<Campaign> {
+    return this.http.get<Campaign>(`${this.apiUrl}/${id}/details`);
+  }
+
   createCampaign(data: { name: string; message: string; contact_ids: number[] }): Observable<any> {
     return this.http.post(this.apiUrl, data);
   }

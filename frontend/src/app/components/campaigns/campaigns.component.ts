@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CampaignService, Campaign } from '../../services/campaign.service';
 import { ContactService, Contact } from '../../services/contact.service';
 import { TemplateService, WhatsAppTemplate } from '../../services/template.service';
+import { CampaignPollingService } from '../../services/campaign-polling.service';
+import { NotificationService } from '../../services/notification.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-campaigns',
@@ -36,6 +39,16 @@ import { TemplateService, WhatsAppTemplate } from '../../services/template.servi
           
           <div class="campaign-message">
             <strong>Mensaje:</strong> {{ campaign.message }}
+          </div>
+
+          <!-- Barra de progreso para campañas en proceso -->
+          <div class="campaign-progress" *ngIf="campaign.status === 'processing'">
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" 
+                   [style.width.%]="getProgress(campaign)">
+              </div>
+            </div>
+            <span class="progress-text">{{ getProgress(campaign) }}% completado</span>
           </div>
 
           <div class="campaign-stats">
@@ -292,6 +305,34 @@ import { TemplateService, WhatsAppTemplate } from '../../services/template.servi
       border-radius: 6px;
       margin-bottom: 15px;
       color: #374151;
+    }
+
+    .campaign-progress {
+      margin-bottom: 15px;
+    }
+
+    .progress-bar-container {
+      height: 24px;
+      background: #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      transition: width 0.5s ease;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+
+    .progress-text {
+      display: block;
+      text-align: center;
+      margin-top: 5px;
+      font-size: 0.85em;
+      color: #6b7280;
+      font-weight: 600;
     }
 
     .campaign-stats {
@@ -644,7 +685,7 @@ import { TemplateService, WhatsAppTemplate } from '../../services/template.servi
     }
   `]
 })
-export class CampaignsComponent implements OnInit {
+export class CampaignsComponent implements OnInit, OnDestroy {
   campaigns: Campaign[] = [];
   availableContacts: Contact[] = [];
   selectedCampaign: Campaign | null = null;
@@ -655,6 +696,8 @@ export class CampaignsComponent implements OnInit {
   showCreateModal = false;
   contactSearch = '';
   useTemplate = false;
+  
+  private pollingSubscription?: Subscription;
   
   campaignForm = {
     name: '',
@@ -667,13 +710,40 @@ export class CampaignsComponent implements OnInit {
   constructor(
     private campaignService: CampaignService,
     private contactService: ContactService,
-    private templateService: TemplateService
+    private templateService: TemplateService,
+    private pollingService: CampaignPollingService,
+    private notificationService: NotificationService
   ) {}
 
   ngOnInit() {
     this.loadCampaigns();
     this.loadContacts();
     this.loadTemplates();
+    this.startAutoRefresh();
+  }
+
+  ngOnDestroy() {
+    if (this.pollingSubscription) {
+      this.pollingSubscription.unsubscribe();
+    }
+    // NO detener el polling al salir, las notificaciones deben continuar
+    // this.pollingService.stopAllPolling();
+  }
+
+  startAutoRefresh() {
+    // Suscribirse a actualizaciones de campaña
+    this.pollingSubscription = this.pollingService.campaignStatuses$.subscribe(statuses => {
+      // Actualizar campañas con los nuevos estados
+      statuses.forEach((status, campaignId) => {
+        const campaign = this.campaigns.find(c => c.id === campaignId);
+        if (campaign) {
+          campaign.status = status.status as 'pending' | 'processing' | 'completed' | 'failed';
+          campaign.sent_count = status.sent_count;
+          campaign.failed_count = status.failed_count;
+          campaign.pending_count = status.pending_count;
+        }
+      });
+    });
   }
 
   loadCampaigns() {
@@ -767,14 +837,22 @@ export class CampaignsComponent implements OnInit {
     if (!this.canCreateCampaign()) return;
 
     this.campaignService.createCampaign(this.campaignForm).subscribe({
-      next: () => {
+      next: (response) => {
+        const campaignId = response.data.id;
+        
         this.closeCreateModal();
         this.loadCampaigns();
-        alert('Campaña creada! Los mensajes se están enviando en segundo plano.');
+        
+        // Iniciar polling automático para esta campaña
+        this.pollingService.startPolling(campaignId, 2000);
       },
       error: (error) => {
         console.error('Error creating campaign:', error);
-        alert('Error al crear la campaña: ' + (error.error?.message || 'Error desconocido'));
+        this.notificationService.show({
+          type: 'error',
+          title: 'Error',
+          message: 'Error al crear la campaña: ' + (error.error?.message || 'Error desconocido')
+        });
       }
     });
   }
@@ -795,7 +873,7 @@ export class CampaignsComponent implements OnInit {
   }
 
   viewDetails(campaign: Campaign) {
-    this.campaignService.getCampaign(campaign.id).subscribe({
+    this.campaignService.getCampaignDetails(campaign.id).subscribe({
       next: (data) => {
         this.selectedCampaign = data;
       }
@@ -821,5 +899,11 @@ export class CampaignsComponent implements OnInit {
         this.loadCampaigns();
       }
     });
+  }
+
+  getProgress(campaign: Campaign): number {
+    if (campaign.total_contacts === 0) return 0;
+    const completed = campaign.sent_count + campaign.failed_count;
+    return Math.round((completed / campaign.total_contacts) * 100);
   }
 }

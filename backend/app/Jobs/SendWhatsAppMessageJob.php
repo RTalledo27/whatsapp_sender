@@ -32,25 +32,38 @@ class SendWhatsAppMessageJob implements ShouldQueue
     public function handle(WhatsAppService $whatsAppService): void
     {
         try {
-            Log::info('Sending WhatsApp message', [
+            $campaign = $this->message->campaign->fresh();
+            
+            Log::info('SendWhatsAppMessageJob: Starting', [
                 'message_id' => $this->message->id,
                 'phone' => $this->message->phone_number,
+                'campaign_id' => $campaign->id,
+                'campaign_name' => $campaign->name,
+                'has_template' => !empty($campaign->template_name),
+                'template_name' => $campaign->template_name,
+                'template_params' => $campaign->template_parameters,
             ]);
 
-            $campaign = $this->message->campaign;
-            
             // Determinar si se usa template o mensaje de texto
             $templateData = null;
             $message = null;
 
-            if ($campaign->template_name) {
+            if (!empty($campaign->template_name)) {
                 $templateData = [
                     'name' => $campaign->template_name,
                     'language' => 'es',
                     'parameters' => $campaign->template_parameters ?? []
                 ];
+                
+                Log::info('Using WhatsApp Template', [
+                    'template' => $templateData
+                ]);
             } else {
                 $message = $this->message->message;
+                
+                Log::info('Using Text Message', [
+                    'message' => $message
+                ]);
             }
 
             $result = $whatsAppService->sendMessage(
@@ -70,6 +83,13 @@ class SendWhatsAppMessageJob implements ShouldQueue
                     'message_id' => $this->message->id,
                     'whatsapp_id' => $result['message_id'],
                 ]);
+
+                // Delay para evitar ban por spam
+                $delaySeconds = config('services.whatsapp.delay_between_messages', 2);
+                if ($delaySeconds > 0) {
+                    Log::info('Waiting before next message', ['seconds' => $delaySeconds]);
+                    sleep($delaySeconds);
+                }
             } else {
                 $this->message->update([
                     'status' => 'failed',
@@ -98,6 +118,13 @@ class SendWhatsAppMessageJob implements ShouldQueue
             ]);
 
             $this->message->campaign->updateCounts();
+
+            // Delay más largo después de error
+            $delaySeconds = config('services.whatsapp.delay_on_error', 5);
+            if ($delaySeconds > 0) {
+                Log::info('Waiting after error before next message', ['seconds' => $delaySeconds]);
+                sleep($delaySeconds);
+            }
 
             throw $e;
         }

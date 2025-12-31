@@ -31,7 +31,6 @@ class WhatsAppService
 
             $payload = [
                 'messaging_product' => 'whatsapp',
-                'recipient_type' => 'individual',
                 'to' => $phoneNumber,
             ];
 
@@ -45,17 +44,30 @@ class WhatsAppService
                     ]
                 ];
 
-                // Agregar parámetros si existen
-                if (isset($templateData['parameters']) && !empty($templateData['parameters'])) {
-                    $payload['template']['components'] = [
-                        [
-                            'type' => 'body',
-                            'parameters' => array_map(function($param) {
-                                return ['type' => 'text', 'text' => $param];
-                            }, $templateData['parameters'])
-                        ]
-                    ];
+                // Agregar parámetros si existen y no están vacíos
+                if (isset($templateData['parameters']) && is_array($templateData['parameters']) && !empty($templateData['parameters'])) {
+                    // Filtrar parámetros vacíos
+                    $validParams = array_filter($templateData['parameters'], function($param) {
+                        return !empty($param);
+                    });
+
+                    if (!empty($validParams)) {
+                        $payload['template']['components'] = [
+                            [
+                                'type' => 'body',
+                                'parameters' => array_values(array_map(function($param) {
+                                    return ['type' => 'text', 'text' => (string)$param];
+                                }, $validParams))
+                            ]
+                        ];
+                    }
                 }
+
+                Log::info('Sending WhatsApp Template', [
+                    'template_name' => $templateData['name'],
+                    'parameters' => $templateData['parameters'] ?? [],
+                    'payload' => $payload
+                ]);
             } else {
                 // Mensaje de texto simple
                 $payload['type'] = 'text';
@@ -63,6 +75,10 @@ class WhatsAppService
                     'preview_url' => false,
                     'body' => $message,
                 ];
+
+                Log::info('Sending WhatsApp Text Message', [
+                    'message' => $message
+                ]);
             }
 
             $response = Http::withHeaders([

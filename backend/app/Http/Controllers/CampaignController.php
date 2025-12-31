@@ -32,6 +32,25 @@ class CampaignController extends Controller
      */
     public function show(Campaign $campaign): JsonResponse
     {
+        // Para polling, solo necesitamos datos básicos sin cargar todos los mensajes
+        $campaign->makeHidden(['messages']);
+        
+        return response()->json([
+            'id' => $campaign->id,
+            'name' => $campaign->name,
+            'status' => $campaign->status,
+            'total_contacts' => $campaign->total_contacts,
+            'sent_count' => $campaign->sent_count,
+            'failed_count' => $campaign->failed_count,
+            'pending_count' => $campaign->pending_count,
+        ]);
+    }
+
+    /**
+     * Obtener detalles completos de una campaña con mensajes
+     */
+    public function details(Campaign $campaign): JsonResponse
+    {
         $campaign->load(['messages' => function ($query) {
             $query->orderBy('created_at', 'desc');
         }]);
@@ -86,11 +105,17 @@ class CampaignController extends Controller
 
             // Crear mensajes
             foreach ($contacts as $contact) {
+                // Preparar el mensaje de texto
+                $messageText = $request->message;
+                if (!$messageText && $request->template_name) {
+                    $messageText = "Template: {$request->template_name}";
+                }
+
                 $message = Message::create([
                     'campaign_id' => $campaign->id,
                     'contact_id' => $contact->id,
                     'phone_number' => $contact->phone_number,
-                    'message' => $request->message ?? 'Template message',
+                    'message' => $messageText,
                     'status' => 'pending',
                 ]);
 
@@ -108,7 +133,8 @@ class CampaignController extends Controller
 
             return response()->json([
                 'success' => true,
-                'campaign' => $campaign->load('messages'),
+                'message' => 'Campaña creada exitosamente',
+                'data' => $campaign->load('messages'),
             ], 201);
 
         } catch (\Exception $e) {
