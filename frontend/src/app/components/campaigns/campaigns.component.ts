@@ -1,0 +1,825 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { CampaignService, Campaign } from '../../services/campaign.service';
+import { ContactService, Contact } from '../../services/contact.service';
+import { TemplateService, WhatsAppTemplate } from '../../services/template.service';
+
+@Component({
+  selector: 'app-campaigns',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <div class="campaigns-page">
+      <div class="header">
+        <h1>Campañas de Envío</h1>
+        <button class="btn btn-primary" (click)="showCreateModal = true">
+          ➕ Nueva Campaña
+        </button>
+      </div>
+
+      <div class="campaigns-list" *ngIf="campaigns.length > 0">
+        <div class="campaign-card" *ngFor="let campaign of campaigns">
+          <div class="campaign-header">
+            <div>
+              <h3>{{ campaign.name }}</h3>
+              <p class="campaign-date">{{ campaign.created_at | date:'medium' }}</p>
+            </div>
+            <span class="badge" 
+                  [class.badge-success]="campaign.status === 'completed'"
+                  [class.badge-warning]="campaign.status === 'processing'"
+                  [class.badge-info]="campaign.status === 'pending'"
+                  [class.badge-error]="campaign.status === 'failed'">
+              {{ campaign.status }}
+            </span>
+          </div>
+          
+          <div class="campaign-message">
+            <strong>Mensaje:</strong> {{ campaign.message }}
+          </div>
+
+          <div class="campaign-stats">
+            <div class="stat">
+              <span class="stat-value">{{ campaign.total_contacts }}</span>
+              <span class="stat-label">Total</span>
+            </div>
+            <div class="stat success">
+              <span class="stat-value">{{ campaign.sent_count }}</span>
+              <span class="stat-label">Enviados</span>
+            </div>
+            <div class="stat error">
+              <span class="stat-value">{{ campaign.failed_count }}</span>
+              <span class="stat-label">Fallidos</span>
+            </div>
+            <div class="stat warning">
+              <span class="stat-value">{{ campaign.pending_count }}</span>
+              <span class="stat-label">Pendientes</span>
+            </div>
+          </div>
+
+          <div class="campaign-actions">
+            <button class="btn btn-small" (click)="viewDetails(campaign)">
+              📊 Ver Detalles
+            </button>
+            <button class="btn btn-small" 
+                    *ngIf="campaign.failed_count > 0"
+                    (click)="retryFailed(campaign)">
+              🔄 Reintentar Fallidos
+            </button>
+            <button class="btn btn-small btn-danger" (click)="deleteCampaign(campaign)">
+              🗑️ Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="campaigns.length === 0" class="empty-state">
+        <p>No hay campañas creadas. Crea tu primera campaña de envío.</p>
+      </div>
+
+      <!-- Modal Nueva Campaña -->
+      <div class="modal" *ngIf="showCreateModal">
+        <div class="modal-content large">
+          <div class="modal-header">
+            <h2>Nueva Campaña de Envío</h2>
+            <button class="close-btn" (click)="closeCreateModal()">✖</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Nombre de la Campaña *</label>
+              <input type="text" [(ngModel)]="campaignForm.name" 
+                     placeholder="Ej: Promoción Navidad 2024" />
+            </div>
+
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="useTemplate" />
+                Usar Template de WhatsApp (Recomendado para nuevos contactos)
+              </label>
+            </div>
+
+            <!-- Sección de Template -->
+            <div *ngIf="useTemplate">
+              <div class="form-group">
+                <label>Seleccionar Template *</label>
+                <select [(ngModel)]="campaignForm.template_name" 
+                        (change)="onTemplateSelected($event)"
+                        class="form-select">
+                  <option value="">-- Selecciona un template --</option>
+                  <option *ngFor="let template of templates" [value]="template.name">
+                    {{ template.name }} ({{ template.language }})
+                  </option>
+                </select>
+              </div>
+
+              <div class="template-preview" *ngIf="selectedTemplate">
+                <h4>Vista Previa del Template</h4>
+                <div class="template-body">
+                  {{ getTemplateBodyText() }}
+                </div>
+              </div>
+
+              <div *ngIf="templateParameters.length > 0">
+                <h4>Parámetros del Template</h4>
+                <div class="form-group" *ngFor="let param of templateParameters; let i = index">
+                  <label>Parámetro {{i + 1}} *</label>
+                  <input type="text" 
+                         [(ngModel)]="campaignForm.template_parameters[i]"
+                         [placeholder]="'Valor para {{' + (i+1) + '}}'"/>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección de Mensaje de Texto -->
+            <div *ngIf="!useTemplate">
+              <div class="form-group">
+                <label>Mensaje *</label>
+                <textarea [(ngModel)]="campaignForm.message" 
+                          rows="4"
+                          placeholder="Escribe el mensaje que se enviará a todos los contactos..."></textarea>
+                <small>{{ campaignForm.message.length }} caracteres</small>
+              </div>
+              <div class="alert alert-warning">
+                ⚠️ Los mensajes de texto solo funcionan con números que ya han conversado contigo en las últimas 24 horas.
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Seleccionar Contactos *</label>
+              <div class="contacts-selection">
+                <div class="search-box">
+                  <input type="text" 
+                         [(ngModel)]="contactSearch"
+                         (keyup)="searchContacts()"
+                         placeholder="Buscar contactos..." />
+                </div>
+                <div class="contacts-list">
+                  <div class="contact-item" *ngFor="let contact of availableContacts">
+                    <label>
+                      <input type="checkbox" 
+                             [checked]="isContactSelected(contact.id)"
+                             (change)="toggleContact(contact.id)" />
+                      <span>{{ contact.phone_number }}</span>
+                      <span class="contact-name" *ngIf="contact.name">- {{ contact.name }}</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="selection-summary">
+                  <strong>{{ campaignForm.contact_ids.length }}</strong> contactos seleccionados
+                  <button class="btn-link" (click)="selectAll()">Seleccionar todos</button>
+                  <button class="btn-link" (click)="deselectAll()">Deseleccionar todos</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+            <button class="btn btn-primary" 
+                    (click)="createCampaign()"
+                    [disabled]="!canCreateCampaign()">
+              🚀 Crear y Enviar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detalles -->
+      <div class="modal" *ngIf="selectedCampaign">
+        <div class="modal-content large">
+          <div class="modal-header">
+            <h2>Detalles de Campaña: {{ selectedCampaign.name }}</h2>
+            <button class="close-btn" (click)="selectedCampaign = null">✖</button>
+          </div>
+          <div class="modal-body">
+            <div class="details-grid">
+              <div class="detail-item">
+                <strong>Estado:</strong>
+                <span class="badge" 
+                      [class.badge-success]="selectedCampaign.status === 'completed'"
+                      [class.badge-warning]="selectedCampaign.status === 'processing'">
+                  {{ selectedCampaign.status }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <strong>Total Contactos:</strong> {{ selectedCampaign.total_contacts }}
+              </div>
+              <div class="detail-item">
+                <strong>Enviados:</strong> {{ selectedCampaign.sent_count }}
+              </div>
+              <div class="detail-item">
+                <strong>Fallidos:</strong> {{ selectedCampaign.failed_count }}
+              </div>
+            </div>
+
+            <div class="messages-table" *ngIf="selectedCampaign.messages">
+              <h3>Mensajes ({{ selectedCampaign.messages.length }})</h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Teléfono</th>
+                    <th>Estado</th>
+                    <th>Enviado</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let message of selectedCampaign.messages">
+                    <td>{{ message.phone_number }}</td>
+                    <td>
+                      <span class="badge badge-small"
+                            [class.badge-success]="message.status === 'sent'"
+                            [class.badge-error]="message.status === 'failed'"
+                            [class.badge-warning]="message.status === 'pending'">
+                        {{ message.status }}
+                      </span>
+                    </td>
+                    <td>{{ message.sent_at | date:'short' }}</td>
+                    <td>{{ message.error_message || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .campaigns-page {
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .campaigns-list {
+      display: grid;
+      gap: 20px;
+    }
+
+    .campaign-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .campaign-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 15px;
+    }
+
+    .campaign-header h3 {
+      margin: 0 0 5px 0;
+      color: #111827;
+    }
+
+    .campaign-date {
+      color: #6b7280;
+      font-size: 0.9em;
+      margin: 0;
+    }
+
+    .campaign-message {
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      color: #374151;
+    }
+
+    .campaign-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 6px;
+    }
+
+    .stat.success { border-left: 4px solid #22c55e; }
+    .stat.error { border-left: 4px solid #ef4444; }
+    .stat.warning { border-left: 4px solid #f59e0b; }
+
+    .stat-value {
+      display: block;
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .stat-label {
+      display: block;
+      font-size: 0.9em;
+      color: #6b7280;
+      margin-top: 5px;
+    }
+
+    .campaign-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+
+    .btn-small {
+      padding: 8px 16px;
+      font-size: 0.9em;
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-small:hover {
+      background: #d1d5db;
+    }
+
+    .btn-danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .btn-danger:hover {
+      background: #fca5a5;
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .badge-warning {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .badge-info {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+
+    .badge-error {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .badge-small {
+      padding: 4px 8px;
+      font-size: 0.75em;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9ca3af;
+      background: white;
+      border-radius: 8px;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-content.large {
+      max-width: 800px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5em;
+      cursor: pointer;
+      color: #6b7280;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select,
+    .form-select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 1em;
+      font-family: inherit;
+    }
+
+    .form-group small {
+      color: #6b7280;
+      font-size: 0.85em;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: auto;
+    }
+
+    .template-preview {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 6px;
+    }
+
+    .template-preview h4 {
+      margin: 0 0 10px 0;
+      color: #16a34a;
+      font-size: 1em;
+    }
+
+    .template-body {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      color: #374151;
+    }
+
+    .alert {
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin: 15px 0;
+    }
+
+    .alert-warning {
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      color: #92400e;
+    }
+
+    .contacts-selection {
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .contacts-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .contact-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .contact-item:hover {
+      background: #f9fafb;
+    }
+
+    .contact-item label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .contact-name {
+      color: #6b7280;
+      font-size: 0.9em;
+    }
+
+    .selection-summary {
+      padding: 15px;
+      background: #f9fafb;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: #3b82f6;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.9em;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .detail-item {
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 6px;
+    }
+
+    .messages-table {
+      margin-top: 20px;
+    }
+
+    .messages-table h3 {
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #f9fafb;
+      padding: 10px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+  `]
+})
+export class CampaignsComponent implements OnInit {
+  campaigns: Campaign[] = [];
+  availableContacts: Contact[] = [];
+  selectedCampaign: Campaign | null = null;
+  templates: WhatsAppTemplate[] = [];
+  selectedTemplate: WhatsAppTemplate | null = null;
+  templateParameters: string[] = [];
+  
+  showCreateModal = false;
+  contactSearch = '';
+  useTemplate = false;
+  
+  campaignForm = {
+    name: '',
+    message: '',
+    template_name: '',
+    template_parameters: [] as string[],
+    contact_ids: [] as number[]
+  };
+
+  constructor(
+    private campaignService: CampaignService,
+    private contactService: ContactService,
+    private templateService: TemplateService
+  ) {}
+
+  ngOnInit() {
+    this.loadCampaigns();
+    this.loadContacts();
+    this.loadTemplates();
+  }
+
+  loadCampaigns() {
+    this.campaignService.getCampaigns().subscribe({
+      next: (response) => {
+        this.campaigns = response.data;
+      },
+      error: (error) => console.error('Error loading campaigns:', error)
+    });
+  }
+
+  loadContacts() {
+    this.contactService.getContacts(1, 1000).subscribe({
+      next: (response) => {
+        this.availableContacts = response.data;
+      },
+      error: (error) => console.error('Error loading contacts:', error)
+    });
+  }
+
+  loadTemplates() {
+    this.templateService.getTemplates().subscribe({
+      next: (response) => {
+        this.templates = response.templates;
+      },
+      error: (error) => console.error('Error loading templates:', error)
+    });
+  }
+
+  onTemplateSelected(event: any) {
+    const templateName = event.target.value;
+    this.selectedTemplate = this.templates.find(t => t.name === templateName) || null;
+    
+    if (this.selectedTemplate) {
+      this.campaignForm.template_name = this.selectedTemplate.name;
+      const params = this.templateService.getTemplateParameters(this.selectedTemplate);
+      this.templateParameters = params;
+      this.campaignForm.template_parameters = new Array(params.length).fill('');
+    }
+  }
+
+  getTemplateBodyText(): string {
+    if (!this.selectedTemplate) return 'Sin contenido';
+    const bodyComponent = this.selectedTemplate.components.find(c => c.type === 'BODY');
+    return bodyComponent?.text || 'Sin contenido';
+  }
+
+  searchContacts() {
+    this.contactService.getContacts(1, 100, this.contactSearch).subscribe({
+      next: (response) => {
+        this.availableContacts = response.data;
+      }
+    });
+  }
+
+  isContactSelected(id: number): boolean {
+    return this.campaignForm.contact_ids.includes(id);
+  }
+
+  toggleContact(id: number) {
+    const index = this.campaignForm.contact_ids.indexOf(id);
+    if (index > -1) {
+      this.campaignForm.contact_ids.splice(index, 1);
+    } else {
+      this.campaignForm.contact_ids.push(id);
+    }
+  }
+
+  selectAll() {
+    this.campaignForm.contact_ids = this.availableContacts.map(c => c.id);
+  }
+
+  deselectAll() {
+    this.campaignForm.contact_ids = [];
+  }
+
+  canCreateCampaign(): boolean {
+    if (this.useTemplate) {
+      return !!(this.campaignForm.name && 
+                this.campaignForm.template_name && 
+                this.campaignForm.contact_ids.length > 0 &&
+                this.campaignForm.template_parameters.every(p => p.trim() !== ''));
+    } else {
+      return !!(this.campaignForm.name && 
+                this.campaignForm.message && 
+                this.campaignForm.contact_ids.length > 0);
+    }
+  }
+
+  createCampaign() {
+    if (!this.canCreateCampaign()) return;
+
+    this.campaignService.createCampaign(this.campaignForm).subscribe({
+      next: () => {
+        this.closeCreateModal();
+        this.loadCampaigns();
+        alert('Campaña creada! Los mensajes se están enviando en segundo plano.');
+      },
+      error: (error) => {
+        console.error('Error creating campaign:', error);
+        alert('Error al crear la campaña: ' + (error.error?.message || 'Error desconocido'));
+      }
+    });
+  }
+
+  closeCreateModal() {
+    this.showCreateModal = false;
+    this.campaignForm = { 
+      name: '', 
+      message: '', 
+      template_name: '',
+      template_parameters: [],
+      contact_ids: [] 
+    };
+    this.contactSearch = '';
+    this.useTemplate = false;
+    this.selectedTemplate = null;
+    this.templateParameters = [];
+  }
+
+  viewDetails(campaign: Campaign) {
+    this.campaignService.getCampaign(campaign.id).subscribe({
+      next: (data) => {
+        this.selectedCampaign = data;
+      }
+    });
+  }
+
+  retryFailed(campaign: Campaign) {
+    if (!confirm(`¿Reintentar envío de ${campaign.failed_count} mensajes fallidos?`)) return;
+
+    this.campaignService.retryFailed(campaign.id).subscribe({
+      next: () => {
+        alert('Reintentando mensajes fallidos...');
+        this.loadCampaigns();
+      }
+    });
+  }
+
+  deleteCampaign(campaign: Campaign) {
+    if (!confirm(`¿Eliminar campaña "${campaign.name}"?`)) return;
+
+    this.campaignService.deleteCampaign(campaign.id).subscribe({
+      next: () => {
+        this.loadCampaigns();
+      }
+    });
+  }
+}
