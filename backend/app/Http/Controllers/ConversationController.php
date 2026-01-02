@@ -20,7 +20,7 @@ class ConversationController extends Controller
         $conversations = Contact::select('contacts.*')
             ->join('messages', 'contacts.id', '=', 'messages.contact_id')
             ->selectRaw('COUNT(messages.id) as total_messages')
-            ->selectRaw('MAX(messages.message_timestamp) as last_message_at')
+            ->selectRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) as last_message_at')
             ->selectRaw('SUM(CASE WHEN messages.direction = "inbound" AND messages.read_at IS NULL THEN 1 ELSE 0 END) as unread_count')
             ->when($search, function ($query, $search) {
                 return $query->where(function ($q) use ($search) {
@@ -30,7 +30,7 @@ class ConversationController extends Controller
             })
             ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.email', 
                      'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
-            ->orderByRaw('MAX(messages.message_timestamp) DESC')
+            ->orderByRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) DESC')
             ->paginate($perPage);
         
         return response()->json($conversations);
@@ -45,7 +45,7 @@ class ConversationController extends Controller
         $perPage = $request->query('per_page', 50);
         
         $messages = Message::where('contact_id', $contactId)
-            ->orderBy('message_timestamp', 'desc')
+            ->orderByRaw('COALESCE(message_timestamp, created_at) DESC')
             ->paginate($perPage);
         
         // Marcar mensajes como leídos automáticamente
