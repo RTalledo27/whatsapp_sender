@@ -110,7 +110,6 @@ class WebhookController extends Controller
         Message::create([
             'contact_id' => $contact->id,
             'campaign_id' => null, // Mensajes entrantes no tienen campaña
-            'phone' => $phoneNumber,
             'message' => null,
             'status' => 'received',
             'direction' => 'inbound',
