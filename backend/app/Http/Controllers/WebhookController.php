@@ -111,7 +111,7 @@ class WebhookController extends Controller
             'contact_id' => $contact->id,
             'campaign_id' => null, // Mensajes entrantes no tienen campaña
             'message' => null,
-            'status' => 'received',
+            'status' => null, // Los mensajes entrantes no usan el campo status (es para outbound)
             'direction' => 'inbound',
             'whatsapp_message_id' => $messageId,
             'message_timestamp' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : now(),
