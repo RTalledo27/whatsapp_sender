@@ -13,16 +13,26 @@ class Message extends Model
     protected $fillable = [
         'campaign_id',
         'contact_id',
+        'phone',
         'phone_number',
         'message',
         'status',
         'whatsapp_message_id',
         'error_message',
         'sent_at',
+        'direction',
+        'message_timestamp',
+        'read_at',
+        'delivered_at',
+        'message_content',
+        'error',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'message_timestamp' => 'datetime',
+        'read_at' => 'datetime',
+        'delivered_at' => 'datetime',
     ];
 
     public function campaign(): BelongsTo

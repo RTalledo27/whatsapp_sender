@@ -5,6 +5,8 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TestController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\ConversationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,7 +21,20 @@ Route::options('{any}', function () {
     return response('', 200);
 })->where('any', '.*');
 
+// Webhook de WhatsApp (sin middleware de autenticación)
+Route::get('/webhook/whatsapp', [WebhookController::class, 'verify']);
+Route::post('/webhook/whatsapp', [WebhookController::class, 'receive']);
+
 Route::middleware('api')->group(function () {
+    
+    // Conversations (historial de chat)
+    Route::prefix('conversations')->group(function () {
+        Route::get('/', [ConversationController::class, 'index']);
+        Route::get('/stats', [ConversationController::class, 'stats']);
+        Route::get('/search', [ConversationController::class, 'search']);
+        Route::get('/{contactId}', [ConversationController::class, 'show']);
+        Route::post('/{contactId}/mark-read', [ConversationController::class, 'markAsRead']);
+    });
     
     // Contacts
     Route::prefix('contacts')->group(function () {
