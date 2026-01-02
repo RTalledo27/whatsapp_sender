@@ -33,6 +33,12 @@ import { NotificationToastComponent } from './components/notification-toast/noti
               <span>Campañas</span>
             </a>
           </li>
+          <li>
+            <a routerLink="/conversations" routerLinkActive="active">
+              <span class="icon">💬</span>
+              <span>Conversaciones</span>
+            </a>
+          </li>
         </ul>
       </nav>
       

@@ -1,0 +1,134 @@
+<div class="conversations-container">
+  <!-- Header con estadísticas -->
+  <div class="stats-header">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total_conversations }}</div>
+      <div class="stat-label">Conversaciones</div>
+    </div>
+    <div class="stat-card highlight">
+      <div class="stat-value">{{ stats.unread_messages }}</div>
+      <div class="stat-label">No leídos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.messages_today }}</div>
+      <div class="stat-label">Mensajes hoy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.incoming_today }}</div>
+      <div class="stat-label">Recibidos hoy</div>
+    </div>
+  </div>
+
+  <!-- Layout principal: sidebar + chat -->
+  <div class="chat-layout">
+    <!-- Sidebar: Lista de conversaciones -->
+    <div class="conversations-sidebar">
+      <div class="sidebar-header">
+        <h2>Conversaciones</h2>
+        <div class="search-box">
+          <input 
+            type="text" 
+            [(ngModel)]="searchTerm" 
+            (keyup.enter)="onSearch()"
+            placeholder="Buscar contacto..."
+            class="search-input"
+          />
+          <button (click)="onSearch()" class="search-btn">🔍</button>
+        </div>
+      </div>
+
+      <div class="conversations-list" *ngIf="!loading">
+        <div 
+          *ngFor="let conv of conversations" 
+          class="conversation-item"
+          [class.active]="selectedConversation?.contact?.id === conv?.id"
+          [class.unread]="(conv?.unread_count ?? 0) > 0"
+          (click)="selectConversation(conv)"
+        >
+          <div class="conv-avatar">
+            {{ conv.name.charAt(0).toUpperCase() }}
+          </div>
+          <div class="conv-info">
+            <div class="conv-header">
+              <span class="conv-name">{{ conv.name }}</span>
+              <span class="conv-time">{{ formatRelativeTime(conv.last_message_at) }}</span>
+            </div>
+            <div class="conv-footer">
+              <span class="conv-phone">{{ conv.phone_number }}</span>
+              <span class="conv-badge" *ngIf="(conv?.unread_count ?? 0) > 0">
+                {{ conv.unread_count }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="conversations.length === 0" class="empty-state">
+          <p>No hay conversaciones</p>
+        </div>
+      </div>
+
+      <div class="loading-spinner" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Cargando conversaciones...</p>
+      </div>
+    </div>
+
+    <!-- Área de chat -->
+    <div class="chat-area">
+      <!-- Sin conversación seleccionada -->
+      <div class="no-conversation" *ngIf="!selectedConversation && !loadingMessages">
+        <div class="empty-icon">💬</div>
+        <h3>Selecciona una conversación</h3>
+        <p>Elige un contacto de la lista para ver el historial de mensajes</p>
+      </div>
+
+      <!-- Conversación seleccionada -->
+      <div class="chat-content" *ngIf="selectedConversation && !loadingMessages">
+        <!-- Header del chat -->
+        <div class="chat-header">
+          <div class="contact-info">
+            <div class="contact-avatar">
+              {{ selectedConversation.contact.name.charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <h3>{{ selectedConversation.contact.name }}</h3>
+              <p class="contact-phone">{{ selectedConversation.contact.phone_number }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensajes -->
+        <div class="messages-container">
+          <div 
+            *ngFor="let message of messages" 
+            class="message"
+            [class.message-outbound]="message.direction === 'outbound'"
+            [class.message-inbound]="message.direction === 'inbound'"
+          >
+            <div class="message-bubble">
+              <div class="message-content">
+                {{ getMessageContent(message) }}
+              </div>
+              <div class="message-meta">
+                <span class="message-time">{{ formatTime(message.message_timestamp) }}</span>
+                <span class="message-status" [class]="getStatusClass(message)">
+                  {{ getStatusIcon(message) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="messages.length === 0" class="no-messages">
+            <p>No hay mensajes en esta conversación</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading mensajes -->
+      <div class="loading-messages" *ngIf="loadingMessages">
+        <div class="spinner"></div>
+        <p>Cargando mensajes...</p>
+      </div>
+    </div>
+  </div>
+</div>

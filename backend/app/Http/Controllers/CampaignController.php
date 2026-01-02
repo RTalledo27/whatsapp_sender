@@ -69,12 +69,14 @@ class CampaignController extends Controller
             'contact_ids.*' => 'exists:contacts,id',
         ];
 
-        // Si no usa template, el mensaje es requerido
-        if (!$request->has('template_name')) {
-            $rules['message'] = 'required|string';
-        } else {
+        // Si usa template
+        if ($request->filled('template_name')) {
             $rules['template_name'] = 'required|string';
             $rules['template_parameters'] = 'nullable|array';
+        } 
+        // Si NO usa template, el mensaje es requerido
+        else {
+            $rules['message'] = 'required|string';
         }
 
         $validator = Validator::make($request->all(), $rules);

@@ -25,10 +25,10 @@ class ConversationController extends Controller
             ->when($search, function ($query, $search) {
                 return $query->where(function ($q) use ($search) {
                     $q->where('contacts.name', 'like', "%{$search}%")
-                      ->orWhere('contacts.phone', 'like', "%{$search}%");
+                      ->orWhere('contacts.phone_number', 'like', "%{$search}%");
                 });
             })
-            ->groupBy('contacts.id', 'contacts.name', 'contacts.phone', 'contacts.email', 
+            ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.email', 
                      'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
             ->orderByRaw('MAX(messages.message_timestamp) DESC')
             ->paginate($perPage);
