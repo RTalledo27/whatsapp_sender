@@ -99,7 +99,7 @@ class WebhookController extends Controller
         
         // Buscar o crear contacto
         $contact = Contact::firstOrCreate(
-            ['phone' => $phoneNumber],
+            ['phone_number' => $phoneNumber],
             ['name' => $phoneNumber] // Nombre por defecto, puede actualizarse después
         );
         
