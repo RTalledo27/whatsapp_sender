@@ -101,8 +101,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           this.stats.unread_messages = Math.max(0, this.stats.unread_messages - conversation.unread_count);
         }
         
-        // Scroll al final
-        setTimeout(() => this.scrollToBottom(), 100);
+        // Scroll al final después de que se rendericen los mensajes
+        setTimeout(() => this.scrollToBottom(), 200);
       },
       error: (error) => {
         console.error('Error loading conversation:', error);
@@ -196,8 +196,45 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Formatear hora
    */
   formatTime(timestamp: string): string {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday = date.toDateString() === yesterday.toDateString();
+      
+      if (isYesterday) {
+        return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' + 
+               date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+  }
+
+  /**
+   * Formatear tiempo relativo para lista de conversaciones
+   */
+  formatRelativeTime(timestamp: string): string {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Ahora';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days === 1) return 'Ayer';
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
   }
 
   /**
