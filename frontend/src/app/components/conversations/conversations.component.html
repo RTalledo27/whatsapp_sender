@@ -54,7 +54,10 @@
               <span class="conv-time">{{ formatRelativeTime(conv.last_message_at) }}</span>
             </div>
             <div class="conv-footer">
-              <span class="conv-phone">{{ conv.phone_number }}</span>
+              <span class="conv-preview">
+                <span *ngIf="conv.last_message_direction === 'outbound'" class="preview-icon">✓</span>
+                {{ truncateMessage(conv.last_message || 'Sin mensajes') }}
+              </span>
               <span class="conv-badge" *ngIf="(conv?.unread_count ?? 0) > 0">
                 {{ conv.unread_count }}
               </span>

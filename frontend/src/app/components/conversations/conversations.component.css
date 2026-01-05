@@ -191,6 +191,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
+}
+
+.conv-preview {
+  font-size: 0.8125rem;
+  color: #667781;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-icon {
+  color: #53bdeb;
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
 }
 
 .conv-phone {

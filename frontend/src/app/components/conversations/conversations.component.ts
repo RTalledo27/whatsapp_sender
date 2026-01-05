@@ -315,4 +315,13 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       this.sendMessage();
     }
   }
+
+  /**
+   * Truncar mensaje para preview
+   */
+  truncateMessage(message: string, maxLength: number = 35): string {
+    if (!message) return '';
+    if (message.length <= maxLength) return message;
+    return message.substring(0, maxLength) + '...';
+  }
 }

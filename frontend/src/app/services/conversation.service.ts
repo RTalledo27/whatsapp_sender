@@ -11,6 +11,8 @@ export interface Conversation {
   total_messages: number;
   unread_count: number;
   last_message_at: string;
+  last_message?: string;
+  last_message_direction?: 'inbound' | 'outbound';
 }
 
 export interface Message {

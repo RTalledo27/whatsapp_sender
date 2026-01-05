@@ -22,6 +22,20 @@ class ConversationController extends Controller
             ->selectRaw('COUNT(messages.id) as total_messages')
             ->selectRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) as last_message_at')
             ->selectRaw('SUM(CASE WHEN messages.direction = "inbound" AND messages.read_at IS NULL THEN 1 ELSE 0 END) as unread_count')
+            ->selectRaw('(
+                SELECT COALESCE(message_content, message) 
+                FROM messages m2 
+                WHERE m2.contact_id = contacts.id 
+                ORDER BY COALESCE(m2.message_timestamp, m2.created_at) DESC 
+                LIMIT 1
+            ) as last_message')
+            ->selectRaw('(
+                SELECT direction 
+                FROM messages m3 
+                WHERE m3.contact_id = contacts.id 
+                ORDER BY COALESCE(m3.message_timestamp, m3.created_at) DESC 
+                LIMIT 1
+            ) as last_message_direction')
             ->when($search, function ($query, $search) {
                 return $query->where(function ($q) use ($search) {
                     $q->where('contacts.name', 'like', "%{$search}%")
