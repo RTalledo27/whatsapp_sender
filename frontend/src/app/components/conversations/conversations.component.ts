@@ -308,8 +308,9 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   /**
    * Manejar tecla Enter
    */
-  onEnterPress(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey) {
+  onEnterPress(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.key === 'Enter' && !keyboardEvent.shiftKey) {
       event.preventDefault();
       this.sendMessage();
     }
