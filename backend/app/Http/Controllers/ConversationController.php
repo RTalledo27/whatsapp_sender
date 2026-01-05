@@ -163,6 +163,26 @@ class ConversationController extends Controller
 
         $contact = Contact::findOrFail($contactId);
         
+        // Verificar ventana de 24 horas
+        $lastInboundMessage = Message::where('contact_id', $contact->id)
+            ->where('direction', 'inbound')
+            ->orderBy('message_timestamp', 'desc')
+            ->first();
+        
+        $canSendFreeform = false;
+        if ($lastInboundMessage) {
+            $hoursSinceLastMessage = now()->diffInHours($lastInboundMessage->message_timestamp);
+            $canSendFreeform = $hoursSinceLastMessage < 24;
+        }
+        
+        // Advertencia si está fuera de ventana
+        if (!$canSendFreeform) {
+            Log::warning('Attempting to send outside 24h window', [
+                'contact_id' => $contact->id,
+                'last_inbound_at' => $lastInboundMessage?->message_timestamp
+            ]);
+        }
+        
         // Crear el mensaje en la base de datos
         $message = Message::create([
             'contact_id' => $contact->id,
