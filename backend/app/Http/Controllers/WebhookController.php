@@ -200,6 +200,10 @@ class WebhookController extends Controller
                 $message->status = 'failed';
                 if (isset($status['errors'])) {
                     $message->error = json_encode($status['errors']);
+                    Log::error('WhatsApp message failed', [
+                        'message_id' => $messageId,
+                        'errors' => $status['errors']
+                    ]);
                 }
                 break;
         }
