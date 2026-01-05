@@ -1,8 +1,9 @@
 .conversations-container {
-  height: calc(100vh - 80px);
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f0f2f5;
+  overflow: hidden;
 }
 
 /* Header con estadísticas */
@@ -43,6 +44,7 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Sidebar de conversaciones */
@@ -212,6 +214,8 @@
   flex-direction: column;
   background: #e5ddd5;
   position: relative;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .no-conversation {
