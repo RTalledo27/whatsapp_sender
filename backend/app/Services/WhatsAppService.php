@@ -181,6 +181,66 @@ class WhatsAppService
     }
 
     /**
+     * Obtener URL de un archivo multimedia
+     */
+    public function getMediaUrl(string $mediaId): ?string
+    {
+        try {
+            $url = "{$this->apiUrl}/{$this->version}/{$mediaId}";
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+            ])->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['url'] ?? null;
+            }
+
+            Log::error('Failed to get media URL', [
+                'media_id' => $mediaId,
+                'response' => $response->json()
+            ]);
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Exception getting media URL', [
+                'media_id' => $mediaId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Descargar archivo multimedia y guardarlo
+     */
+    public function downloadMedia(string $mediaUrl, string $filename): ?string
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+            ])->get($mediaUrl);
+
+            if ($response->successful()) {
+                $path = "media/{$filename}";
+                \Storage::disk('public')->put($path, $response->body());
+                return \Storage::disk('public')->url($path);
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Exception downloading media', [
+                'url' => $mediaUrl,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
      * Verificar el estado de un mensaje
      */
     public function getMessageStatus(string $messageId): array

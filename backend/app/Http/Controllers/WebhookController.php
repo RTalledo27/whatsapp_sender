@@ -4,11 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Contact;
 use App\Models\Message;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
+    public function __construct(
+        private WhatsAppService $whatsappService
+    ) {}
+    
     /**
      * Verificación del webhook (requerido por Meta)
      */
@@ -106,8 +111,20 @@ class WebhookController extends Controller
         // Extraer contenido y metadata del mensaje
         $messageData = $this->extractMessageData($message);
         
+        // Si hay media_id, obtener la URL
+        $mediaUrl = null;
+        if (!empty($messageData['media_id'])) {
+            $mediaUrl = $this->whatsappService->getMediaUrl($messageData['media_id']);
+            if ($mediaUrl) {
+                Log::info('Media URL obtained', [
+                    'media_id' => $messageData['media_id'],
+                    'url' => $mediaUrl
+                ]);
+            }
+        }
+        
         // Guardar mensaje
-        Message::create([
+        $savedMessage = Message::create([
             'contact_id' => $contact->id,
             'campaign_id' => null,
             'message' => null,
@@ -117,7 +134,7 @@ class WebhookController extends Controller
             'message_timestamp' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : now(),
             'message_content' => $messageData['content'],
             'message_type' => $messageData['type'],
-            'media_url' => $messageData['media_url'] ?? null,
+            'media_url' => $mediaUrl,
             'media_id' => $messageData['media_id'] ?? null,
             'metadata' => $messageData['metadata'] ?? null,
             'delivered_at' => now(),
