@@ -167,6 +167,7 @@ class ConversationController extends Controller
         $message = Message::create([
             'contact_id' => $contact->id,
             'campaign_id' => null,
+            'phone_number' => $contact->phone_number,
             'message' => $request->message,
             'message_content' => $request->message,
             'status' => 'pending',
