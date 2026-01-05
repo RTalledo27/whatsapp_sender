@@ -29,6 +29,10 @@ export interface Message {
   read_at?: string;
   delivered_at?: string;
   created_at: string;
+  message_type?: string;
+  media_url?: string;
+  media_id?: string;
+  metadata?: any;
 }
 
 export interface ConversationDetail {

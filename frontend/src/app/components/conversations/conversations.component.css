@@ -655,3 +655,40 @@
     flex: 1 1 calc(50% - 0.5rem);
   }
 }
+
+/* Estilos para imágenes en mensajes */
+.message-image {
+  max-width: 300px;
+  max-height: 400px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.25rem 0;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.message-image:hover {
+  transform: scale(1.02);
+}
+
+.image-caption {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #303030;
+}
+
+.message-inbound .image-caption {
+  color: #303030;
+}
+
+.message-outbound .image-caption {
+  color: #1a1a1a;
+}
+
+.image-error {
+  color: #999;
+  font-style: italic;
+  padding: 0.5rem;
+}

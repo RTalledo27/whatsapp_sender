@@ -110,7 +110,22 @@
           >
             <div class="message-bubble">
               <div class="message-content">
-                {{ getMessageContent(message) }}
+                <!-- Imagen -->
+                <img 
+                  *ngIf="message.message_type === 'image' && message.media_url" 
+                  [src]="message.media_url" 
+                  alt="Imagen"
+                  class="message-image"
+                  (error)="onImageError($event)"
+                />
+                <!-- Texto o fallback -->
+                <div *ngIf="!message.media_url || message.message_type !== 'image'">
+                  {{ getMessageContent(message) }}
+                </div>
+                <!-- Caption debajo de la imagen -->
+                <div *ngIf="message.message_type === 'image' && message.metadata?.caption" class="image-caption">
+                  {{ message.metadata.caption }}
+                </div>
               </div>
               <div class="message-meta">
                 <span class="message-time">{{ formatTime(message.message_timestamp) }}</span>

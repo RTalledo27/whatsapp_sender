@@ -326,4 +326,19 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
   }
+
+  /**
+   * Manejar error de carga de imagen
+   */
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+    // Mostrar el texto alternativo
+    if (img.parentElement) {
+      const fallback = document.createElement('div');
+      fallback.textContent = '📷 Imagen no disponible';
+      fallback.className = 'image-error';
+      img.parentElement.appendChild(fallback);
+    }
+  }
 }
