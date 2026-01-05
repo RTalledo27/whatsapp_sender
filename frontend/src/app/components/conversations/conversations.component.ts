@@ -139,7 +139,20 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   startPolling(): void {
     this.pollingSubscription = interval(this.pollingInterval)
       .pipe(
-        switchMap(() => this.conversationService.getStats())
+        switchMap(() => {
+          // Si hay conversación seleccionada, actualizar mensajes
+          if (this.selectedConversation) {
+            return this.conversationService.getConversation(this.selectedConversation.contact.id)
+              .pipe(
+                switchMap(detail => {
+                  // Actualizar mensajes con estados reales
+                  this.messages = detail.messages.data.reverse();
+                  return this.conversationService.getStats();
+                })
+              );
+          }
+          return this.conversationService.getStats();
+        })
       )
       .subscribe({
         next: (stats) => {
@@ -149,17 +162,6 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           // Si hay nuevos mensajes, recargar conversaciones
           if (hadNewMessages) {
             this.loadConversations();
-            
-            // Si hay una conversación seleccionada, recargar mensajes
-            if (this.selectedConversation) {
-              this.conversationService.getConversation(this.selectedConversation.contact.id)
-                .subscribe({
-                  next: (detail) => {
-                    this.messages = detail.messages.data.reverse();
-                    setTimeout(() => this.scrollToBottom(), 100);
-                  }
-                });
-            }
           }
         },
         error: (error) => {
@@ -278,16 +280,16 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         // Limpiar input
         this.newMessageText = '';
         
-        // Agregar mensaje optimista a la lista
+        // Agregar mensaje con el estado real del backend
         const newMessage: Message = {
           id: response.message.id,
           contact_id: contactId,
           message: messageText,
           message_content: messageText,
-          status: 'pending',
+          status: response.message.status || 'pending',
           direction: 'outbound',
-          message_timestamp: new Date().toISOString(),
-          created_at: new Date().toISOString(),
+          message_timestamp: response.message.message_timestamp || new Date().toISOString(),
+          created_at: response.message.created_at || new Date().toISOString(),
           phone: this.selectedConversation!.contact.phone_number
         };
         
