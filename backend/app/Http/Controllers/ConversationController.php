@@ -129,4 +129,41 @@ class ConversationController extends Controller
         
         return response()->json($messages);
     }
+
+    /**
+     * Enviar mensaje a un contacto
+     */
+    public function sendMessage(Request $request, $contactId)
+    {
+        $request->validate([
+            'message' => 'required|string|max:4096'
+        ]);
+
+        $contact = Contact::findOrFail($contactId);
+        
+        // Crear el mensaje en la base de datos
+        $message = Message::create([
+            'contact_id' => $contact->id,
+            'campaign_id' => null,
+            'message' => $request->message,
+            'message_content' => $request->message,
+            'status' => 'pending',
+            'direction' => 'outbound',
+            'message_timestamp' => now(),
+        ]);
+
+        // TODO: Aquí deberías enviar el mensaje real a través de la API de WhatsApp
+        // Por ahora solo guardamos el mensaje en la base de datos
+        
+        // Simular envío exitoso
+        $message->update([
+            'status' => 'sent',
+            'sent_at' => now()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $message
+        ]);
+    }
 }

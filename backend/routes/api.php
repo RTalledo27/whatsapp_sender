@@ -34,6 +34,7 @@ Route::middleware('api')->group(function () {
         Route::get('/search', [ConversationController::class, 'search']);
         Route::get('/{contactId}', [ConversationController::class, 'show']);
         Route::post('/{contactId}/mark-read', [ConversationController::class, 'markAsRead']);
+        Route::post('/{contactId}/send', [ConversationController::class, 'sendMessage']);
     });
     
     // Contacts

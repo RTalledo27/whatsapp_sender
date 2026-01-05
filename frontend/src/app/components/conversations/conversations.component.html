@@ -122,6 +122,29 @@
             <p>No hay mensajes en esta conversación</p>
           </div>
         </div>
+
+        <!-- Input de mensaje -->
+        <div class="message-input-container">
+          <div class="input-wrapper">
+            <textarea
+              [(ngModel)]="newMessageText"
+              (keydown.enter)="onEnterPress($event)"
+              placeholder="Escribe un mensaje..."
+              class="message-input"
+              rows="1"
+              [disabled]="sendingMessage"
+            ></textarea>
+            <button 
+              (click)="sendMessage()" 
+              [disabled]="!newMessageText.trim() || sendingMessage"
+              class="send-button"
+              [class.sending]="sendingMessage"
+            >
+              <span *ngIf="!sendingMessage">📤</span>
+              <span *ngIf="sendingMessage" class="spinner-small"></span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Loading mensajes -->

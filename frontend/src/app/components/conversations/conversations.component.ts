@@ -20,6 +20,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   loadingMessages = false;
   searchTerm = '';
   
+  // Input de mensaje
+  newMessageText = '';
+  sendingMessage = false;
+  
   // Paginación
   currentPage = 1;
   totalPages = 1;
@@ -254,6 +258,60 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       case 'read': return '✓✓';
       case 'failed': return '✗';
       default: return '⏱';
+    }
+  }
+
+  /**
+   * Enviar mensaje
+   */
+  sendMessage(): void {
+    if (!this.newMessageText.trim() || !this.selectedConversation || this.sendingMessage) {
+      return;
+    }
+
+    this.sendingMessage = true;
+    const messageText = this.newMessageText.trim();
+    const contactId = this.selectedConversation.contact.id;
+
+    this.conversationService.sendMessage(contactId, messageText).subscribe({
+      next: (response) => {
+        // Limpiar input
+        this.newMessageText = '';
+        
+        // Agregar mensaje optimista a la lista
+        const newMessage: Message = {
+          id: response.message.id,
+          contact_id: contactId,
+          message: messageText,
+          message_content: messageText,
+          status: 'pending',
+          direction: 'outbound',
+          message_timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          phone: this.selectedConversation!.contact.phone_number
+        };
+        
+        this.messages.push(newMessage);
+        this.sendingMessage = false;
+        
+        // Scroll al final
+        setTimeout(() => this.scrollToBottom(), 100);
+      },
+      error: (error) => {
+        console.error('Error sending message:', error);
+        alert('Error al enviar el mensaje. Por favor intenta de nuevo.');
+        this.sendingMessage = false;
+      }
+    });
+  }
+
+  /**
+   * Manejar tecla Enter
+   */
+  onEnterPress(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendMessage();
     }
   }
 }

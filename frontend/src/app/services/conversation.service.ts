@@ -112,4 +112,11 @@ export class ConversationService {
 
     return this.http.get<any>(`${this.apiUrl}/search`, { params });
   }
+
+  /**
+   * Enviar mensaje a un contacto
+   */
+  sendMessage(contactId: number, message: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${contactId}/send`, { message });
+  }
 }
