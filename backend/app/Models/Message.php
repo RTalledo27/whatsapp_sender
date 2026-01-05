@@ -26,6 +26,10 @@ class Message extends Model
         'delivered_at',
         'message_content',
         'error',
+        'message_type',
+        'media_url',
+        'media_id',
+        'metadata',
     ];
 
     protected $casts = [
@@ -33,6 +37,7 @@ class Message extends Model
         'message_timestamp' => 'datetime',
         'read_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     public function campaign(): BelongsTo

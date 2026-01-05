@@ -103,19 +103,23 @@ class WebhookController extends Controller
             ['name' => $phoneNumber] // Nombre por defecto, puede actualizarse después
         );
         
-        // Extraer contenido del mensaje
-        $messageContent = $this->extractMessageContent($message);
+        // Extraer contenido y metadata del mensaje
+        $messageData = $this->extractMessageData($message);
         
         // Guardar mensaje
         Message::create([
             'contact_id' => $contact->id,
-            'campaign_id' => null, // Mensajes entrantes no tienen campaña
+            'campaign_id' => null,
             'message' => null,
-            'status' => null, // Los mensajes entrantes no usan el campo status (es para outbound)
+            'status' => null,
             'direction' => 'inbound',
             'whatsapp_message_id' => $messageId,
             'message_timestamp' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : now(),
-            'message_content' => $messageContent,
+            'message_content' => $messageData['content'],
+            'message_type' => $messageData['type'],
+            'media_url' => $messageData['media_url'] ?? null,
+            'media_id' => $messageData['media_id'] ?? null,
+            'metadata' => $messageData['metadata'] ?? null,
             'delivered_at' => now(),
         ]);
         
@@ -158,6 +162,86 @@ class WebhookController extends Controller
             default:
                 return '[Mensaje de tipo: ' . $type . ']';
         }
+    }
+    
+    /**
+     * Extraer datos completos del mensaje (contenido, tipo, media)
+     */
+    private function extractMessageData(array $message): array
+    {
+        $type = $message['type'] ?? 'text';
+        $metadata = [];
+        $content = '';
+        $mediaUrl = null;
+        $mediaId = null;
+        
+        switch ($type) {
+            case 'text':
+                $content = $message['text']['body'] ?? '';
+                break;
+                
+            case 'reaction':
+                $emoji = $message['reaction']['emoji'] ?? '👍';
+                $content = $emoji;
+                $metadata = [
+                    'emoji' => $emoji,
+                    'message_id' => $message['reaction']['message_id'] ?? null,
+                ];
+                break;
+                
+            case 'image':
+                $caption = $message['image']['caption'] ?? '';
+                $content = $caption ?: '📷 Imagen';
+                $mediaId = $message['image']['id'] ?? null;
+                $metadata = [
+                    'caption' => $caption,
+                    'mime_type' => $message['image']['mime_type'] ?? null,
+                ];
+                break;
+                
+            case 'video':
+                $caption = $message['video']['caption'] ?? '';
+                $content = $caption ?: '🎥 Video';
+                $mediaId = $message['video']['id'] ?? null;
+                $metadata = ['caption' => $caption];
+                break;
+                
+            case 'audio':
+                $content = '🎵 Audio';
+                $mediaId = $message['audio']['id'] ?? null;
+                break;
+                
+            case 'document':
+                $filename = $message['document']['filename'] ?? 'archivo';
+                $content = '📄 ' . $filename;
+                $mediaId = $message['document']['id'] ?? null;
+                $metadata = ['filename' => $filename];
+                break;
+                
+            case 'location':
+                $content = '📍 Ubicación';
+                $metadata = [
+                    'latitude' => $message['location']['latitude'] ?? null,
+                    'longitude' => $message['location']['longitude'] ?? null,
+                ];
+                break;
+                
+            case 'sticker':
+                $content = '🎨 Sticker';
+                $mediaId = $message['sticker']['id'] ?? null;
+                break;
+                
+            default:
+                $content = '[Mensaje de tipo: ' . $type . ']';
+        }
+        
+        return [
+            'type' => $type,
+            'content' => $content,
+            'media_url' => $mediaUrl,
+            'media_id' => $mediaId,
+            'metadata' => !empty($metadata) ? $metadata : null,
+        ];
     }
     
     /**
