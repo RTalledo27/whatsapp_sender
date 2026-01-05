@@ -4,11 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Contact;
 use App\Models\Message;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ConversationController extends Controller
 {
+    protected $whatsappService;
+
+    public function __construct(WhatsAppService $whatsappService)
+    {
+        $this->whatsappService = $whatsappService;
+    }
     /**
      * Listar todas las conversaciones (contactos con mensajes)
      */
@@ -166,18 +174,64 @@ class ConversationController extends Controller
             'message_timestamp' => now(),
         ]);
 
-        // TODO: Aquí deberías enviar el mensaje real a través de la API de WhatsApp
-        // Por ahora solo guardamos el mensaje en la base de datos
-        
-        // Simular envío exitoso
-        $message->update([
-            'status' => 'sent',
-            'sent_at' => now()
-        ]);
+        try {
+            // Enviar mensaje real por WhatsApp
+            $result = $this->whatsappService->sendMessage(
+                $contact->phone_number,
+                $request->message
+            );
+
+            if ($result['success']) {
+                // Actualizar mensaje con ID de WhatsApp y estado
+                $message->update([
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                    'whatsapp_message_id' => $result['message_id'] ?? null
+                ]);
+
+                Log::info('Message sent successfully', [
+                    'contact_id' => $contact->id,
+                    'message_id' => $message->id,
+                    'whatsapp_message_id' => $result['message_id']
+                ]);
+            } else {
+                // Error al enviar
+                $message->update([
+                    'status' => 'failed',
+                    'error_message' => $result['message'] ?? 'Error al enviar mensaje'
+                ]);
+
+                Log::error('Failed to send WhatsApp message', [
+                    'contact_id' => $contact->id,
+                    'error' => $result['message']
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al enviar mensaje: ' . ($result['message'] ?? 'Error desconocido')
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            // Error en el envío
+            $message->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage()
+            ]);
+
+            Log::error('Exception sending WhatsApp message', [
+                'contact_id' => $contact->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al enviar mensaje: ' . $e->getMessage()
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => $message
+            'message' => $message->fresh()
         ]);
     }
 }
