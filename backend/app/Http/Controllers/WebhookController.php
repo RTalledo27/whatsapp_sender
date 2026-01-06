@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Services\WhatsAppService;
+use App\Helpers\PhoneHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -102,6 +103,14 @@ class WebhookController extends Controller
             Log::warning('Missing required fields in incoming message');
             return;
         }
+        
+        // Normalizar número de teléfono (agregar + si no lo tiene)
+        $phoneNumber = PhoneHelper::normalize($phoneNumber);
+        
+        Log::info('Processing incoming message', [
+            'original_phone' => $message['from'],
+            'normalized_phone' => $phoneNumber
+        ]);
         
         // Buscar o crear contacto
         $contact = Contact::firstOrCreate(

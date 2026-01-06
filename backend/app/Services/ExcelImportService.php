@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Contact;
+use App\Helpers\PhoneHelper;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Illuminate\Support\Facades\Log;
 
@@ -34,7 +35,8 @@ class ExcelImportService
                         continue;
                     }
 
-                    $phoneNumber = $this->cleanPhoneNumber($row[0]);
+                    // Normalizar número de teléfono usando el helper
+                    $phoneNumber = PhoneHelper::normalize(trim($row[0]));
                     
                     if (empty($phoneNumber)) {
                         $failed++;
@@ -110,40 +112,5 @@ class ExcelImportService
         }
 
         return false;
-    }
-
-    /**
-     * Limpiar número de teléfono
-     */
-    private function cleanPhoneNumber(string $phoneNumber): string
-    {
-        // Remover espacios, guiones, paréntesis
-        $cleaned = preg_replace('/[^0-9+]/', '', $phoneNumber);
-
-        // Si no empieza con +, agregar + 
-        if (!str_starts_with($cleaned, '+')) {
-            $cleaned = '+' . $cleaned;
-        }
-
-        return $cleaned;
-    }
-
-    /**
-     * Obtener ejemplo de formato de Excel
-     */
-    public function getExampleFormat(): array
-    {
-        return [
-            'headers' => ['Teléfono', 'Nombre', 'Email'],
-            'example_rows' => [
-                ['+1234567890', 'Juan Pérez', 'juan@example.com'],
-                ['+0987654321', 'María García', 'maria@example.com'],
-            ],
-            'notes' => [
-                'La primera columna debe contener el número de teléfono con código de país',
-                'Las columnas adicionales son opcionales',
-                'El sistema detecta automáticamente si la primera fila es un encabezado',
-            ],
-        ];
     }
 }

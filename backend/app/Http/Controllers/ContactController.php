@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Contact;
 use App\Services\ExcelImportService;
+use App\Helpers\PhoneHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -77,7 +78,11 @@ class ContactController extends Controller
             ], 422);
         }
 
-        $contact = Contact::create($request->only(['phone_number', 'name', 'email']));
+        // Normalizar el número de teléfono antes de crear
+        $data = $request->only(['phone_number', 'name', 'email']);
+        $data['phone_number'] = PhoneHelper::normalize($data['phone_number']);
+
+        $contact = Contact::create($data);
 
         return response()->json([
             'success' => true,
@@ -103,7 +108,13 @@ class ContactController extends Controller
             ], 422);
         }
 
-        $contact->update($request->only(['phone_number', 'name', 'email']));
+        // Normalizar el número de teléfono si se está actualizando
+        $data = $request->only(['phone_number', 'name', 'email']);
+        if (isset($data['phone_number'])) {
+            $data['phone_number'] = PhoneHelper::normalize($data['phone_number']);
+        }
+
+        $contact->update($data);
 
         return response()->json([
             'success' => true,
