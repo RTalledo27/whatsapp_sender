@@ -7,6 +7,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,10 @@ use Illuminate\Support\Facades\Route;
 Route::options('{any}', function () {
     return response('', 200);
 })->where('any', '.*');
+
+// Auth routes (sin middleware)
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout']);
 
 // Webhook de WhatsApp (sin middleware de autenticación)
 Route::get('/webhook/whatsapp', [WebhookController::class, 'verify']);
