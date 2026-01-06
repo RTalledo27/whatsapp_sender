@@ -111,8 +111,9 @@ class WebhookController extends Controller
         // Extraer contenido y metadata del mensaje
         $messageData = $this->extractMessageData($message);
         
-        // Si hay media_id, obtener la URL
+        // Si hay media_id, obtener y descargar la imagen
         $mediaUrl = null;
+        $localMediaUrl = null;
         if (!empty($messageData['media_id'])) {
             $mediaUrl = $this->whatsappService->getMediaUrl($messageData['media_id']);
             if ($mediaUrl) {
@@ -120,10 +121,21 @@ class WebhookController extends Controller
                     'media_id' => $messageData['media_id'],
                     'url' => $mediaUrl
                 ]);
+                
+                // Descargar al servidor
+                $extension = $messageData['type'] === 'image' ? 'jpg' : 'file';
+                $filename = $messageData['media_id'] . '.' . $extension;
+                $localMediaUrl = $this->whatsappService->downloadMedia($mediaUrl, $filename);
+                
+                if ($localMediaUrl) {
+                    Log::info('Media downloaded successfully', [
+                        'local_url' => $localMediaUrl
+                    ]);
+                }
             }
         }
         
-        // Guardar mensaje
+        // Guardar mensaje con URL local
         $savedMessage = Message::create([
             'contact_id' => $contact->id,
             'campaign_id' => null,
@@ -134,7 +146,7 @@ class WebhookController extends Controller
             'message_timestamp' => $timestamp ? date('Y-m-d H:i:s', $timestamp) : now(),
             'message_content' => $messageData['content'],
             'message_type' => $messageData['type'],
-            'media_url' => $mediaUrl,
+            'media_url' => $localMediaUrl ?? $mediaUrl,
             'media_id' => $messageData['media_id'] ?? null,
             'metadata' => $messageData['metadata'] ?? null,
             'delivered_at' => now(),
