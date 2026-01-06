@@ -226,8 +226,8 @@ class WhatsAppService
 
             if ($response->successful()) {
                 $path = "media/{$filename}";
-                \Storage::disk('public')->put($path, $response->body());
-                return \Storage::disk('public')->url($path);
+                Storage::disk('public')->put($path, $response->body());
+                return Storage::disk('public')->url($path);
             }
 
             return null;
