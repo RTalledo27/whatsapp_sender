@@ -344,6 +344,13 @@ class WebhookController extends Controller
         $emoji = $reactionData['reaction']['emoji'] ?? null;
         $targetMessageId = $reactionData['reaction']['message_id'] ?? null;
         
+        Log::info('Processing reaction', [
+            'emoji' => $emoji,
+            'target_message_id' => $targetMessageId,
+            'contact_id' => $contact->id,
+            'full_reaction_data' => $reactionData['reaction']
+        ]);
+        
         if (!$targetMessageId) {
             Log::warning('Reaction without target message_id');
             return;
@@ -354,8 +361,21 @@ class WebhookController extends Controller
         
         if (!$message) {
             Log::warning('Target message not found for reaction', [
-                'target_message_id' => $targetMessageId
+                'target_message_id' => $targetMessageId,
+                'searched_column' => 'whatsapp_message_id'
             ]);
+            
+            // Intentar buscar en la tabla completa para debug
+            $allMessages = Message::where('contact_id', $contact->id)
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get(['id', 'whatsapp_message_id', 'message_type', 'created_at']);
+            
+            Log::info('Recent messages for contact', [
+                'contact_id' => $contact->id,
+                'messages' => $allMessages->toArray()
+            ]);
+            
             return;
         }
         
