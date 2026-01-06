@@ -656,7 +656,7 @@
   }
 }
 
-/* Estilos para imágenes en mensajes */
+/* Estilos para multimedia en mensajes */
 .message-image {
   max-width: 300px;
   max-height: 400px;
@@ -673,17 +673,50 @@
   transform: scale(1.02);
 }
 
-.image-caption {
+/* Videos */
+.message-video {
+  max-width: 400px;
+  max-height: 500px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.25rem 0;
+  background: #000;
+}
+
+/* Stickers - más pequeños y sin borde redondeado grande */
+.message-sticker {
+  max-width: 150px;
+  max-height: 150px;
+  width: auto;
+  height: auto;
+  display: block;
+  margin: 0.25rem 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Audio */
+.message-audio {
+  width: 280px;
+  max-width: 100%;
+  margin: 0.25rem 0;
+  border-radius: 20px;
+}
+
+/* Caption para imagen/video */
+.media-caption {
   margin-top: 0.5rem;
   font-size: 0.9rem;
   color: #303030;
 }
 
-.message-inbound .image-caption {
+.message-inbound .media-caption {
   color: #303030;
 }
 
-.message-outbound .image-caption {
+.message-outbound .media-caption {
   color: #1a1a1a;
 }
 

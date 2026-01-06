@@ -118,12 +118,45 @@
                   class="message-image"
                   (error)="onImageError($event)"
                 />
+                
+                <!-- Video -->
+                <video 
+                  *ngIf="message.message_type === 'video' && message.media_url" 
+                  [src]="message.media_url"
+                  controls
+                  class="message-video"
+                  preload="metadata"
+                >
+                  Tu navegador no soporta video.
+                </video>
+                
+                <!-- Sticker -->
+                <img 
+                  *ngIf="message.message_type === 'sticker' && message.media_url" 
+                  [src]="message.media_url" 
+                  alt="Sticker"
+                  class="message-sticker"
+                  (error)="onImageError($event)"
+                />
+                
+                <!-- Audio -->
+                <audio 
+                  *ngIf="message.message_type === 'audio' && message.media_url" 
+                  [src]="message.media_url"
+                  controls
+                  class="message-audio"
+                  preload="metadata"
+                >
+                  Tu navegador no soporta audio.
+                </audio>
+                
                 <!-- Texto o fallback -->
-                <div *ngIf="!message.media_url || message.message_type !== 'image'">
+                <div *ngIf="!message.media_url || (message.message_type !== 'image' && message.message_type !== 'video' && message.message_type !== 'sticker' && message.message_type !== 'audio')">
                   {{ getMessageContent(message) }}
                 </div>
-                <!-- Caption debajo de la imagen -->
-                <div *ngIf="message.message_type === 'image' && message.metadata?.caption" class="image-caption">
+                
+                <!-- Caption debajo de imagen/video -->
+                <div *ngIf="(message.message_type === 'image' || message.message_type === 'video') && message.metadata?.caption" class="media-caption">
                   {{ message.metadata.caption }}
                 </div>
               </div>
@@ -138,6 +171,10 @@
               <div class="message-meta">
                 <span class="message-time">{{ formatTime(message.message_timestamp) }}</span>
                 <span class="message-status" [class]="getStatusClass(message)">
+                  {{ getStatusIcon(message) }}
+                </span>
+              </div>
+            </div>
                   {{ getStatusIcon(message) }}
                 </span>
               </div>

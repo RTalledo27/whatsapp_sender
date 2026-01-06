@@ -118,7 +118,7 @@ class WebhookController extends Controller
         // Extraer contenido y metadata del mensaje
         $messageData = $this->extractMessageData($message);
         
-        // Si hay media_id, obtener y descargar la imagen
+        // Si hay media_id, obtener y descargar el archivo multimedia
         $mediaUrl = null;
         $localMediaUrl = null;
         if (!empty($messageData['media_id'])) {
@@ -126,16 +126,26 @@ class WebhookController extends Controller
             if ($mediaUrl) {
                 Log::info('Media URL obtained', [
                     'media_id' => $messageData['media_id'],
+                    'type' => $messageData['type'],
                     'url' => $mediaUrl
                 ]);
                 
-                // Descargar al servidor
-                $extension = $messageData['type'] === 'image' ? 'jpg' : 'file';
+                // Determinar extensión según el tipo
+                $extension = match($messageData['type']) {
+                    'image' => 'jpg',
+                    'video' => 'mp4',
+                    'audio' => 'ogg',
+                    'sticker' => 'webp',
+                    'document' => 'pdf',
+                    default => 'file'
+                };
+                
                 $filename = $messageData['media_id'] . '.' . $extension;
                 $localMediaUrl = $this->whatsappService->downloadMedia($mediaUrl, $filename);
                 
                 if ($localMediaUrl) {
                     Log::info('Media downloaded successfully', [
+                        'type' => $messageData['type'],
                         'local_url' => $localMediaUrl
                     ]);
                 }
