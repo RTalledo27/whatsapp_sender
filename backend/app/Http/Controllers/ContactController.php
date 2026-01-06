@@ -143,4 +143,26 @@ class ContactController extends Controller
         $format = $this->excelImportService->getExampleFormat();
         return response()->json($format);
     }
+
+    /**
+     * Obtener contactos desde Excel para selección en campaña
+     */
+    public function getContactsFromExcel(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $file = $request->file('file');
+        $result = $this->excelImportService->getContactsFromExcel($file->getPathname());
+
+        return response()->json($result);
+    }
 }

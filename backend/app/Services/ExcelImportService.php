@@ -113,4 +113,64 @@ class ExcelImportService
 
         return false;
     }
+
+    /**
+     * Obtener contactos existentes desde un archivo Excel
+     * (para selección en campañas sin crear nuevos contactos)
+     */
+    public function getContactsFromExcel(string $filePath): array
+    {
+        try {
+            $spreadsheet = IOFactory::load($filePath);
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+
+            $phoneNumbers = [];
+            $notFound = [];
+
+            // Saltar la primera fila si contiene headers
+            $hasHeader = $this->detectHeader($rows[0] ?? []);
+            $startRow = $hasHeader ? 1 : 0;
+
+            foreach (array_slice($rows, $startRow) as $index => $row) {
+                if (empty($row[0])) {
+                    continue;
+                }
+
+                // Normalizar número de teléfono
+                $phoneNumber = PhoneHelper::normalize(trim($row[0]));
+                
+                if (!empty($phoneNumber)) {
+                    $phoneNumbers[] = $phoneNumber;
+                }
+            }
+
+            // Buscar contactos existentes
+            $contacts = Contact::whereIn('phone_number', $phoneNumbers)->get();
+            
+            // Determinar cuáles no fueron encontrados
+            $foundNumbers = $contacts->pluck('phone_number')->toArray();
+            $notFound = array_diff($phoneNumbers, $foundNumbers);
+
+            return [
+                'success' => true,
+                'contacts' => $contacts,
+                'total_in_excel' => count($phoneNumbers),
+                'found' => count($contacts),
+                'not_found' => count($notFound),
+                'not_found_numbers' => array_values($notFound),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error getting contacts from Excel file', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
 }

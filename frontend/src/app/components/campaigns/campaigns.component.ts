@@ -181,6 +181,7 @@ import { Subscription } from 'rxjs';
                   <strong>{{ campaignForm.contact_ids.length }}</strong> contactos seleccionados
                   <button class="btn-link" (click)="selectAll()">Seleccionar todos</button>
                   <button class="btn-link" (click)="deselectAll()">Deseleccionar todos</button>
+                  <button class="btn-link" (click)="showImportContactsModal = true">📁 Importar desde Excel</button>
                 </div>
               </div>
             </div>
@@ -191,6 +192,54 @@ import { Subscription } from 'rxjs';
                     (click)="createCampaign()"
                     [disabled]="!canCreateCampaign()">
               🚀 Crear y Enviar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Importar Contactos desde Excel -->
+      <div class="modal" *ngIf="showImportContactsModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Importar Contactos desde Excel</h2>
+            <button class="close-btn" (click)="closeImportContactsModal()">✖</button>
+          </div>
+          <div class="modal-body">
+            <div class="file-upload">
+              <input 
+                type="file" 
+                (change)="onContactsFileSelected($event)"
+                accept=".xlsx,.xls,.csv"
+                #contactsFileInput
+              />
+              <p class="hint">Selecciona un archivo Excel con los teléfonos de los contactos que deseas agregar a la campaña.</p>
+              <p class="hint">Formato esperado: Teléfono | Nombre | Email</p>
+            </div>
+            <div *ngIf="importContactsResult" class="import-result">
+              <div class="alert" [class.alert-success]="importContactsResult.success" 
+                   [class.alert-error]="!importContactsResult.success">
+                <strong *ngIf="importContactsResult.success">✅ Importación exitosa:</strong>
+                <strong *ngIf="!importContactsResult.success">❌ Error en importación:</strong>
+                <p *ngIf="importContactsResult.success">
+                  {{ importContactsResult.found }} contactos encontrados de {{ importContactsResult.total_in_excel }} en el Excel
+                  <span *ngIf="importContactsResult.not_found > 0">
+                    <br>{{ importContactsResult.not_found }} números no están registrados en tus contactos
+                  </span>
+                </p>
+                <p *ngIf="!importContactsResult.success">{{ importContactsResult.error }}</p>
+                <ul *ngIf="importContactsResult.not_found_numbers && importContactsResult.not_found_numbers.length > 0">
+                  <li *ngFor="let phone of importContactsResult.not_found_numbers.slice(0, 10)">{{ phone }}</li>
+                  <li *ngIf="importContactsResult.not_found_numbers.length > 10">
+                    ... y {{ importContactsResult.not_found_numbers.length - 10 }} más
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeImportContactsModal()">Cancelar</button>
+            <button class="btn btn-primary" (click)="importContactsFromExcel()" [disabled]="!selectedContactsFile">
+              Importar y Seleccionar
             </button>
           </div>
         </div>
@@ -589,6 +638,48 @@ import { Subscription } from 'rxjs';
       color: #92400e;
     }
 
+    .alert-success {
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #16a34a;
+    }
+
+    .alert-error {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #dc2626;
+    }
+
+    .file-upload {
+      text-align: center;
+      padding: 30px;
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    .file-upload:hover {
+      border-color: #3b82f6;
+      background: #f9fafb;
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #6b7280;
+    }
+
+    .import-result {
+      margin-top: 20px;
+    }
+
+    .import-result ul {
+      margin-top: 10px;
+      padding-left: 20px;
+      font-size: 0.9em;
+    }
+
     .contacts-selection {
       border: 1px solid #d1d5db;
       border-radius: 6px;
@@ -696,6 +787,10 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   showCreateModal = false;
   contactSearch = '';
   useTemplate = false;
+  
+  showImportContactsModal = false;
+  selectedContactsFile: File | null = null;
+  importContactsResult: any = null;
   
   private pollingSubscription?: Subscription;
   
@@ -905,5 +1000,47 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     if (campaign.total_contacts === 0) return 0;
     const completed = campaign.sent_count + campaign.failed_count;
     return Math.round((completed / campaign.total_contacts) * 100);
+  }
+
+  onContactsFileSelected(event: any) {
+    this.selectedContactsFile = event.target.files[0];
+    this.importContactsResult = null;
+  }
+
+  importContactsFromExcel() {
+    if (!this.selectedContactsFile) return;
+
+    this.contactService.getContactsFromExcel(this.selectedContactsFile).subscribe({
+      next: (result) => {
+        this.importContactsResult = result;
+        if (result.success && result.contacts) {
+          // Seleccionar automáticamente los contactos encontrados
+          result.contacts.forEach((contact: Contact) => {
+            if (!this.campaignForm.contact_ids.includes(contact.id)) {
+              this.campaignForm.contact_ids.push(contact.id);
+            }
+          });
+          
+          // Cerrar el modal después de 2 segundos si fue exitoso
+          if (result.found > 0) {
+            setTimeout(() => {
+              this.closeImportContactsModal();
+            }, 2000);
+          }
+        }
+      },
+      error: (error) => {
+        this.importContactsResult = {
+          success: false,
+          error: error.error?.message || 'Error al procesar archivo'
+        };
+      }
+    });
+  }
+
+  closeImportContactsModal() {
+    this.showImportContactsModal = false;
+    this.selectedContactsFile = null;
+    this.importContactsResult = null;
   }
 }

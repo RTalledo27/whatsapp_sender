@@ -49,6 +49,7 @@ Route::middleware('api')->group(function () {
         Route::put('/{contact}', [ContactController::class, 'update']);
         Route::delete('/{contact}', [ContactController::class, 'destroy']);
         Route::post('/import-excel', [ContactController::class, 'importExcel']);
+        Route::post('/get-from-excel', [ContactController::class, 'getContactsFromExcel']);
         Route::get('/excel-format', [ContactController::class, 'getExcelFormat']);
     });
 
