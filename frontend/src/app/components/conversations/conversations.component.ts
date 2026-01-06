@@ -95,7 +95,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     this.conversationService.getConversation(conversation.id).subscribe({
       next: (detail) => {
         this.selectedConversation = detail;
-        this.messages = detail.messages.data.reverse(); // Más antiguos primero
+        // Filtrar mensajes de tipo 'reaction' - solo mostrar mensajes normales
+        this.messages = detail.messages.data
+          .filter(msg => msg.message_type !== 'reaction')
+          .reverse(); // Más antiguos primero
         this.loadingMessages = false;
         
         // Marcar como leído
@@ -145,8 +148,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
             return this.conversationService.getConversation(this.selectedConversation.contact.id)
               .pipe(
                 switchMap(detail => {
-                  // Actualizar mensajes con estados reales
-                  this.messages = detail.messages.data.reverse();
+                  // Actualizar mensajes con estados reales, filtrando reacciones
+                  this.messages = detail.messages.data
+                    .filter(msg => msg.message_type !== 'reaction')
+                    .reverse();
                   return this.conversationService.getStats();
                 })
               );

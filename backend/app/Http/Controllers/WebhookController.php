@@ -96,6 +96,7 @@ class WebhookController extends Controller
         $phoneNumber = $message['from'] ?? null;
         $messageId = $message['id'] ?? null;
         $timestamp = $message['timestamp'] ?? null;
+        $messageType = $message['type'] ?? 'text';
         
         if (!$phoneNumber || !$messageId) {
             Log::warning('Missing required fields in incoming message');
@@ -107,6 +108,12 @@ class WebhookController extends Controller
             ['phone_number' => $phoneNumber],
             ['name' => $phoneNumber] // Nombre por defecto, puede actualizarse después
         );
+        
+        // Manejar reacciones de forma especial
+        if ($messageType === 'reaction') {
+            $this->handleReaction($message, $contact);
+            return;
+        }
         
         // Extraer contenido y metadata del mensaje
         $messageData = $this->extractMessageData($message);
@@ -326,6 +333,70 @@ class WebhookController extends Controller
         Log::info('Message status updated', [
             'message_id' => $messageId,
             'status' => $statusType
+        ]);
+    }
+    
+    /**
+     * Manejar reacción a un mensaje
+     */
+    private function handleReaction(array $reactionData, Contact $contact)
+    {
+        $emoji = $reactionData['reaction']['emoji'] ?? null;
+        $targetMessageId = $reactionData['reaction']['message_id'] ?? null;
+        
+        if (!$targetMessageId) {
+            Log::warning('Reaction without target message_id');
+            return;
+        }
+        
+        // Buscar el mensaje original por whatsapp_message_id
+        $message = Message::where('whatsapp_message_id', $targetMessageId)->first();
+        
+        if (!$message) {
+            Log::warning('Target message not found for reaction', [
+                'target_message_id' => $targetMessageId
+            ]);
+            return;
+        }
+        
+        // Obtener reacciones actuales
+        $reactions = $message->reactions ?? [];
+        
+        // Si el emoji está vacío, significa que se quitó la reacción
+        if (empty($emoji)) {
+            // Eliminar reacción del contacto
+            $reactions = array_filter($reactions, function($reaction) use ($contact) {
+                return $reaction['contact_id'] !== $contact->id;
+            });
+            $reactions = array_values($reactions); // Reindexar array
+        } else {
+            // Agregar o actualizar reacción
+            $found = false;
+            foreach ($reactions as &$reaction) {
+                if ($reaction['contact_id'] === $contact->id) {
+                    $reaction['emoji'] = $emoji;
+                    $found = true;
+                    break;
+                }
+            }
+            
+            if (!$found) {
+                $reactions[] = [
+                    'contact_id' => $contact->id,
+                    'emoji' => $emoji,
+                    'created_at' => now()->toDateTimeString()
+                ];
+            }
+        }
+        
+        $message->reactions = $reactions;
+        $message->save();
+        
+        Log::info('Reaction handled', [
+            'message_id' => $message->id,
+            'contact_id' => $contact->id,
+            'emoji' => $emoji,
+            'removed' => empty($emoji)
         ]);
     }
 }

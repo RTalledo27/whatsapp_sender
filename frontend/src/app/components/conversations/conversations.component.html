@@ -127,6 +127,14 @@
                   {{ message.metadata.caption }}
                 </div>
               </div>
+              
+              <!-- Reacciones -->
+              <div *ngIf="message.reactions && message.reactions.length > 0" class="message-reactions">
+                <span *ngFor="let reaction of message.reactions" class="reaction-emoji" [title]="'Reaccionó ' + reaction.created_at">
+                  {{ reaction.emoji }}
+                </span>
+              </div>
+              
               <div class="message-meta">
                 <span class="message-time">{{ formatTime(message.message_timestamp) }}</span>
                 <span class="message-status" [class]="getStatusClass(message)">

@@ -15,6 +15,12 @@ export interface Conversation {
   last_message_direction?: 'inbound' | 'outbound';
 }
 
+export interface Reaction {
+  contact_id: number;
+  emoji: string;
+  created_at: string;
+}
+
 export interface Message {
   id: number;
   contact_id: number;
@@ -33,6 +39,7 @@ export interface Message {
   media_url?: string;
   media_id?: string;
   metadata?: any;
+  reactions?: Reaction[];
 }
 
 export interface ConversationDetail {
