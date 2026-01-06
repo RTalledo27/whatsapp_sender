@@ -12,8 +12,9 @@
   display: flex;
   gap: 1rem;
   padding: 1.25rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 3px solid #eac736;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card {
@@ -40,16 +41,11 @@
 .stat-value {
   font-size: 2.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #2c3e50;
 }
 
 .stat-card.highlight .stat-value {
-  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #25d366;
 }
 
 .stat-label {
