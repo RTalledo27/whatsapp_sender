@@ -44,17 +44,31 @@ class ExcelImportService
                         continue;
                     }
 
+                    // Solo actualizar campos que tienen datos en el Excel
+                    // Si están vacíos, mantener los valores existentes
+                    $updateData = [];
+                    
+                    if (!empty($row[1])) {
+                        $updateData['name'] = $row[1];
+                    }
+                    
+                    if (!empty($row[2])) {
+                        $updateData['email'] = $row[2];
+                    }
+                    
+                    // Solo actualizar metadata si hay al menos un valor
+                    $metadata = [];
+                    if (!empty($row[3])) $metadata['column_3'] = $row[3];
+                    if (!empty($row[4])) $metadata['column_4'] = $row[4];
+                    if (!empty($row[5])) $metadata['column_5'] = $row[5];
+                    
+                    if (!empty($metadata)) {
+                        $updateData['metadata'] = $metadata;
+                    }
+
                     $contact = Contact::updateOrCreate(
                         ['phone_number' => $phoneNumber],
-                        [
-                            'name' => $row[1] ?? null,
-                            'email' => $row[2] ?? null,
-                            'metadata' => [
-                                'column_3' => $row[3] ?? null,
-                                'column_4' => $row[4] ?? null,
-                                'column_5' => $row[5] ?? null,
-                            ],
-                        ]
+                        $updateData
                     );
 
                     $contacts[] = $contact;
