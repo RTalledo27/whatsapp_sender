@@ -356,26 +356,33 @@ class WebhookController extends Controller
             return;
         }
         
-        // Buscar el mensaje original por whatsapp_message_id
-        $message = Message::where('whatsapp_message_id', $targetMessageId)->first();
+        // Extraer la parte final del message_id (después de AgAS)
+        // WhatsApp cambia el prefijo según el remitente pero mantiene la parte final
+        preg_match('/AgAS(.+)$/', $targetMessageId, $matches);
+        $messageIdSuffix = $matches[1] ?? null;
+        
+        // Buscar el mensaje original por la parte final del whatsapp_message_id
+        $message = null;
+        if ($messageIdSuffix) {
+            $message = Message::where('whatsapp_message_id', 'LIKE', "%AgAS{$messageIdSuffix}")
+                ->where('contact_id', $contact->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+        }
+        
+        // Si no se encuentra con el sufijo, intentar búsqueda exacta
+        if (!$message) {
+            $message = Message::where('whatsapp_message_id', $targetMessageId)
+                ->where('contact_id', $contact->id)
+                ->first();
+        }
         
         if (!$message) {
             Log::warning('Target message not found for reaction', [
                 'target_message_id' => $targetMessageId,
+                'message_id_suffix' => $messageIdSuffix,
                 'searched_column' => 'whatsapp_message_id'
             ]);
-            
-            // Intentar buscar en la tabla completa para debug
-            $allMessages = Message::where('contact_id', $contact->id)
-                ->orderBy('created_at', 'desc')
-                ->take(10)
-                ->get(['id', 'whatsapp_message_id', 'message_type', 'created_at']);
-            
-            Log::info('Recent messages for contact', [
-                'contact_id' => $contact->id,
-                'messages' => $allMessages->toArray()
-            ]);
-            
             return;
         }
         
