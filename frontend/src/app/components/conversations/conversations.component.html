@@ -150,13 +150,32 @@
                   Tu navegador no soporta audio.
                 </audio>
                 
+                <!-- Documento PDF y otros archivos -->
+                <div *ngIf="message.message_type === 'document' && message.media_url" class="message-document">
+                  <div class="document-icon">
+                    <span class="doc-emoji">📄</span>
+                  </div>
+                  <div class="document-info">
+                    <div class="document-name">{{ message.metadata?.filename || 'Documento' }}</div>
+                    <div class="document-size" *ngIf="message.metadata?.filesize">{{ formatFileSize(message.metadata.filesize) }}</div>
+                  </div>
+                  <div class="document-actions">
+                    <a [href]="message.media_url" target="_blank" class="doc-btn" title="Ver">
+                      👁️
+                    </a>
+                    <a [href]="message.media_url" [download]="message.metadata?.filename" class="doc-btn" title="Descargar">
+                      ⬇️
+                    </a>
+                  </div>
+                </div>
+                
                 <!-- Texto o fallback -->
-                <div *ngIf="!message.media_url || (message.message_type !== 'image' && message.message_type !== 'video' && message.message_type !== 'sticker' && message.message_type !== 'audio')">
+                <div *ngIf="!message.media_url || (message.message_type !== 'image' && message.message_type !== 'video' && message.message_type !== 'sticker' && message.message_type !== 'audio' && message.message_type !== 'document')">
                   {{ getMessageContent(message) }}
                 </div>
                 
-                <!-- Caption debajo de imagen/video -->
-                <div *ngIf="(message.message_type === 'image' || message.message_type === 'video') && message.metadata?.caption" class="media-caption">
+                <!-- Caption debajo de imagen/video/documento -->
+                <div *ngIf="(message.message_type === 'image' || message.message_type === 'video' || message.message_type === 'document') && message.metadata?.caption" class="media-caption">
                   {{ message.metadata.caption }}
                 </div>
               </div>

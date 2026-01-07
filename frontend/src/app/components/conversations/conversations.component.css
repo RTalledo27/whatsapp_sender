@@ -743,7 +743,110 @@
   border-radius: 20px;
 }
 
-/* Caption para imagen/video */
+/* Documentos (PDF, etc) */
+.message-document {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 250px;
+  max-width: 350px;
+  transition: all 0.2s ease;
+}
+
+.message-document:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.message-inbound .message-document {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.message-outbound .message-document {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.document-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-emoji {
+  font-size: 1.75rem;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2c3e50;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-outbound .document-name {
+  color: #1a1a1a;
+}
+
+.document-size {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+}
+
+.message-outbound .document-size {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.document-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.doc-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  font-size: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.doc-btn:hover {
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.doc-btn:active {
+  transform: scale(0.95);
+}
+
+/* Caption para imagen/video/documento */
 .media-caption {
   margin-top: 0.5rem;
   font-size: 0.9rem;
