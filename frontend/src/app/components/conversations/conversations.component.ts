@@ -27,6 +27,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   // Paginación
   currentPage = 1;
   totalPages = 1;
+  loadingMoreConversations = false;
   
   // Polling para nuevos mensajes
   private pollingSubscription?: Subscription;
@@ -56,19 +57,32 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   /**
    * Cargar lista de conversaciones
    */
-  loadConversations(): void {
-    this.loading = true;
-    this.conversationService.getConversations(this.searchTerm, this.currentPage)
+  loadConversations(append: boolean = false): void {
+    if (append) {
+      this.loadingMoreConversations = true;
+    } else {
+      this.loading = true;
+    }
+
+    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50)
       .subscribe({
         next: (response) => {
-          this.conversations = response.data;
+          if (append) {
+            // Agregar las nuevas conversaciones a las existentes
+            this.conversations = [...this.conversations, ...response.data];
+          } else {
+            // Reemplazar todas las conversaciones
+            this.conversations = response.data;
+          }
           this.currentPage = response.current_page;
           this.totalPages = response.last_page;
           this.loading = false;
+          this.loadingMoreConversations = false;
         },
         error: (error) => {
           console.error('Error loading conversations:', error);
           this.loading = false;
+          this.loadingMoreConversations = false;
         }
       });
   }
@@ -330,6 +344,22 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     if (!message) return '';
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
+  }
+
+  /**
+   * Detectar scroll para cargar más conversaciones
+   */
+  onScrollConversations(event: Event): void {
+    const element = event.target as HTMLElement;
+    const threshold = 100; // Pixels antes del final para cargar más
+    
+    const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
+    
+    if (atBottom && !this.loadingMoreConversations && this.currentPage < this.totalPages) {
+      // Cargar siguiente página
+      this.currentPage++;
+      this.loadConversations(true);
+    }
   }
 
   /**

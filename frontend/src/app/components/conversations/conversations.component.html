@@ -37,7 +37,7 @@
         </div>
       </div>
 
-      <div class="conversations-list" *ngIf="!loading">
+      <div class="conversations-list" *ngIf="!loading" (scroll)="onScrollConversations($event)">
         <div 
           *ngFor="let conv of conversations" 
           class="conversation-item"
@@ -65,8 +65,19 @@
           </div>
         </div>
 
+        <!-- Indicador de carga para scroll infinito -->
+        <div *ngIf="loadingMoreConversations" class="loading-more">
+          <div class="spinner"></div>
+          <span>Cargando más conversaciones...</span>
+        </div>
+
         <div *ngIf="conversations.length === 0" class="empty-state">
           <p>No hay conversaciones</p>
+        </div>
+
+        <!-- Mensaje cuando se cargaron todas -->
+        <div *ngIf="conversations.length > 0 && currentPage >= totalPages && !loadingMoreConversations" class="all-loaded">
+          <span>Todas las conversaciones cargadas ({{ conversations.length }})</span>
         </div>
       </div>
 
