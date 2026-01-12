@@ -25,7 +25,8 @@ export interface Message {
   id: number;
   contact_id: number;
   campaign_id?: number;
-  phone: string;
+  phone?: string;
+  phone_number?: string;
   message?: string;
   message_content?: string;
   status: string;
@@ -131,5 +132,14 @@ export class ConversationService {
    */
   sendMessage(contactId: number, message: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/${contactId}/send`, { message });
+  }
+
+  sendFile(contactId: number, file: File, caption?: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (caption && caption.trim()) {
+      formData.append('message', caption.trim());
+    }
+    return this.http.post(`${this.apiUrl}/${contactId}/send`, formData);
   }
 }

@@ -8,6 +8,7 @@ use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ConversationController extends Controller
 {
@@ -158,10 +159,20 @@ class ConversationController extends Controller
     public function sendMessage(Request $request, $contactId)
     {
         $request->validate([
-            'message' => 'required|string|max:4096'
+            'message' => 'nullable|string|max:4096',
+            'file' => 'nullable|file|max:16384|mimes:jpg,jpeg,png,gif,webp,mp4,mp3,ogg,m4a,aac,wav,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv'
         ]);
 
         $contact = Contact::findOrFail($contactId);
+        $messageText = trim((string) $request->input('message', ''));
+        $hasFile = $request->hasFile('file');
+
+        if ($messageText === '' && !$hasFile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Debes escribir un mensaje o adjuntar un archivo.'
+            ], 422);
+        }
         
         // Verificar ventana de 24 horas
         $lastInboundMessage = Message::where('contact_id', $contact->id)
@@ -183,24 +194,74 @@ class ConversationController extends Controller
             ]);
         }
         
-        // Crear el mensaje en la base de datos
+        $file = $hasFile ? $request->file('file') : null;
+        $messageType = $file ? $this->inferMessageTypeFromFile($file->getMimeType(), $file->getClientOriginalExtension()) : 'text';
+
+        $metadata = [];
+        $mediaUrl = null;
+        if ($file) {
+            $storedPath = $file->store('outgoing-media', 'public');
+            $mediaUrl = Storage::disk('public')->url($storedPath);
+
+            $metadata = [
+                'filename' => $file->getClientOriginalName(),
+                'filesize' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+            ];
+
+            if ($messageText !== '') {
+                $metadata['caption'] = $messageText;
+            }
+        }
+
         $message = Message::create([
             'contact_id' => $contact->id,
             'campaign_id' => null,
             'phone_number' => $contact->phone_number,
-            'message' => $request->message,
-            'message_content' => $request->message,
+            'message' => $messageText !== '' ? $messageText : ($metadata['filename'] ?? ''),
+            'message_content' => $messageText !== '' ? $messageText : null,
             'status' => 'pending',
             'direction' => 'outbound',
             'message_timestamp' => now(),
+            'message_type' => $messageType,
+            'media_url' => $mediaUrl,
+            'metadata' => !empty($metadata) ? $metadata : null,
         ]);
 
         try {
-            // Enviar mensaje real por WhatsApp
-            $result = $this->whatsappService->sendMessage(
-                $contact->phone_number,
-                $request->message
-            );
+            if ($file) {
+                $upload = $this->whatsappService->uploadMedia($file);
+                if (!$upload['success'] || empty($upload['media_id'])) {
+                    $message->update([
+                        'status' => 'failed',
+                        'error_message' => $upload['error'] ?? 'Error al subir el archivo a WhatsApp'
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error al subir el archivo: ' . ($upload['error'] ?? 'Error desconocido')
+                    ], 500);
+                }
+
+                $result = $this->whatsappService->sendMediaMessage(
+                    $contact->phone_number,
+                    $messageType,
+                    $upload['media_id'],
+                    $messageText !== '' ? $messageText : null,
+                    $file->getClientOriginalName()
+                );
+
+                if (!empty($upload['media_id'])) {
+                    $message->update([
+                        'media_id' => $upload['media_id'],
+                    ]);
+                }
+            } else {
+                $result = $this->whatsappService->sendMessage(
+                    $contact->phone_number,
+                    $messageText
+                );
+            }
 
             if ($result['success']) {
                 // Actualizar mensaje con ID de WhatsApp y estado
@@ -254,5 +315,21 @@ class ConversationController extends Controller
             'success' => true,
             'message' => $message->fresh()
         ]);
+    }
+
+    private function inferMessageTypeFromFile(?string $mimeType, ?string $extension): string
+    {
+        $mimeType = strtolower((string) $mimeType);
+        $extension = strtolower((string) $extension);
+
+        if (str_starts_with($mimeType, 'image/')) return 'image';
+        if (str_starts_with($mimeType, 'video/')) return 'video';
+        if (str_starts_with($mimeType, 'audio/')) return 'audio';
+
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) return 'image';
+        if (in_array($extension, ['mp4'], true)) return 'video';
+        if (in_array($extension, ['mp3', 'ogg', 'm4a', 'aac', 'wav'], true)) return 'audio';
+
+        return 'document';
     }
 }

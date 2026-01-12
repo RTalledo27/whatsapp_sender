@@ -22,6 +22,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   
   // Input de mensaje
   newMessageText = '';
+  selectedFile: File | null = null;
   sendingMessage = false;
   
   // Paginación
@@ -286,30 +287,41 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Enviar mensaje
    */
   sendMessage(): void {
-    if (!this.newMessageText.trim() || !this.selectedConversation || this.sendingMessage) {
+    if (!this.selectedConversation || this.sendingMessage) {
+      return;
+    }
+
+    const messageText = this.newMessageText.trim();
+    const hasText = messageText.length > 0;
+    const hasFile = !!this.selectedFile;
+
+    if (!hasText && !hasFile) {
       return;
     }
 
     this.sendingMessage = true;
-    const messageText = this.newMessageText.trim();
     const contactId = this.selectedConversation.contact.id;
 
-    this.conversationService.sendMessage(contactId, messageText).subscribe({
+    const request$ = this.selectedFile
+      ? this.conversationService.sendFile(contactId, this.selectedFile, messageText || undefined)
+      : this.conversationService.sendMessage(contactId, messageText);
+
+    request$.subscribe({
       next: (response) => {
         // Limpiar input
         this.newMessageText = '';
+        this.selectedFile = null;
         
-        // Agregar mensaje con el estado real del backend
+        const backendMessage = response.message as Message;
         const newMessage: Message = {
-          id: response.message.id,
-          contact_id: contactId,
-          message: messageText,
-          message_content: messageText,
-          status: response.message.status || 'pending',
+          ...backendMessage,
+          contact_id: backendMessage.contact_id ?? contactId,
           direction: 'outbound',
-          message_timestamp: response.message.message_timestamp || new Date().toISOString(),
-          created_at: response.message.created_at || new Date().toISOString(),
-          phone: this.selectedConversation!.contact.phone_number
+          status: backendMessage.status || 'pending',
+          message_timestamp: backendMessage.message_timestamp || new Date().toISOString(),
+          created_at: backendMessage.created_at || new Date().toISOString(),
+          phone: backendMessage.phone ?? this.selectedConversation!.contact.phone_number,
+          phone_number: backendMessage.phone_number ?? this.selectedConversation!.contact.phone_number,
         };
         
         this.messages.push(newMessage);
@@ -320,10 +332,28 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error sending message:', error);
-        alert('Error al enviar el mensaje. Por favor intenta de nuevo.');
+        alert('Error al enviar. Por favor intenta de nuevo.');
         this.sendingMessage = false;
       }
     });
+  }
+
+  onAttachClick(fileInput: HTMLInputElement): void {
+    if (this.sendingMessage) return;
+    fileInput.click();
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
+    input.value = '';
+    if (!file) return;
+    this.selectedFile = file;
+  }
+
+  removeSelectedFile(): void {
+    if (this.sendingMessage) return;
+    this.selectedFile = null;
   }
 
   /**

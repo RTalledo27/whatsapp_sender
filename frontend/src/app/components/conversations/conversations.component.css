@@ -561,10 +561,100 @@
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.selected-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e9edef;
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.selected-file-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.selected-file-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111b21;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
+}
+
+.selected-file-size {
+  font-size: 0.75rem;
+  color: #667781;
+  flex-shrink: 0;
+}
+
+.remove-file {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e9edef;
+  background: white;
+  color: #667781;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.remove-file:hover:not(:disabled) {
+  background: #f5f6f6;
+  transform: scale(1.05);
+}
+
+.remove-file:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .input-wrapper {
   display: flex;
   gap: 0.625rem;
   align-items: flex-end;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.attach-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  color: #111b21;
+  border: 2px solid #e9edef;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.attach-button:hover:not(:disabled) {
+  border-color: #25d366;
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .message-input {

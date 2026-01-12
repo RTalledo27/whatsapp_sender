@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -111,6 +112,115 @@ class WhatsAppService
             Log::error('WhatsApp Service Exception', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function uploadMedia(UploadedFile $file): array
+    {
+        try {
+            $url = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/media";
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+            ])->attach(
+                'file',
+                fopen($file->getRealPath(), 'r'),
+                $file->getClientOriginalName()
+            )->post($url, [
+                'messaging_product' => 'whatsapp',
+                'type' => $file->getMimeType() ?: 'application/octet-stream',
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'success' => true,
+                    'media_id' => $data['id'] ?? null,
+                    'data' => $data,
+                ];
+            }
+
+            Log::error('WhatsApp Media Upload Error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $response->json()['error']['message'] ?? 'Error desconocido',
+                'status_code' => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Media Upload Exception', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function sendMediaMessage(string $phoneNumber, string $type, string $mediaId, ?string $caption = null, ?string $filename = null): array
+    {
+        try {
+            $phoneNumber = $this->formatPhoneNumber($phoneNumber);
+            $url = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/messages";
+
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'to' => $phoneNumber,
+                'type' => $type,
+            ];
+
+            $media = [
+                'id' => $mediaId,
+            ];
+
+            if (!empty($caption) && in_array($type, ['image', 'video', 'document'], true)) {
+                $media['caption'] = $caption;
+            }
+
+            if (!empty($filename) && $type === 'document') {
+                $media['filename'] = $filename;
+            }
+
+            $payload[$type] = $media;
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'success' => true,
+                    'message_id' => $data['messages'][0]['id'] ?? null,
+                    'data' => $data,
+                ];
+            }
+
+            Log::error('WhatsApp Media Message Error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $response->json()['error']['message'] ?? 'Error desconocido',
+                'status_code' => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Media Message Exception', [
+                'message' => $e->getMessage(),
             ]);
 
             return [

@@ -214,7 +214,16 @@
 
         <!-- Input de mensaje -->
         <div class="message-input-container">
+          <div *ngIf="selectedFile" class="selected-file">
+            <div class="selected-file-info">
+              <span class="selected-file-name">{{ selectedFile.name }}</span>
+              <span class="selected-file-size">{{ formatFileSize(selectedFile.size) }}</span>
+            </div>
+            <button type="button" class="remove-file" (click)="removeSelectedFile()" [disabled]="sendingMessage">✗</button>
+          </div>
           <div class="input-wrapper">
+            <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage" class="file-input-hidden" />
+            <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">📎</button>
             <textarea
               [(ngModel)]="newMessageText"
               (keydown.enter)="onEnterPress($event)"
@@ -225,7 +234,7 @@
             ></textarea>
             <button 
               (click)="sendMessage()" 
-              [disabled]="!newMessageText.trim() || sendingMessage"
+              [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage"
               class="send-button"
               [class.sending]="sendingMessage"
             >
