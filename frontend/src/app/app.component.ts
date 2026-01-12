@@ -12,30 +12,49 @@ import { NotificationToastComponent } from './components/notification-toast/noti
     <div class="app-container">
       <nav class="sidebar">
         <div class="logo">
-          <h2>📱 WhatsApp Sender</h2>
+          <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <path d="M12 18h.01"/>
+          </svg>
+          <h2>WhatsApp Sender</h2>    
         </div>
         <ul class="nav-menu">
           <li>
             <a routerLink="/dashboard" routerLinkActive="active">
-              <span class="icon">📊</span>
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="20" x2="21" y2="20"/>
+                <rect x="3" y="14" width="3" height="6"/>
+                <rect x="10" y="6" width="3" height="14"/>
+                <rect x="17" y="10" width="3" height="10"/>
+              </svg>
               <span>Dashboard</span>
             </a>
           </li>
           <li>
             <a routerLink="/contacts" routerLinkActive="active">
-              <span class="icon">👥</span>
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
               <span>Contactos</span>
             </a>
           </li>
           <li>
             <a routerLink="/campaigns" routerLinkActive="active">
-              <span class="icon">📢</span>
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
               <span>Campañas</span>
             </a>
           </li>
           <li>
             <a routerLink="/conversations" routerLinkActive="active">
-              <span class="icon">💬</span>
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
               <span>Conversaciones</span>
             </a>
           </li>
@@ -65,6 +84,14 @@ import { NotificationToastComponent } from './components/notification-toast/noti
     .logo {
       padding: 30px 20px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      flex-shrink: 0;
+      color: #3b82f6;
     }
 
     .logo h2 {
