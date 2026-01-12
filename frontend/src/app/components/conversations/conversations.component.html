@@ -214,6 +214,14 @@
 
         <!-- Input de mensaje -->
         <div class="message-input-container">
+          <div *ngIf="isRecording" class="recording-bar">
+            <div class="recording-left">
+              <span class="recording-dot"></span>
+              <span class="recording-text">Grabando</span>
+              <span class="recording-time">{{ formatRecordingTime(recordingSeconds) }}</span>
+            </div>
+            <button type="button" class="recording-stop" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">⏹</button>
+          </div>
           <div *ngIf="selectedFile" class="selected-file">
             <div class="selected-file-info">
               <span class="selected-file-name">{{ selectedFile.name }}</span>
@@ -224,6 +232,10 @@
           <div class="input-wrapper">
             <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage" class="file-input-hidden" />
             <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">📎</button>
+            <button type="button" class="voice-button" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">
+              <span *ngIf="!isRecording">🎤</span>
+              <span *ngIf="isRecording">⏹</span>
+            </button>
             <textarea
               [(ngModel)]="newMessageText"
               (keydown.enter)="onEnterPress($event)"
@@ -234,7 +246,7 @@
             ></textarea>
             <button 
               (click)="sendMessage()" 
-              [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage"
+              [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage || isRecording"
               class="send-button"
               [class.sending]="sendingMessage"
             >

@@ -6,9 +6,10 @@ use App\Models\Contact;
 use App\Models\Message;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class ConversationController extends Controller
 {
@@ -88,7 +89,7 @@ class ConversationController extends Controller
      */
     public function markAsRead($contactId)
     {
-        $contact = Contact::findOrFail($contactId);
+        Contact::findOrFail($contactId);
         
         $updated = Message::where('contact_id', $contactId)
             ->where('direction', 'inbound')
@@ -160,7 +161,7 @@ class ConversationController extends Controller
     {
         $request->validate([
             'message' => 'nullable|string|max:4096',
-            'file' => 'nullable|file|max:16384|mimes:jpg,jpeg,png,gif,webp,mp4,mp3,ogg,m4a,aac,wav,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv'
+            'file' => 'nullable|file|max:102400|mimes:jpg,jpeg,png,gif,webp,mp4,mp3,ogg,opus,webm,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv'
         ]);
 
         $contact = Contact::findOrFail($contactId);
@@ -195,13 +196,30 @@ class ConversationController extends Controller
         }
         
         $file = $hasFile ? $request->file('file') : null;
+        $temporaryConvertedPath = null;
         $messageType = $file ? $this->inferMessageTypeFromFile($file->getMimeType(), $file->getClientOriginalExtension()) : 'text';
+
+        if ($file && $messageType === 'audio') {
+            $conversion = $this->maybeConvertVoiceNote($file);
+            if (!$conversion['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $conversion['message'] ?? 'No se pudo procesar la nota de voz.',
+                ], 422);
+            }
+
+            if (!empty($conversion['file']) && $conversion['file'] instanceof UploadedFile) {
+                $file = $conversion['file'];
+            }
+            $temporaryConvertedPath = $conversion['temporary_path'] ?? null;
+        }
 
         $metadata = [];
         $mediaUrl = null;
+        $storedPath = null;
         if ($file) {
             $storedPath = $file->store('outgoing-media', 'public');
-            $mediaUrl = Storage::disk('public')->url($storedPath);
+            $mediaUrl = asset('storage/' . $storedPath);
 
             $metadata = [
                 'filename' => $file->getClientOriginalName(),
@@ -209,7 +227,7 @@ class ConversationController extends Controller
                 'mime_type' => $file->getMimeType(),
             ];
 
-            if ($messageText !== '') {
+            if ($messageText !== '' && in_array($messageType, ['image', 'video', 'document'], true)) {
                 $metadata['caption'] = $messageText;
             }
         }
@@ -309,6 +327,10 @@ class ConversationController extends Controller
                 'success' => false,
                 'message' => 'Error al enviar mensaje: ' . $e->getMessage()
             ], 500);
+        } finally {
+            if (!empty($temporaryConvertedPath) && is_string($temporaryConvertedPath) && file_exists($temporaryConvertedPath)) {
+                @unlink($temporaryConvertedPath);
+            }
         }
 
         return response()->json([
@@ -322,14 +344,66 @@ class ConversationController extends Controller
         $mimeType = strtolower((string) $mimeType);
         $extension = strtolower((string) $extension);
 
+        if ($extension === 'webm' || $mimeType === 'video/webm' || str_starts_with($mimeType, 'audio/webm')) return 'audio';
         if (str_starts_with($mimeType, 'image/')) return 'image';
         if (str_starts_with($mimeType, 'video/')) return 'video';
         if (str_starts_with($mimeType, 'audio/')) return 'audio';
 
         if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) return 'image';
         if (in_array($extension, ['mp4'], true)) return 'video';
-        if (in_array($extension, ['mp3', 'ogg', 'm4a', 'aac', 'wav'], true)) return 'audio';
+        if (in_array($extension, ['mp3', 'ogg', 'opus', 'webm', 'm4a', 'aac'], true)) return 'audio';
 
         return 'document';
+    }
+
+    private function maybeConvertVoiceNote(UploadedFile $file): array
+    {
+        $mimeType = strtolower((string) $file->getMimeType());
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+
+        if (!($extension === 'webm' || str_starts_with($mimeType, 'audio/webm') || $mimeType === 'video/webm')) {
+            return ['success' => true, 'file' => $file];
+        }
+
+        $tmpDir = storage_path('app/tmp');
+        if (!is_dir($tmpDir) && !@mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+            return ['success' => false, 'message' => 'No se pudo preparar directorio temporal para convertir audio.'];
+        }
+
+        $outputPath = $tmpDir . DIRECTORY_SEPARATOR . Str::uuid()->toString() . '.ogg';
+
+        $process = new Process([
+            'ffmpeg',
+            '-y',
+            '-i',
+            $file->getRealPath(),
+            '-vn',
+            '-c:a',
+            'libopus',
+            '-application',
+            'voip',
+            $outputPath,
+        ]);
+
+        $process->setTimeout(60);
+
+        try {
+            $process->run();
+        } catch (\Throwable) {
+            return ['success' => false, 'message' => 'No se pudo convertir la nota de voz (ffmpeg no disponible).'];
+        }
+
+        if (!$process->isSuccessful() || !file_exists($outputPath)) {
+            return ['success' => false, 'message' => 'No se pudo convertir la nota de voz. Verifica ffmpeg/libopus en el servidor.'];
+        }
+
+        $base = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) ?: 'nota-de-voz';
+        $converted = new UploadedFile($outputPath, $base . '.ogg', 'audio/ogg', null, true);
+
+        return [
+            'success' => true,
+            'file' => $converted,
+            'temporary_path' => $outputPath,
+        ];
     }
 }

@@ -171,6 +171,7 @@ server {
     listen 80;
     server_name api-sender.casabonita.pe;
     root /var/www/whatsapp-sender/backend/public;
+    client_max_body_size 100m;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
@@ -198,6 +199,38 @@ server {
         deny all;
     }
 }
+```
+
+### Límite de subida (evitar 413)
+
+Si al enviar archivos ves `413 Request Entity Too Large`, ajusta:
+
+**Nginx (API)**
+- En el `server {}` del backend agrega/ajusta: `client_max_body_size 100m;` (arriba).
+- Luego:
+```bash
+nginx -t
+systemctl restart nginx
+```
+
+**PHP-FPM**
+- Edita `/etc/php/8.2/fpm/php.ini` (o tu versión de PHP) y asegúrate de tener:
+  - `upload_max_filesize = 100M`
+  - `post_max_size = 100M`
+- Luego:
+```bash
+systemctl restart php8.2-fpm
+systemctl restart nginx
+```
+
+### Notas de voz (grabación desde navegador)
+
+Para enviar notas de voz grabadas desde el navegador, los navegadores suelen generar `webm/opus`. Para que WhatsApp las acepte, el backend convierte a `ogg/opus` usando `ffmpeg` (con `libopus`).
+
+En Ubuntu/Debian:
+```bash
+apt-get update
+apt-get install -y ffmpeg
 ```
 
 ### Frontend Angular

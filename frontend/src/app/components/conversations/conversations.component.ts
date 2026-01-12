@@ -24,6 +24,13 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   newMessageText = '';
   selectedFile: File | null = null;
   sendingMessage = false;
+
+  isRecording = false;
+  recordingSeconds = 0;
+  private recordingTimer?: number;
+  private mediaRecorder?: MediaRecorder;
+  private mediaStream?: MediaStream;
+  private recordedChunks: BlobPart[] = [];
   
   // Paginación
   currentPage = 1;
@@ -53,6 +60,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.cleanupRecorder();
   }
 
   /**
@@ -287,7 +295,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Enviar mensaje
    */
   sendMessage(): void {
-    if (!this.selectedConversation || this.sendingMessage) {
+    if (!this.selectedConversation || this.sendingMessage || this.isRecording) {
       return;
     }
 
@@ -332,14 +340,20 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error sending message:', error);
-        alert('Error al enviar. Por favor intenta de nuevo.');
+        if (error?.status === 413) {
+          alert('El archivo es demasiado grande (413). Sube el límite del servidor (Nginx/PHP) o prueba con un archivo más pequeño.');
+        } else if (typeof error?.error?.message === 'string' && error.error.message.trim()) {
+          alert(error.error.message);
+        } else {
+          alert('Error al enviar. Por favor intenta de nuevo.');
+        }
         this.sendingMessage = false;
       }
     });
   }
 
   onAttachClick(fileInput: HTMLInputElement): void {
-    if (this.sendingMessage) return;
+    if (this.sendingMessage || this.isRecording) return;
     fileInput.click();
   }
 
@@ -354,6 +368,112 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   removeSelectedFile(): void {
     if (this.sendingMessage) return;
     this.selectedFile = null;
+  }
+
+  async toggleVoiceRecording(): Promise<void> {
+    if (this.sendingMessage) return;
+    if (this.isRecording) {
+      this.stopVoiceRecording();
+      return;
+    }
+    await this.startVoiceRecording();
+  }
+
+  private async startVoiceRecording(): Promise<void> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert('Tu navegador no soporta grabación de audio.');
+      return;
+    }
+
+    try {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.recordedChunks = [];
+
+      const preferredTypes = [
+        'audio/ogg;codecs=opus',
+        'audio/webm;codecs=opus',
+        'audio/webm',
+      ];
+
+      const chosenType = preferredTypes.find(t => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t));
+      if (!chosenType) {
+        alert('Tu navegador no soporta grabación de audio.');
+        this.cleanupRecorder();
+        return;
+      }
+
+      this.mediaRecorder = new MediaRecorder(this.mediaStream, { mimeType: chosenType });
+
+      this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          this.recordedChunks.push(event.data);
+        }
+      };
+
+      this.mediaRecorder.onstop = () => {
+        const mimeType = this.mediaRecorder?.mimeType || 'audio/webm';
+        const blob = new Blob(this.recordedChunks, { type: mimeType });
+        const extension = mimeType.includes('ogg') ? 'ogg' : (mimeType.includes('webm') ? 'webm' : 'audio');
+        const fileName = `nota-de-voz-${Date.now()}.${extension}`;
+        this.selectedFile = new File([blob], fileName, { type: mimeType });
+        this.cleanupRecorder();
+      };
+
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      this.recordingSeconds = 0;
+      this.startRecordingTimer();
+    } catch (e) {
+      console.error('Error starting audio recording', e);
+      alert('No se pudo acceder al micrófono. Revisa permisos del navegador.');
+      this.cleanupRecorder();
+    }
+  }
+
+  private stopVoiceRecording(): void {
+    if (!this.mediaRecorder || !this.isRecording) return;
+    try {
+      this.mediaRecorder.stop();
+    } catch (e) {
+      console.error('Error stopping audio recording', e);
+      this.cleanupRecorder();
+    }
+    this.isRecording = false;
+    this.stopRecordingTimer();
+  }
+
+  private startRecordingTimer(): void {
+    this.stopRecordingTimer();
+    this.recordingTimer = window.setInterval(() => {
+      this.recordingSeconds += 1;
+    }, 1000);
+  }
+
+  private stopRecordingTimer(): void {
+    if (this.recordingTimer) {
+      window.clearInterval(this.recordingTimer);
+      this.recordingTimer = undefined;
+    }
+  }
+
+  private cleanupRecorder(): void {
+    this.stopRecordingTimer();
+    if (this.mediaStream) {
+      for (const track of this.mediaStream.getTracks()) {
+        track.stop();
+      }
+    }
+    this.mediaStream = undefined;
+    this.mediaRecorder = undefined;
+    this.recordedChunks = [];
+    this.isRecording = false;
+    this.recordingSeconds = 0;
+  }
+
+  formatRecordingTime(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
   /**

@@ -125,6 +125,15 @@ class WhatsAppService
     {
         try {
             $url = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/media";
+            $mimeType = $file->getMimeType() ?: 'application/octet-stream';
+            $extension = strtolower((string) $file->getClientOriginalExtension());
+
+            if ($extension === 'ogg' && ($mimeType === 'application/ogg' || $mimeType === 'application/octet-stream')) {
+                $mimeType = 'audio/ogg';
+            }
+            if ($extension === 'opus' && ($mimeType === 'application/octet-stream' || str_starts_with($mimeType, 'application/'))) {
+                $mimeType = 'audio/opus';
+            }
 
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->accessToken}",
@@ -134,7 +143,7 @@ class WhatsAppService
                 $file->getClientOriginalName()
             )->post($url, [
                 'messaging_product' => 'whatsapp',
-                'type' => $file->getMimeType() ?: 'application/octet-stream',
+                'type' => $mimeType,
             ]);
 
             if ($response->successful()) {
@@ -337,7 +346,7 @@ class WhatsAppService
             if ($response->successful()) {
                 $path = "media/{$filename}";
                 Storage::disk('public')->put($path, $response->body());
-                return Storage::disk('public')->url($path);
+                return asset('storage/' . $path);
             }
 
             return null;

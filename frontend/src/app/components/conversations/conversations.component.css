@@ -561,6 +561,69 @@
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.recording-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e9edef;
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.recording-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f44336;
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.15);
+}
+
+.recording-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111b21;
+}
+
+.recording-time {
+  font-size: 0.8125rem;
+  color: #667781;
+}
+
+.recording-stop {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e9edef;
+  background: white;
+  color: #111b21;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.recording-stop:hover:not(:disabled) {
+  border-color: #f44336;
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+}
+
+.recording-stop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .selected-file {
   display: flex;
   align-items: center;
@@ -653,6 +716,32 @@
 }
 
 .attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  color: #111b21;
+  border: 2px solid #e9edef;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.voice-button:hover:not(:disabled) {
+  border-color: #25d366;
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.voice-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
