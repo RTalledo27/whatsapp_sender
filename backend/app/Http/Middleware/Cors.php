@@ -29,6 +29,7 @@ class Cors
             'https://whatsapp.casabonita.pe',
             'https://casabonita.pe',
             'https://sender.casabonita.pe',
+            'http://localhost:59142/'
         ];
 
         $origin = $request->header('Origin');
