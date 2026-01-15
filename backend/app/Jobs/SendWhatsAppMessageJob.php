@@ -29,16 +29,20 @@ class SendWhatsAppMessageJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(WhatsAppService $whatsAppService): void
+    public function handle(): void
     {
         try {
             $campaign = $this->message->campaign->fresh();
+            
+            $phoneNumberId = $campaign->phone_number_id ?? config('services.whatsapp.phone_number_id');
+            $whatsAppService = new WhatsAppService($phoneNumberId);
             
             Log::info('SendWhatsAppMessageJob: Starting', [
                 'message_id' => $this->message->id,
                 'phone' => $this->message->phone_number,
                 'campaign_id' => $campaign->id,
                 'campaign_name' => $campaign->name,
+                'phone_number_id' => $phoneNumberId,
                 'has_template' => !empty($campaign->template_name),
                 'template_name' => $campaign->template_name,
                 'template_params' => $campaign->template_parameters,
@@ -74,6 +78,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
 
             if ($result['success']) {
                 $this->message->update([
+                    'phone_number_id' => $phoneNumberId,
                     'status' => 'sent',
                     'whatsapp_message_id' => $result['message_id'],
                     'sent_at' => now(),

@@ -13,6 +13,7 @@ class Message extends Model
     protected $fillable = [
         'campaign_id',
         'contact_id',
+        'phone_number_id',
         'phone',
         'phone_number',
         'message',

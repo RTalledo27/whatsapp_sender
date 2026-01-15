@@ -14,8 +14,23 @@ return [
         'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
         'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
-        'delay_between_messages' => env('WHATSAPP_DELAY_SECONDS', 2), // Segundos entre mensajes
-        'delay_on_error' => env('WHATSAPP_DELAY_ON_ERROR', 5), // Segundos después de error
+        'delay_between_messages' => env('WHATSAPP_DELAY_SECONDS', 2),
+        'delay_on_error' => env('WHATSAPP_DELAY_ON_ERROR', 5),
+        
+        'available_numbers' => [
+            [
+                'id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+                'name' => 'Número Atención Cliente',
+                'phone' => env('WHATSAPP_PHONE_NUMBER', '51 922 902 212'),
+                'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+            ],
+            [
+                'id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID'),
+                'name' => 'Número Comunidad',
+                'phone' => env('WHATSAPP_ALT_PHONE_NUMBER', '51 922 902 154'),
+                'access_token' => env('WHATSAPP_ALT_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
+            ],
+        ],
     ],
 
 ];

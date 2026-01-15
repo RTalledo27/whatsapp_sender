@@ -25,6 +25,7 @@ Route::options('{any}', function () {
 // Auth routes (sin middleware)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/me', [AuthController::class, 'me']);
 
 // Webhook de WhatsApp (sin middleware de autenticación)
 Route::get('/webhook/whatsapp', [WebhookController::class, 'verify']);
@@ -55,6 +56,7 @@ Route::middleware('api')->group(function () {
 
     // Campaigns
     Route::prefix('campaigns')->group(function () {
+        Route::get('/available-numbers', [CampaignController::class, 'getAvailableNumbers']);
         Route::get('/', [CampaignController::class, 'index']);
         Route::post('/', [CampaignController::class, 'store']);
         Route::get('/{campaign}', [CampaignController::class, 'show']); // Solo estado para polling
