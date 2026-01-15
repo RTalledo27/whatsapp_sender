@@ -13,7 +13,7 @@
   gap: 0.5rem;
   padding: 0.75rem;
   background: white;
-  border-bottom: 1px solid #e9edef;
+  flex-wrap: wrap;
 }
 
 .stat-card {
@@ -36,6 +36,41 @@
 
 .stat-card.highlight {
   background: #e7f8ee;
+}
+
+/* Selector de número */
+.stat-card.phone-selector {
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.stat-card.phone-selector:hover {
+  background: transparent;
+}
+
+.phone-number-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d7db;
+  border-radius: 20px;
+  background: white;
+  color: #667781;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.phone-number-select:hover {
+  background: #f0f2f5;
+  border-color: #00a884;
+}
+
+.phone-number-select:focus {
+  border-color: #00a884;
+  box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
 }
 
 .stat-label {
@@ -80,7 +115,7 @@
 .conversations-sidebar {
   width: 380px;
   background: white;
-  border-right: 1px solid #e9edef;
+  border-right: 1px solid #d5dadd;
   display: flex;
   flex-direction: column;
   max-height: 100%;
@@ -89,7 +124,6 @@
 
 .sidebar-header {
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #e9edef;
   background: #f0f2f5;
 }
 
@@ -123,7 +157,7 @@
 
 .search-btn {
   padding: 0.625rem 1.25rem;
-  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  background: #1dc063;
   color: white;
   border: none;
   border-radius: 24px;
@@ -172,7 +206,6 @@
 .conversation-item {
   display: flex;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -194,17 +227,7 @@
 .conv-avatar {
   width: 45px;
   height: 45px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #25d366 0%, #20c997 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.125rem;
-  font-weight: 600;
   margin-right: 0.875rem;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);
 }
 
 .conv-info {
@@ -384,8 +407,12 @@
   overflow-y: auto;
   padding: 1rem;
   background: #efeae2;
-  background-image: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px);
-  background-size: 100% 20px;
+  background-image: 
+    linear-gradient(rgba(245, 236, 226, 0.45)),
+    url('https://static.whatsapp.net/rsrc.php/v4/y1/r/m5BEg2K4OR4.png');
+  background-size: 32%;
+  background-position: center;
+  background-attachment: fixed;
   scroll-behavior: smooth;
   min-height: 0; /* Importante para que funcione el scroll en flex */
 }
@@ -569,7 +596,6 @@
 .message-input-container {
   background: #f0f2f5;
   padding: 0.75rem 1rem;
-  border-top: 1px solid #e9edef;
   flex-shrink: 0;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -724,8 +750,7 @@
 }
 
 .attach-button:hover:not(:disabled) {
-  border-color: #25d366;
-  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+    box-shadow: 0 0 0 3px rgb(36 38 38);
 }
 
 .attach-button:disabled {
@@ -750,8 +775,7 @@
 }
 
 .voice-button:hover:not(:disabled) {
-  border-color: #25d366;
-  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+  box-shadow: 0 0 0 3px rgb(36 38 38);
 }
 
 .voice-button:disabled {
@@ -776,8 +800,7 @@
 }
 
 .message-input:focus {
-  border-color: #25d366;
-  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+  box-shadow: 0 0 0 3px rgba(36, 38, 38, 0.075);
 }
 
 .message-input:disabled {
@@ -790,7 +813,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  background: #1daa61;
   color: white;
   border: none;
   font-size: 1.25rem;
@@ -800,7 +823,6 @@
   justify-content: center;
   transition: all 0.3s ease;
   flex-shrink: 0;
-  box-shadow: 0 3px 10px rgba(37, 211, 102, 0.3);
 }
 
 .send-button:hover:not(:disabled) {

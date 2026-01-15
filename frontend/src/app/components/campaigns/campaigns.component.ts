@@ -1,11 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CampaignService, Campaign } from '../../services/campaign.service';
+import { CampaignService, Campaign, WhatsAppNumber } from '../../services/campaign.service';
 import { ContactService, Contact } from '../../services/contact.service';
 import { TemplateService, WhatsAppTemplate } from '../../services/template.service';
 import { CampaignPollingService } from '../../services/campaign-polling.service';
 import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -15,7 +16,18 @@ import { Subscription } from 'rxjs';
   template: `
     <div class="campaigns-page">
       <div class="header">
-        <h1>Campañas de Envío</h1>
+        <div class="header-left">
+          <h1>Campañas de Envío</h1>
+          <div class="phone-selector" *ngIf="availableNumbers.length > 1">
+            <label for="phone-filter">Filtrar por número:</label>
+            <select id="phone-filter" [(ngModel)]="selectedPhoneNumberId" (change)="onPhoneNumberFilterChange()">
+              <option value="">Todos los números</option>
+              <option *ngFor="let number of availableNumbers" [value]="number.id">
+                {{ number.name }} - {{ number.phone }}
+              </option>
+            </select>
+          </div>
+        </div>
         <button class="btn btn-primary" (click)="showCreateModal = true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
             <line x1="12" y1="5" x2="12" y2="19"/>
@@ -127,6 +139,18 @@ import { Subscription } from 'rxjs';
               <label>Nombre de la Campaña *</label>
               <input type="text" [(ngModel)]="campaignForm.name" 
                      placeholder="Ej: Promoción Navidad 2024" />
+            </div>
+
+            <div class="form-group">
+              <label>Número de WhatsApp *</label>
+              <select [(ngModel)]="campaignForm.phone_number_id" 
+                      (change)="onPhoneNumberSelected($event)"
+                      class="form-select">
+                <option value="">-- Selecciona un número --</option>
+                <option *ngFor="let number of availableNumbers" [value]="number.id">
+                  {{ number.name }} - {{ number.phone }}
+                </option>
+              </select>
             </div>
 
             <div class="form-group">
@@ -375,6 +399,50 @@ import { Subscription } from 'rxjs';
       justify-content: space-between;
       align-items: center;
       margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .phone-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .phone-selector label {
+      font-weight: 500;
+      color: #374151;
+      white-space: nowrap;
+      font-size: 0.9em;
+    }
+
+    .phone-selector select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background-color: white;
+      color: #374151;
+      font-size: 0.9em;
+      cursor: pointer;
+      min-width: 200px;
+      transition: all 0.2s;
+    }
+
+    .phone-selector select:hover {
+      border-color: #2563eb;
+    }
+
+    .phone-selector select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
     .campaigns-list {
@@ -838,6 +906,7 @@ import { Subscription } from 'rxjs';
 export class CampaignsComponent implements OnInit, OnDestroy {
   campaigns: Campaign[] = [];
   availableContacts: Contact[] = [];
+  availableNumbers: WhatsAppNumber[] = [];
   selectedCampaign: Campaign | null = null;
   templates: WhatsAppTemplate[] = [];
   selectedTemplate: WhatsAppTemplate | null = null;
@@ -846,6 +915,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   showCreateModal = false;
   contactSearch = '';
   useTemplate = false;
+  selectedPhoneNumberId: string = '';
   
   showImportContactsModal = false;
   selectedContactsFile: File | null = null;
@@ -855,6 +925,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   
   campaignForm = {
     name: '',
+    phone_number_id: '',
+    phone_number_name: '',
     message: '',
     template_name: '',
     template_parameters: [] as string[],
@@ -866,13 +938,21 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     private contactService: ContactService,
     private templateService: TemplateService,
     private pollingService: CampaignPollingService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
+    // Auto-seleccionar número si el usuario no es admin
+    const user = this.authService.getCurrentUser();
+    if (user && user.role !== 'admin' && user.phone_number_id) {
+      this.selectedPhoneNumberId = user.phone_number_id;
+    }
+    
     this.loadCampaigns();
     this.loadContacts();
     this.loadTemplates();
+    this.loadAvailableNumbers();
     this.startAutoRefresh();
   }
 
@@ -901,12 +981,17 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   }
 
   loadCampaigns() {
-    this.campaignService.getCampaigns().subscribe({
+    const phoneNumberId = this.selectedPhoneNumberId || null;
+    this.campaignService.getCampaigns(1, 20, phoneNumberId).subscribe({
       next: (response) => {
         this.campaigns = response.data;
       },
       error: (error) => console.error('Error loading campaigns:', error)
     });
+  }
+
+  onPhoneNumberFilterChange() {
+    this.loadCampaigns();
   }
 
   loadContacts() {
@@ -925,6 +1010,27 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       },
       error: (error) => console.error('Error loading templates:', error)
     });
+  }
+
+  loadAvailableNumbers() {
+    this.campaignService.getAvailableNumbers().subscribe({
+      next: (response) => {
+        this.availableNumbers = response.numbers;
+        if (this.availableNumbers.length > 0 && !this.campaignForm.phone_number_id) {
+          this.campaignForm.phone_number_id = this.availableNumbers[0].id;
+          this.campaignForm.phone_number_name = this.availableNumbers[0].name;
+        }
+      },
+      error: (error) => console.error('Error loading available numbers:', error)
+    });
+  }
+
+  onPhoneNumberSelected(event: any) {
+    const numberId = event.target.value;
+    const number = this.availableNumbers.find(n => n.id === numberId);
+    if (number) {
+      this.campaignForm.phone_number_name = number.name;
+    }
   }
 
   onTemplateSelected(event: any) {
@@ -977,11 +1083,13 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   canCreateCampaign(): boolean {
     if (this.useTemplate) {
       return !!(this.campaignForm.name && 
+                this.campaignForm.phone_number_id &&
                 this.campaignForm.template_name && 
                 this.campaignForm.contact_ids.length > 0 &&
                 this.campaignForm.template_parameters.every(p => p.trim() !== ''));
     } else {
       return !!(this.campaignForm.name && 
+                this.campaignForm.phone_number_id &&
                 this.campaignForm.message && 
                 this.campaignForm.contact_ids.length > 0);
     }
@@ -1015,6 +1123,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     this.showCreateModal = false;
     this.campaignForm = { 
       name: '', 
+      phone_number_id: this.availableNumbers.length > 0 ? this.availableNumbers[0].id : '',
+      phone_number_name: this.availableNumbers.length > 0 ? this.availableNumbers[0].name : '',
       message: '', 
       template_name: '',
       template_parameters: [],

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface Message {
   id: number;
@@ -19,6 +20,8 @@ export interface Message {
 export interface Campaign {
   id: number;
   name: string;
+  phone_number_id?: string;
+  phone_number_name?: string;
   message: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   total_contacts: number;
@@ -29,6 +32,13 @@ export interface Campaign {
   completed_at?: string;
   created_at: string;
   messages?: Message[];
+}
+
+export interface WhatsAppNumber {
+  id: string;
+  name: string;
+  phone: string;
+  access_token?: string;
 }
 
 export interface CampaignStatistics {
@@ -48,12 +58,47 @@ export interface CampaignStatistics {
 export class CampaignService {
   private apiUrl = `${environment.apiUrl}/campaigns`;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
 
-  getCampaigns(page: number = 1, perPage: number = 20): Observable<any> {
-    const params = new HttpParams()
+  getAvailableNumbers(): Observable<{ success: boolean; numbers: WhatsAppNumber[] }> {
+    return this.http.get<{ success: boolean; numbers: WhatsAppNumber[] }>(`${this.apiUrl}/available-numbers`)
+      .pipe(
+        map(response => {
+          const user = this.authService.getCurrentUser();
+          
+          // Si es admin, devolver todos los números
+          if (user && user.role === 'admin') {
+            return response;
+          }
+          
+          // Si es usuario normal, filtrar solo su número asignado
+          if (user && user.phone_number_id) {
+            return {
+              success: response.success,
+              numbers: response.numbers.filter(n => n.id === user.phone_number_id)
+            };
+          }
+          
+          // Si no hay usuario o no tiene número, devolver array vacío
+          return {
+            success: response.success,
+            numbers: []
+          };
+        })
+      );
+  }
+
+  getCampaigns(page: number = 1, perPage: number = 20, phoneNumberId?: string | null): Observable<any> {
+    let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
+
+    if (phoneNumberId) {
+      params = params.set('phone_number_id', phoneNumberId);
+    }
 
     return this.http.get(this.apiUrl, { params });
   }
