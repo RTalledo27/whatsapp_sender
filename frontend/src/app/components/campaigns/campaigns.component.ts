@@ -17,7 +17,11 @@ import { Subscription } from 'rxjs';
       <div class="header">
         <h1>Campañas de Envío</h1>
         <button class="btn btn-primary" (click)="showCreateModal = true">
-          ➕ Nueva Campaña
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Nueva Campaña
         </button>
       </div>
 
@@ -72,15 +76,31 @@ import { Subscription } from 'rxjs';
 
           <div class="campaign-actions">
             <button class="btn btn-small" (click)="viewDetails(campaign)">
-              📊 Ver Detalles
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <path d="M3 3h7v7H3z"/>
+                <path d="M14 3h7v7h-7z"/>
+                <path d="M14 14h7v7h-7z"/>
+                <path d="M3 14h7v7H3z"/>
+              </svg>
+              Ver Detalles
             </button>
             <button class="btn btn-small" 
                     *ngIf="campaign.failed_count > 0"
                     (click)="retryFailed(campaign)">
-              🔄 Reintentar Fallidos
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2-8.83"/>
+              </svg>
+              Reintentar Fallidos
             </button>
             <button class="btn btn-small btn-danger" (click)="deleteCampaign(campaign)">
-              🗑️ Eliminar
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+              Eliminar
             </button>
           </div>
         </div>
@@ -95,7 +115,12 @@ import { Subscription } from 'rxjs';
         <div class="modal-content large">
           <div class="modal-header">
             <h2>Nueva Campaña de Envío</h2>
-            <button class="close-btn" (click)="closeCreateModal()">✖</button>
+            <button class="close-btn" (click)="closeCreateModal()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
           <div class="modal-body">
             <div class="form-group">
@@ -153,7 +178,12 @@ import { Subscription } from 'rxjs';
                 <small>{{ campaignForm.message.length }} caracteres</small>
               </div>
               <div class="alert alert-warning">
-                ⚠️ Los mensajes de texto solo funcionan con números que ya han conversado contigo en las últimas 24 horas.
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3.05h16.94a2 2 0 0 0 1.71-3.05L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Los mensajes de texto solo funcionan con números que ya han conversado contigo en las últimas 24 horas.
               </div>
             </div>
 
@@ -181,7 +211,12 @@ import { Subscription } from 'rxjs';
                   <strong>{{ campaignForm.contact_ids.length }}</strong> contactos seleccionados
                   <button class="btn-link" (click)="selectAll()">Seleccionar todos</button>
                   <button class="btn-link" (click)="deselectAll()">Deseleccionar todos</button>
-                  <button class="btn-link" (click)="showImportContactsModal = true">📁 Importar desde Excel</button>
+                  <button class="btn-link" (click)="showImportContactsModal = true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Importar desde Excel
+                  </button>
                 </div>
               </div>
             </div>
@@ -191,7 +226,10 @@ import { Subscription } from 'rxjs';
             <button class="btn btn-primary" 
                     (click)="createCampaign()"
                     [disabled]="!canCreateCampaign()">
-              🚀 Crear y Enviar
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                <polygon points="2 21 23 12 2 3 2 10 19 12 2 14 2 21"/>
+              </svg>
+              Crear y Enviar
             </button>
           </div>
         </div>
@@ -202,7 +240,12 @@ import { Subscription } from 'rxjs';
         <div class="modal-content">
           <div class="modal-header">
             <h2>Importar Contactos desde Excel</h2>
-            <button class="close-btn" (click)="closeImportContactsModal()">✖</button>
+            <button class="close-btn" (click)="closeImportContactsModal()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
           <div class="modal-body">
             <div class="file-upload">
@@ -218,8 +261,19 @@ import { Subscription } from 'rxjs';
             <div *ngIf="importContactsResult" class="import-result">
               <div class="alert" [class.alert-success]="importContactsResult.success" 
                    [class.alert-error]="!importContactsResult.success">
-                <strong *ngIf="importContactsResult.success">✅ Importación exitosa:</strong>
-                <strong *ngIf="!importContactsResult.success">❌ Error en importación:</strong>
+                <strong *ngIf="importContactsResult.success">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Importación exitosa:
+                </strong>
+                <strong *ngIf="!importContactsResult.success">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Error en importación:
+                </strong>
                 <p *ngIf="importContactsResult.success">
                   {{ importContactsResult.found }} contactos encontrados de {{ importContactsResult.total_in_excel }} en el Excel
                   <span *ngIf="importContactsResult.not_found > 0">
@@ -250,7 +304,12 @@ import { Subscription } from 'rxjs';
         <div class="modal-content large">
           <div class="modal-header">
             <h2>Detalles de Campaña: {{ selectedCampaign.name }}</h2>
-            <button class="close-btn" (click)="selectedCampaign = null">✖</button>
+            <button class="close-btn" (click)="selectedCampaign = null">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
           <div class="modal-body">
             <div class="details-grid">
