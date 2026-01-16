@@ -182,7 +182,6 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: calc(100vh - 250px);
 }
 
 /* Scrollbar para lista de conversaciones */

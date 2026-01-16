@@ -246,14 +246,18 @@ import { Subscription } from 'rxjs';
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+            <button class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="isCreatingCampaign">Cancelar</button>
             <button class="btn btn-primary" 
                     (click)="createCampaign()"
-                    [disabled]="!canCreateCampaign()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                    [disabled]="!canCreateCampaign() || isCreatingCampaign">
+              <svg *ngIf="!isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
                 <polygon points="2 21 23 12 2 3 2 10 19 12 2 14 2 21"/>
               </svg>
-              Crear y Enviar
+              <svg *ngIf="isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle; animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                <path d="M12 2 A10 10 0 0 1 22 12" opacity="0.75"/>
+              </svg>
+              {{ isCreatingCampaign ? 'Enviando...' : 'Crear y Enviar' }}
             </button>
           </div>
         </div>
@@ -901,6 +905,20 @@ import { Subscription } from 'rxjs';
       padding: 10px;
       border-bottom: 1px solid #e5e7eb;
     }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   `]
 })
 export class CampaignsComponent implements OnInit, OnDestroy {
@@ -916,6 +934,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   contactSearch = '';
   useTemplate = false;
   selectedPhoneNumberId: string = '';
+  isCreatingCampaign = false;
   
   showImportContactsModal = false;
   selectedContactsFile: File | null = null;
@@ -1096,20 +1115,30 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   }
 
   createCampaign() {
-    if (!this.canCreateCampaign()) return;
+    if (!this.canCreateCampaign() || this.isCreatingCampaign) return;
+
+    this.isCreatingCampaign = true;
 
     this.campaignService.createCampaign(this.campaignForm).subscribe({
       next: (response) => {
         const campaignId = response.data.id;
         
+        this.isCreatingCampaign = false;
         this.closeCreateModal();
         this.loadCampaigns();
         
         // Iniciar polling automático para esta campaña
         this.pollingService.startPolling(campaignId, 2000);
+        
+        this.notificationService.show({
+          type: 'success',
+          title: 'Campaña creada',
+          message: 'La campaña se está enviando correctamente'
+        });
       },
       error: (error) => {
         console.error('Error creating campaign:', error);
+        this.isCreatingCampaign = false;
         this.notificationService.show({
           type: 'error',
           title: 'Error',
@@ -1121,6 +1150,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
   closeCreateModal() {
     this.showCreateModal = false;
+    this.isCreatingCampaign = false;
     this.campaignForm = { 
       name: '', 
       phone_number_id: this.availableNumbers.length > 0 ? this.availableNumbers[0].id : '',

@@ -24,9 +24,6 @@ export class CampaignPollingService {
   
   public campaignStatuses$ = this.campaignStatuses.asObservable();
 
-  // Mapa de notificaciones activas por campaña
-  private notificationIds = new Map<number, string>();
-
   constructor(
     private http: HttpClient,
     private notificationService: NotificationService
@@ -38,25 +35,6 @@ export class CampaignPollingService {
       return;
     }
 
-    // Crear notificación persistente con botón para ir a campañas
-    const notificationId = this.notificationService.show({
-      type: 'info',
-      title: '📤 Enviando mensajes',
-      message: 'Preparando envío...',
-      progress: 0,
-      persistent: true,
-      actions: [
-        {
-          label: 'Ver Campañas',
-          callback: () => {
-            window.location.hash = '/campaigns';
-          }
-        }
-      ]
-    });
-
-    this.notificationIds.set(campaignId, notificationId);
-
     const subscription = interval(intervalMs)
       .pipe(
         switchMap(() => this.http.get<CampaignStatus>(`${environment.apiUrl}/campaigns/${campaignId}`))
@@ -64,10 +42,19 @@ export class CampaignPollingService {
       .subscribe({
         next: (campaign) => {
           this.updateCampaignStatus(campaign);
-          this.updateNotification(campaign, notificationId);
 
-          // Si la campaña terminó, detener polling
+          // Si la campaña terminó, mostrar notificación solo si fue exitosa
           if (campaign.status === 'completed' || campaign.status === 'failed') {
+            // Solo notificar si fue completada exitosamente
+            if (campaign.status === 'completed') {
+              this.notificationService.show({
+                type: 'success',
+                title: '✅ Envío completado',
+                message: `${campaign.name}: ${campaign.sent_count} mensajes enviados${campaign.failed_count > 0 ? ', ' + campaign.failed_count + ' fallidos' : ''}`,
+                persistent: false
+              });
+            }
+            
             this.stopPolling(campaignId);
           }
         },
@@ -91,72 +78,12 @@ export class CampaignPollingService {
       current.delete(campaignId);
       this.activeCampaigns.next(current);
     }
-
-    // Obtener el estado final
-    const finalStatus = this.campaignStatuses.value.get(campaignId);
-    const notificationId = this.notificationIds.get(campaignId);
-
-    if (notificationId && finalStatus) {
-      // Actualizar notificación a estado final
-      if (finalStatus.status === 'completed') {
-        this.notificationService.update(notificationId, {
-          type: 'success',
-          title: '✅ Envío completado',
-          message: `${finalStatus.sent_count} mensajes enviados, ${finalStatus.failed_count} fallidos`,
-          progress: 100,
-          persistent: false,
-          actions: [
-            {
-              label: 'Ver Detalles',
-              callback: () => {
-                window.location.hash = '/campaigns';
-                this.notificationService.remove(notificationId);
-              }
-            }
-          ]
-        });
-      } else if (finalStatus.status === 'failed') {
-        this.notificationService.update(notificationId, {
-          type: 'error',
-          title: '❌ Envío fallido',
-          message: `Error en la campaña "${finalStatus.name}"`,
-          persistent: false,
-          actions: [
-            {
-              label: 'Ver Detalles',
-              callback: () => {
-                window.location.hash = '/campaigns';
-                this.notificationService.remove(notificationId);
-              }
-            }
-          ]
-        });
-      }
-
-      // Eliminar después de mostrar resultado (solo si no interactúa)
-      setTimeout(() => {
-        this.notificationService.remove(notificationId);
-        this.notificationIds.delete(campaignId);
-      }, 5000);
-    }
   }
 
   private updateCampaignStatus(campaign: CampaignStatus) {
     const current = this.campaignStatuses.value;
     current.set(campaign.id, campaign);
     this.campaignStatuses.next(new Map(current));
-  }
-
-  private updateNotification(campaign: CampaignStatus, notificationId: string) {
-    const progress = campaign.total_contacts > 0
-      ? Math.round(((campaign.sent_count + campaign.failed_count) / campaign.total_contacts) * 100)
-      : 0;
-
-    this.notificationService.update(notificationId, {
-      title: `📤 Enviando: ${campaign.name}`,
-      message: `${campaign.sent_count} enviados, ${campaign.failed_count} fallidos, ${campaign.pending_count} pendientes`,
-      progress
-    });
   }
 
   getCampaignStatus(campaignId: number): CampaignStatus | undefined {
@@ -166,7 +93,5 @@ export class CampaignPollingService {
   stopAllPolling() {
     this.activeCampaigns.value.forEach(sub => sub.unsubscribe());
     this.activeCampaigns.next(new Map());
-    this.notificationIds.forEach(id => this.notificationService.remove(id));
-    this.notificationIds.clear();
   }
 }
