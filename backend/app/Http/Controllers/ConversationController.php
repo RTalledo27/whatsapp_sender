@@ -26,23 +26,27 @@ class ConversationController extends Controller
     {
         $search = $request->query('search', '');
         $perPage = $request->query('per_page', 20);
+        $phoneNumberId = $request->query('phone_number_id');
         
         $conversations = Contact::select('contacts.*')
             ->join('messages', 'contacts.id', '=', 'messages.contact_id')
+            ->when($phoneNumberId, function($query, $phoneNumberId) {
+                return $query->where('messages.phone_number_id', $phoneNumberId);
+            })
             ->selectRaw('COUNT(messages.id) as total_messages')
             ->selectRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) as last_message_at')
             ->selectRaw('SUM(CASE WHEN messages.direction = "inbound" AND messages.read_at IS NULL THEN 1 ELSE 0 END) as unread_count')
             ->selectRaw('(
                 SELECT COALESCE(message_content, message) 
                 FROM messages m2 
-                WHERE m2.contact_id = contacts.id 
+                WHERE m2.contact_id = contacts.id' . ($phoneNumberId ? ' AND m2.phone_number_id = "' . $phoneNumberId . '"' : '') . ' 
                 ORDER BY COALESCE(m2.message_timestamp, m2.created_at) DESC 
                 LIMIT 1
             ) as last_message')
             ->selectRaw('(
                 SELECT direction 
                 FROM messages m3 
-                WHERE m3.contact_id = contacts.id 
+                WHERE m3.contact_id = contacts.id' . ($phoneNumberId ? ' AND m3.phone_number_id = "' . $phoneNumberId . '"' : '') . ' 
                 ORDER BY COALESCE(m3.message_timestamp, m3.created_at) DESC 
                 LIMIT 1
             ) as last_message_direction')
@@ -67,16 +71,28 @@ class ConversationController extends Controller
     {
         $contact = Contact::findOrFail($contactId);
         $perPage = $request->query('per_page', 50);
+        $phoneNumberId = $request->query('phone_number_id');
         
-        $messages = Message::where('contact_id', $contactId)
+        $messagesQuery = Message::where('contact_id', $contactId);
+        
+        if ($phoneNumberId) {
+            $messagesQuery->where('phone_number_id', $phoneNumberId);
+        }
+        
+        $messages = $messagesQuery
             ->orderByRaw('COALESCE(message_timestamp, created_at) DESC')
             ->paginate($perPage);
         
         // Marcar mensajes como leídos automáticamente
-        Message::where('contact_id', $contactId)
+        $updateQuery = Message::where('contact_id', $contactId)
             ->where('direction', 'inbound')
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->whereNull('read_at');
+        
+        if ($phoneNumberId) {
+            $updateQuery->where('phone_number_id', $phoneNumberId);
+        }
+        
+        $updateQuery->update(['read_at' => now()]);
         
         return response()->json([
             'contact' => $contact,
@@ -161,12 +177,19 @@ class ConversationController extends Controller
     {
         $request->validate([
             'message' => 'nullable|string|max:4096',
-            'file' => 'nullable|file|max:102400|mimes:jpg,jpeg,png,gif,webp,mp4,mp3,ogg,opus,webm,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv'
+            'file' => 'nullable|file|max:102400|mimes:jpg,jpeg,png,gif,webp,mp4,mp3,ogg,opus,webm,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv',
+            'phone_number_id' => 'nullable|string'
         ]);
 
         $contact = Contact::findOrFail($contactId);
         $messageText = trim((string) $request->input('message', ''));
         $hasFile = $request->hasFile('file');
+        
+        // Obtener phone_number_id del request o usar el por defecto
+        $phoneNumberId = $request->input('phone_number_id', config('services.whatsapp.phone_number_id'));
+        
+        // Crear instancia de WhatsAppService con el número seleccionado
+        $whatsappService = new WhatsAppService($phoneNumberId);
 
         if ($messageText === '' && !$hasFile) {
             return response()->json([
@@ -236,6 +259,7 @@ class ConversationController extends Controller
             'contact_id' => $contact->id,
             'campaign_id' => null,
             'phone_number' => $contact->phone_number,
+            'phone_number_id' => $phoneNumberId,
             'message' => $messageText !== '' ? $messageText : ($metadata['filename'] ?? ''),
             'message_content' => $messageText !== '' ? $messageText : null,
             'status' => 'pending',
@@ -248,7 +272,7 @@ class ConversationController extends Controller
 
         try {
             if ($file) {
-                $upload = $this->whatsappService->uploadMedia($file);
+                $upload = $whatsappService->uploadMedia($file);
                 if (!$upload['success'] || empty($upload['media_id'])) {
                     $message->update([
                         'status' => 'failed',
@@ -261,7 +285,7 @@ class ConversationController extends Controller
                     ], 500);
                 }
 
-                $result = $this->whatsappService->sendMediaMessage(
+                $result = $whatsappService->sendMediaMessage(
                     $contact->phone_number,
                     $messageType,
                     $upload['media_id'],
@@ -275,7 +299,7 @@ class ConversationController extends Controller
                     ]);
                 }
             } else {
-                $result = $this->whatsappService->sendMessage(
+                $result = $whatsappService->sendMessage(
                     $contact->phone_number,
                     $messageText
                 );

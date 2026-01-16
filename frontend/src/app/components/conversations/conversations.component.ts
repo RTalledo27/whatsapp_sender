@@ -1,16 +1,19 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, NavigationEnd } from '@angular/router';
 import { ConversationService, Conversation, ConversationDetail, Message } from '../../services/conversation.service';
+import { CampaignService, WhatsAppNumber } from '../../services/campaign.service';
+import { AuthService } from '../../services/auth.service';
 import { interval, Subscription } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-conversations',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './conversations.component.html',
-  styleUrls: ['./conversations.component.css']
+  styleUrls: ['./conversations.component.css', './conversations-dark.css']
 })
 export class ConversationsComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
@@ -19,6 +22,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   loading = false;
   loadingMessages = false;
   searchTerm = '';
+  
+  // Filtro por número de WhatsApp
+  availableNumbers: WhatsAppNumber[] = [];
+  selectedPhoneNumberId: string = '';
   
   // Input de mensaje
   newMessageText = '';
@@ -39,6 +46,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   
   // Polling para nuevos mensajes
   private pollingSubscription?: Subscription;
+  private navigationSubscription?: Subscription;
   pollingInterval = 5000; // 5 segundos
 
   // Estadísticas
@@ -50,17 +58,68 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     outgoing_today: 0
   };
 
-  constructor(private conversationService: ConversationService) {}
+  constructor(
+    private conversationService: ConversationService,
+    private campaignService: CampaignService,
+    private authService: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
+    // Si el usuario no es admin, auto-seleccionar su número ANTES de cargar
+    const user = this.authService.getCurrentUser();
+    if (user && user.role !== 'admin' && user.phone_number_id) {
+      this.selectedPhoneNumberId = user.phone_number_id;
+    }
+    
+    this.loadAvailableNumbers();
     this.loadConversations();
     this.loadStats();
     this.startPolling();
+
+    // Suscribirse a eventos de navegación para recargar cuando se vuelve a esta ruta
+    this.navigationSubscription = this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      filter((event: NavigationEnd) => event.url === '/conversations')
+    ).subscribe(() => {
+      // Recargar datos cuando volvemos a conversations
+      this.loadConversations();
+      this.loadStats();
+    });
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
     this.cleanupRecorder();
+    if (this.navigationSubscription) {
+      this.navigationSubscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Cargar números disponibles
+   */
+  loadAvailableNumbers(): void {
+    this.campaignService.getAvailableNumbers().subscribe({
+      next: (response) => {
+        if (response.success && response.numbers) {
+          this.availableNumbers = response.numbers;
+        }
+      },
+      error: (error) => {
+        console.error('Error cargando números:', error);
+      }
+    });
+  }
+
+  /**
+   * Cambiar número seleccionado
+   */
+  onPhoneNumberChange(): void {
+    this.currentPage = 1;
+    this.conversations = [];
+    this.selectedConversation = null;
+    this.loadConversations();
   }
 
   /**
@@ -73,7 +132,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       this.loading = true;
     }
 
-    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50)
+    const phoneNumberId = this.selectedPhoneNumberId || null;
+    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId)
       .subscribe({
         next: (response) => {
           if (append) {
@@ -115,7 +175,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   selectConversation(conversation: Conversation): void {
     this.loadingMessages = true;
-    this.conversationService.getConversation(conversation.id).subscribe({
+    const phoneNumberId = this.selectedPhoneNumberId || null;
+    this.conversationService.getConversation(conversation.id, 1, 50, phoneNumberId).subscribe({
       next: (detail) => {
         this.selectedConversation = detail;
         // Filtrar mensajes de tipo 'reaction' - solo mostrar mensajes normales
@@ -166,19 +227,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     this.pollingSubscription = interval(this.pollingInterval)
       .pipe(
         switchMap(() => {
-          // Si hay conversación seleccionada, actualizar mensajes
-          if (this.selectedConversation) {
-            return this.conversationService.getConversation(this.selectedConversation.contact.id)
-              .pipe(
-                switchMap(detail => {
-                  // Actualizar mensajes con estados reales, filtrando reacciones
-                  this.messages = detail.messages.data
-                    .filter(msg => msg.message_type !== 'reaction')
-                    .reverse();
-                  return this.conversationService.getStats();
-                })
-              );
-          }
+          // Solo actualizar stats, no recargar mensajes constantemente
           return this.conversationService.getStats();
         })
       )
@@ -187,9 +236,31 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           const hadNewMessages = stats.unread_messages > this.stats.unread_messages;
           this.stats = stats;
           
-          // Si hay nuevos mensajes, recargar conversaciones
+          // Si hay nuevos mensajes no leídos, recargar conversaciones (lista)
           if (hadNewMessages) {
             this.loadConversations();
+            
+            // Si la conversación seleccionada tiene nuevos mensajes, recargarla
+            if (this.selectedConversation) {
+              const phoneNumberId = this.selectedPhoneNumberId || null;
+              this.conversationService.getConversation(this.selectedConversation.contact.id, 1, 50, phoneNumberId)
+                .subscribe({
+                  next: (detail) => {
+                    const newMessages = detail.messages.data
+                      .filter(msg => msg.message_type !== 'reaction')
+                      .reverse();
+                    
+                    // Solo actualizar si hay cambios en la cantidad de mensajes
+                    if (newMessages.length !== this.messages.length) {
+                      this.messages = newMessages;
+                      setTimeout(() => this.scrollToBottom(), 100);
+                    }
+                  },
+                  error: (error) => {
+                    console.error('Error updating conversation:', error);
+                  }
+                });
+            }
           }
         },
         error: (error) => {
@@ -292,6 +363,18 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Actualizar la vista previa de una conversación en la lista
+   */
+  updateConversationPreview(contactId: number, messageText: string, direction: 'inbound' | 'outbound'): void {
+    const conversation = this.conversations.find(c => c.id === contactId);
+    if (conversation) {
+      conversation.last_message = messageText;
+      conversation.last_message_at = new Date().toISOString();
+      conversation.last_message_direction = direction;
+    }
+  }
+
+  /**
    * Enviar mensaje
    */
   sendMessage(): void {
@@ -309,10 +392,11 @@ export class ConversationsComponent implements OnInit, OnDestroy {
 
     this.sendingMessage = true;
     const contactId = this.selectedConversation.contact.id;
+    const phoneNumberId = this.selectedPhoneNumberId || null;
 
     const request$ = this.selectedFile
-      ? this.conversationService.sendFile(contactId, this.selectedFile, messageText || undefined)
-      : this.conversationService.sendMessage(contactId, messageText);
+      ? this.conversationService.sendFile(contactId, this.selectedFile, messageText || undefined, phoneNumberId)
+      : this.conversationService.sendMessage(contactId, messageText, phoneNumberId);
 
     request$.subscribe({
       next: (response) => {
@@ -334,6 +418,9 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         
         this.messages.push(newMessage);
         this.sendingMessage = false;
+        
+        // Actualizar la vista previa en la lista de conversaciones
+        this.updateConversationPreview(contactId, messageText || '[Archivo]', 'outbound');
         
         // Scroll al final
         setTimeout(() => this.scrollToBottom(), 100);

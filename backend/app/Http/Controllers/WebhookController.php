@@ -99,6 +99,9 @@ class WebhookController extends Controller
         $timestamp = $message['timestamp'] ?? null;
         $messageType = $message['type'] ?? 'text';
         
+        // Capturar phone_number_id del metadata
+        $phoneNumberId = $value['metadata']['phone_number_id'] ?? null;
+        
         if (!$phoneNumber || !$messageId) {
             Log::warning('Missing required fields in incoming message');
             return;
@@ -164,6 +167,7 @@ class WebhookController extends Controller
         // Guardar mensaje con URL local
         $savedMessage = Message::create([
             'contact_id' => $contact->id,
+            'phone_number_id' => $phoneNumberId,
             'campaign_id' => null,
             'message' => null,
             'status' => null,

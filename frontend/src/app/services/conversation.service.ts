@@ -78,13 +78,17 @@ export class ConversationService {
   /**
    * Obtener lista de conversaciones
    */
-  getConversations(search: string = '', page: number = 1, perPage: number = 20): Observable<any> {
+  getConversations(search: string = '', page: number = 1, perPage: number = 20, phoneNumberId: string | null = null): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
     
     if (search) {
       params = params.set('search', search);
+    }
+    
+    if (phoneNumberId) {
+      params = params.set('phone_number_id', phoneNumberId);
     }
 
     return this.http.get<any>(this.apiUrl, { params });
@@ -93,10 +97,14 @@ export class ConversationService {
   /**
    * Obtener mensajes de una conversación
    */
-  getConversation(contactId: number, page: number = 1, perPage: number = 50): Observable<ConversationDetail> {
-    const params = new HttpParams()
+  getConversation(contactId: number, page: number = 1, perPage: number = 50, phoneNumberId: string | null = null): Observable<ConversationDetail> {
+    let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
+    
+    if (phoneNumberId) {
+      params = params.set('phone_number_id', phoneNumberId);
+    }
 
     return this.http.get<ConversationDetail>(`${this.apiUrl}/${contactId}`, { params });
   }
@@ -130,15 +138,22 @@ export class ConversationService {
   /**
    * Enviar mensaje a un contacto
    */
-  sendMessage(contactId: number, message: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${contactId}/send`, { message });
+  sendMessage(contactId: number, message: string, phoneNumberId: string | null = null): Observable<any> {
+    const body: any = { message };
+    if (phoneNumberId) {
+      body.phone_number_id = phoneNumberId;
+    }
+    return this.http.post(`${this.apiUrl}/${contactId}/send`, body);
   }
 
-  sendFile(contactId: number, file: File, caption?: string): Observable<any> {
+  sendFile(contactId: number, file: File, caption?: string, phoneNumberId: string | null = null): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
     if (caption && caption.trim()) {
       formData.append('message', caption.trim());
+    }
+    if (phoneNumberId) {
+      formData.append('phone_number_id', phoneNumberId);
     }
     return this.http.post(`${this.apiUrl}/${contactId}/send`, formData);
   }

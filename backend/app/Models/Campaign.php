@@ -12,6 +12,8 @@ class Campaign extends Model
 
     protected $fillable = [
         'name',
+        'phone_number_id',
+        'phone_number_name',
         'message',
         'template_name',
         'template_parameters',

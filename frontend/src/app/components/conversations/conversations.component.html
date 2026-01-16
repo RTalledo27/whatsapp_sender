@@ -17,6 +17,19 @@
       <div class="stat-value">{{ stats.incoming_today }}</div>
       <div class="stat-label">Recibidos hoy</div>
     </div>
+    
+    <!-- Selector de número de WhatsApp (solo para admin) -->
+    <div class="stat-card phone-selector" *ngIf="availableNumbers.length > 1">
+      <select 
+        [(ngModel)]="selectedPhoneNumberId" 
+        (change)="onPhoneNumberChange()"
+        class="phone-number-select">
+        <option value="">Todos los números</option>
+        <option *ngFor="let number of availableNumbers" [value]="number.id">
+          {{ number.name }}
+        </option>
+      </select>
+    </div>
   </div>
 
   <!-- Layout principal: sidebar + chat -->
@@ -34,7 +47,7 @@
             class="search-input"
           />
           <button (click)="onSearch()" class="search-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="10" cy="10" r="7"/>
               <line x1="16" y1="16" x2="22" y2="22"/>
             </svg>
@@ -51,7 +64,11 @@
           (click)="selectConversation(conv)"
         >
           <div class="conv-avatar">
-            {{ conv.name.charAt(0).toUpperCase() }}
+            <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="48" cy="48" r="48" fill="#606263"/>
+              <circle cx="48" cy="26" r="14" fill="#ffffff"/>
+              <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+            </svg>
           </div>
           <div class="conv-info">
             <div class="conv-header">
@@ -109,7 +126,11 @@
         <div class="chat-header">
           <div class="contact-info">
             <div class="contact-avatar">
-              {{ selectedConversation.contact.name.charAt(0).toUpperCase() }}
+              <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="48" cy="48" r="48" fill="#606263"/>
+                <circle cx="48" cy="26" r="14" fill="#ffffff"/>
+                <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+              </svg>
             </div>
             <div>
               <h3>{{ selectedConversation.contact.name }}</h3>
