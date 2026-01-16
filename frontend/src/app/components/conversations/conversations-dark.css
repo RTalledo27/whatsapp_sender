@@ -1,0 +1,339 @@
+/* Estilos en modo oscuro para Conversations usando :host-context */
+:host-context(.dark-theme) .conversations-container {
+    background: #111828;
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .stats-header {
+    background: #1d1f1f;
+}
+
+:host-context(.dark-theme) .stat-card {
+    color: #d1d5db;
+}
+
+:host-context(.dark-theme) .stat-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+:host-context(.dark-theme) .stat-card.highlight {
+    background: rgba(0, 168, 132, 0.15);
+}
+
+:host-context(.dark-theme) .stat-label {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .stat-card.highlight .stat-label {
+    color: #10b981;
+}
+
+:host-context(.dark-theme) .sidebar-header {
+    border-bottom-color: #374151;
+}
+
+:host-context(.dark-theme) .sidebar-header {
+    padding: 1rem 1.25rem;
+    background: #161717;
+}
+
+:host-context(.dark-theme) .sidebar-header h2 {
+    color: #f3f4f6;
+}
+
+:host-context(.dark-theme) .conversations-sidebar {
+    background: #161717;
+    border-right: 1px solid #2e2f2f;
+}
+
+
+:host-context(.dark-theme) .search-box {
+    background: #161717;
+}
+
+:host-context(.dark-theme) .search-input {
+    background: #2e2f2f;
+    color: #e5e7eb;
+    border-color: #2e2f2f;
+}
+
+:host-context(.dark-theme) .search-input::placeholder {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .search-input:focus {
+    border-color: #2e2f2f;
+    background: #2e2f2f;
+    box-shadow: 0 0 0 3px rgba(46, 47, 47, 1);
+}
+
+:host-context(.dark-theme) .search-btn {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .search-btn:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:host-context(.dark-theme) .conversations-list {
+    background: #161717;
+}
+
+:host-context(.dark-theme) .conversation-item {
+    background: transparent;
+    color: #d1d5db;
+}
+
+:host-context(.dark-theme) .conversation-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+:host-context(.dark-theme) .conversation-item.active {
+    background: #2e2f2f;
+}
+
+:host-context(.dark-theme) .conversation-item.unread {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+:host-context(.dark-theme) .conv-name {
+    color: #f3f4f6;
+}
+
+:host-context(.dark-theme) .conv-time {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .conv-preview {
+    color: #d1d5db;
+}
+
+:host-context(.dark-theme) .conv-badge {
+    background: #3b82f6;
+    color: white;
+}
+
+:host-context(.dark-theme) .empty-state {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .loading-spinner,
+:host-context(.dark-theme) .loading-more {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .chat-area {
+    background: #161717;
+}
+
+:host-context(.dark-theme) .no-conversation {
+    background: #161717;
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .no-conversation svg {
+    stroke: rgba(229, 231, 235, 0.2);
+}
+
+:host-context(.dark-theme) .chat-header {
+    background: #161717;
+    border-bottom-color: #161717;
+}
+
+:host-context(.dark-theme) .chat-header h3 {
+    color: #f3f4f6;
+}
+
+:host-context(.dark-theme) .contact-phone {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .contact-avatar {
+    background: #3b82f6;
+    color: white;
+}
+
+:host-context(.dark-theme) .messages-container {
+    background: #161717;
+    background-image: 
+    linear-gradient(rgba(22, 23, 23, 0.93)),
+    url('https://static.whatsapp.net/rsrc.php/v4/y1/r/m5BEg2K4OR4.png');
+    background-size: 32%;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+:host-context(.dark-theme) .no-messages {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .message {
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .message-bubble {
+    background: transparent;
+}
+
+:host-context(.dark-theme) .message-inbound .message-bubble {
+    background: #1f2937;
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .message-outbound .message-bubble {
+    background: #144d37;
+    color: white;
+}
+
+:host-context(.dark-theme) .message-content {
+    color: inherit;
+}
+
+:host-context(.dark-theme) .message-image,
+:host-context(.dark-theme) .message-video,
+:host-context(.dark-theme) .message-sticker {
+    border-color: #374151;
+    background: #1f2937;
+}
+
+:host-context(.dark-theme) .message-audio {
+    background: rgba(0, 0, 0, 0.3);
+    color: inherit;
+}
+
+:host-context(.dark-theme) .message-document {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+:host-context(.dark-theme) .document-icon {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .document-name {
+    color: #f3f4f6;
+}
+
+:host-context(.dark-theme) .document-size {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .doc-btn {
+    color: #9ca3af;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #374151;
+}
+
+:host-context(.dark-theme) .doc-btn:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+:host-context(.dark-theme) .message-meta {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+:host-context(.dark-theme) .message-time {
+    color: inherit;
+}
+
+:host-context(.dark-theme) .media-caption {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+:host-context(.dark-theme) .message-reactions {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+:host-context(.dark-theme) .image-error {
+    background: #1f2937;
+    color: #9ca3af;
+    border-color: #374151;
+}
+
+:host-context(.dark-theme) .message-input-container {
+    background: #161717;
+}
+
+:host-context(.dark-theme) .recording-bar {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .recording-dot {
+    background: #ef4444;
+}
+
+:host-context(.dark-theme) .recording-stop {
+    background: #ef4444;
+    color: white;
+}
+
+:host-context(.dark-theme) .selected-file {
+    background: #1f2937;
+    border-color: #374151;
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .selected-file-name {
+    color: #f3f4f6;
+}
+
+:host-context(.dark-theme) .selected-file-size {
+    color: #9ca3af;
+}
+
+:host-context(.dark-theme) .remove-file {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+:host-context(.dark-theme) .remove-file:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+:host-context(.dark-theme) .input-wrapper {
+    background: #161717;
+}
+
+:host-context(.dark-theme) .attach-button,
+:host-context(.dark-theme) .voice-button {
+    color: #9ca3af;
+    background: #242626;
+    border-color: #242626;
+}
+
+:host-context(.dark-theme) .message-input {
+    background: #242626;
+    border-color: #242626;
+    color: #e5e7eb;
+}
+
+:host-context(.dark-theme) .message-input::placeholder {
+    color: #6b7280;
+}
+
+:host-context(.dark-theme) .message-input:focus {
+    border-color: #242626;
+    background: #242626;
+    box-shadow: 0 0 0 3px rgb(36 38 38);
+}
+
+:host-context(.dark-theme) .send-button {
+    background: #21c063;
+    color: white;
+}
+
+:host-context(.dark-theme) .send-button:hover:not(:disabled) {
+    background: #20bd61;
+}
+
+:host-context(.dark-theme) .send-button:disabled {
+    background: rgb(36 38 38);
+}
+
+:host-context(.dark-theme) .file-input-hidden {
+    display: none;
+}

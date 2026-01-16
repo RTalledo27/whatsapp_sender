@@ -14,12 +14,37 @@ class WhatsAppService
     private string $phoneNumberId;
     private string $version;
 
-    public function __construct()
+    public function __construct(?string $phoneNumberId = null, ?string $accessToken = null)
     {
         $this->apiUrl = config('services.whatsapp.api_url');
-        $this->accessToken = config('services.whatsapp.access_token');
-        $this->phoneNumberId = config('services.whatsapp.phone_number_id');
         $this->version = config('services.whatsapp.version');
+        
+        if ($phoneNumberId) {
+            $numberConfig = $this->getNumberConfig($phoneNumberId);
+            $this->phoneNumberId = $phoneNumberId;
+            $this->accessToken = $accessToken ?? $numberConfig['access_token'] ?? config('services.whatsapp.access_token');
+        } else {
+            $this->accessToken = config('services.whatsapp.access_token');
+            $this->phoneNumberId = config('services.whatsapp.phone_number_id');
+        }
+    }
+    
+    private function getNumberConfig(string $phoneNumberId): array
+    {
+        $availableNumbers = config('services.whatsapp.available_numbers', []);
+        foreach ($availableNumbers as $number) {
+            if ($number['id'] === $phoneNumberId) {
+                return $number;
+            }
+        }
+        return [];
+    }
+    
+    public static function getAvailableNumbers(): array
+    {
+        return array_filter(config('services.whatsapp.available_numbers', []), function($number) {
+            return !empty($number['id']);
+        });
     }
 
     /**

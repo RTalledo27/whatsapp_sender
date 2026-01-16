@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -15,26 +16,27 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        // Simple hardcoded user for now - you can change this to use database
-        $validEmail = env('ADMIN_EMAIL', 'admin@whatsapp.com');
-        $validPassword = env('ADMIN_PASSWORD', 'admin123');
+        $user = User::where('email', $request->email)->first();
 
-        if ($request->email !== $validEmail || $request->password !== $validPassword) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales son incorrectas.'],
             ]);
         }
 
         // Generate a simple token (in production, use Laravel Sanctum)
-        $token = base64_encode($validEmail . ':' . now()->timestamp);
+        $token = base64_encode($user->email . ':' . now()->timestamp);
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
             'user' => [
-                'id' => 1,
-                'name' => 'Administrador',
-                'email' => $validEmail,
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'phone_number_id' => $user->phone_number_id,
+                'phone_number_name' => $user->phone_number_name,
             ]
         ]);
     }
@@ -42,5 +44,38 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         return response()->json(['message' => 'Logged out successfully']);
+    }
+    
+    public function me(Request $request)
+    {
+        // Get user from token (simplified - in production use middleware)
+        $token = $request->bearerToken();
+        if (!$token) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $decoded = base64_decode($token);
+        $email = explode(':', $decoded)[0] ?? null;
+        
+        if (!$email) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = User::where('email', $email)->first();
+        
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'phone_number_id' => $user->phone_number_id,
+                'phone_number_name' => $user->phone_number_name,
+            ]
+        ]);
     }
 }

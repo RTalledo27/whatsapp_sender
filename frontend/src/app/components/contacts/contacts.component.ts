@@ -13,10 +13,17 @@ import { ContactService, Contact } from '../../services/contact.service';
         <h1>Gestión de Contactos</h1>
         <div class="actions">
           <button class="btn btn-secondary" (click)="showImportModal = true">
-            📁 Importar Excel
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            Importar Excel
           </button>
           <button class="btn btn-primary" (click)="showAddModal = true">
-            ➕ Agregar Contacto
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Agregar Contacto
           </button>
         </div>
       </div>
@@ -28,7 +35,13 @@ import { ContactService, Contact } from '../../services/contact.service';
           [(ngModel)]="searchTerm"
           (keyup.enter)="search()"
         />
-        <button class="btn btn-primary" (click)="search()">🔍 Buscar</button>
+        <button class="btn btn-primary" (click)="search()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+            <circle cx="10" cy="10" r="7"/>
+            <line x1="16" y1="16" x2="22" y2="22"/>
+          </svg>
+          Buscar
+        </button>
       </div>
 
       <div class="contacts-table" *ngIf="contacts.length > 0">
@@ -51,8 +64,20 @@ import { ContactService, Contact } from '../../services/contact.service';
               <td>{{ contact.email || '-' }}</td>
               <td>{{ contact.created_at | date:'short' }}</td>
               <td>
-                <button class="btn-icon" (click)="editContact(contact)" title="Editar">✏️</button>
-                <button class="btn-icon" (click)="deleteContact(contact)" title="Eliminar">🗑️</button>
+                <button class="btn-icon" (click)="editContact(contact)" title="Editar">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <button class="btn-icon" (click)="deleteContact(contact)" title="Eliminar">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                </button>
               </td>
             </tr>
           </tbody>

@@ -3,7 +3,7 @@
   <div class="stats-header">
     <div class="stat-card">
       <div class="stat-value">{{ stats.total_conversations }}</div>
-      <div class="stat-label">Conversaciones</div>
+      <div class="stat-label">Todos</div>
     </div>
     <div class="stat-card highlight">
       <div class="stat-value">{{ stats.unread_messages }}</div>
@@ -16,6 +16,19 @@
     <div class="stat-card">
       <div class="stat-value">{{ stats.incoming_today }}</div>
       <div class="stat-label">Recibidos hoy</div>
+    </div>
+    
+    <!-- Selector de número de WhatsApp (solo para admin) -->
+    <div class="stat-card phone-selector" *ngIf="availableNumbers.length > 1">
+      <select 
+        [(ngModel)]="selectedPhoneNumberId" 
+        (change)="onPhoneNumberChange()"
+        class="phone-number-select">
+        <option value="">Todos los números</option>
+        <option *ngFor="let number of availableNumbers" [value]="number.id">
+          {{ number.name }}
+        </option>
+      </select>
     </div>
   </div>
 
@@ -33,7 +46,12 @@
             placeholder="Buscar contacto..."
             class="search-input"
           />
-          <button (click)="onSearch()" class="search-btn">🔍</button>
+          <button (click)="onSearch()" class="search-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="10" cy="10" r="7"/>
+              <line x1="16" y1="16" x2="22" y2="22"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -46,7 +64,11 @@
           (click)="selectConversation(conv)"
         >
           <div class="conv-avatar">
-            {{ conv.name.charAt(0).toUpperCase() }}
+            <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="48" cy="48" r="48" fill="#606263"/>
+              <circle cx="48" cy="26" r="14" fill="#ffffff"/>
+              <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+            </svg>
           </div>
           <div class="conv-info">
             <div class="conv-header">
@@ -91,7 +113,9 @@
     <div class="chat-area">
       <!-- Sin conversación seleccionada -->
       <div class="no-conversation" *ngIf="!selectedConversation && !loadingMessages">
-        <div class="empty-icon">💬</div>
+        <svg class="empty-icon" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
         <h3>Selecciona una conversación</h3>
         <p>Elige un contacto de la lista para ver el historial de mensajes</p>
       </div>
@@ -102,7 +126,11 @@
         <div class="chat-header">
           <div class="contact-info">
             <div class="contact-avatar">
-              {{ selectedConversation.contact.name.charAt(0).toUpperCase() }}
+              <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="48" cy="48" r="48" fill="#606263"/>
+                <circle cx="48" cy="26" r="14" fill="#ffffff"/>
+                <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+              </svg>
             </div>
             <div>
               <h3>{{ selectedConversation.contact.name }}</h3>
@@ -164,7 +192,13 @@
                 <!-- Documento PDF y otros archivos -->
                 <div *ngIf="message.message_type === 'document' && message.media_url" class="message-document">
                   <div class="document-icon">
-                    <span class="doc-emoji">📄</span>
+                    <svg class="doc-emoji" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                      <polyline points="10 9 9 9 8 9"/>
+                    </svg>
                   </div>
                   <div class="document-info">
                     <div class="document-name">{{ message.metadata?.filename || 'Documento' }}</div>
@@ -172,10 +206,17 @@
                   </div>
                   <div class="document-actions">
                     <a [href]="message.media_url" target="_blank" class="doc-btn" title="Ver">
-                      👁️
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
                     </a>
                     <a [href]="message.media_url" [download]="message.metadata?.filename" class="doc-btn" title="Descargar">
-                      ⬇️
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
                     </a>
                   </div>
                 </div>
@@ -231,10 +272,21 @@
           </div>
           <div class="input-wrapper">
             <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage" class="file-input-hidden" />
-            <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">📎</button>
+            <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
             <button type="button" class="voice-button" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">
-              <span *ngIf="!isRecording">🎤</span>
-              <span *ngIf="isRecording">⏹</span>
+              <svg *ngIf="!isRecording" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="8" y1="22" x2="16" y2="22"/>
+              </svg>
+              <svg *ngIf="isRecording" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2"/>
+              </svg>
             </button>
             <textarea
               [(ngModel)]="newMessageText"
@@ -250,7 +302,10 @@
               class="send-button"
               [class.sending]="sendingMessage"
             >
-              <span *ngIf="!sendingMessage">📤</span>
+              <svg *ngIf="!sendingMessage" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
               <span *ngIf="sendingMessage" class="spinner-small"></span>
             </button>
           </div>

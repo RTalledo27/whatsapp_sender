@@ -6,6 +6,7 @@ use App\Jobs\SendWhatsAppMessageJob;
 use App\Models\Campaign;
 use App\Models\Contact;
 use App\Models\Message;
+use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,16 +14,32 @@ use Illuminate\Support\Facades\Validator;
 
 class CampaignController extends Controller
 {
+    public function getAvailableNumbers(): JsonResponse
+    {
+        $numbers = WhatsAppService::getAvailableNumbers();
+        return response()->json([
+            'success' => true,
+            'numbers' => $numbers,
+        ]);
+    }
+    
     /**
      * Listar todas las campañas
      */
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->input('per_page', 20);
+        $phoneNumberId = $request->input('phone_number_id');
 
-        $campaigns = Campaign::withCount('messages')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        $query = Campaign::withCount('messages')
+            ->orderBy('created_at', 'desc');
+
+        // Filtrar por phone_number_id si se proporciona
+        if ($phoneNumberId !== null && $phoneNumberId !== '') {
+            $query->where('phone_number_id', $phoneNumberId);
+        }
+
+        $campaigns = $query->paginate($perPage);
 
         return response()->json($campaigns);
     }
@@ -65,6 +82,8 @@ class CampaignController extends Controller
     {
         $rules = [
             'name' => 'required|string|max:255',
+            'phone_number_id' => 'required|string',
+            'phone_number_name' => 'nullable|string',
             'contact_ids' => 'required|array|min:1',
             'contact_ids.*' => 'exists:contacts,id',
         ];
@@ -94,6 +113,8 @@ class CampaignController extends Controller
             // Crear campaña
             $campaign = Campaign::create([
                 'name' => $request->name,
+                'phone_number_id' => $request->phone_number_id,
+                'phone_number_name' => $request->phone_number_name,
                 'message' => $request->message,
                 'template_name' => $request->template_name,
                 'template_parameters' => $request->template_parameters,
