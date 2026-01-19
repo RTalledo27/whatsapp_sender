@@ -177,7 +177,7 @@
 }
 
 :host-context(.dark-theme) .message-inbound .message-bubble {
-    background: #1f2937;
+    background: #242626;
     color: #e5e7eb;
 }
 

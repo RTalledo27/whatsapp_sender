@@ -15,24 +15,32 @@ class StatisticsController extends Controller
      */
     public function index(): JsonResponse
     {
+        $phoneNumberId = request('phone_number_id');
+        
         $stats = [
             'overview' => [
                 'total_contacts' => Contact::count(),
-                'total_campaigns' => Campaign::count(),
-                'total_messages' => Message::count(),
-                'messages_sent' => Message::where('status', 'sent')->count(),
-                'messages_failed' => Message::where('status', 'failed')->count(),
-                'messages_pending' => Message::where('status', 'pending')->count(),
+                'total_campaigns' => Campaign::byPhoneNumberId($phoneNumberId)->count(),
+                'total_messages' => Message::byPhoneNumberId($phoneNumberId)->count(),
+                'messages_sent' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'sent')->count(),
+                'messages_failed' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'failed')->count(),
+                'messages_pending' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'pending')->count(),
+                'customer_service_number' => env('WHATSAPP_PHONE_NUMBER'),
+                'customer_service_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+                'community_number' => env('WHATSAPP_ALT_PHONE_NUMBER'),
+                'community_id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID'),
             ],
-            'campaigns_status' => Campaign::select('status', DB::raw('count(*) as count'))
+            'campaigns_status' => Campaign::byPhoneNumberId($phoneNumberId)
+                ->select('status', DB::raw('count(*) as count'))
                 ->groupBy('status')
                 ->get(),
-            'recent_campaigns' => Campaign::orderBy('created_at', 'desc')
-                ->limit(5)
+            'recent_campaigns' => Campaign::byPhoneNumberId($phoneNumberId)
+                ->orderBy('created_at', 'desc')
+                ->limit(3)
                 ->get(),
-            'success_rate' => $this->calculateSuccessRate(),
-            'messages_by_day' => $this->getMessagesByDay(),
-            'top_contacts' => $this->getTopContacts(),
+            'success_rate' => $this->calculateSuccessRate($phoneNumberId),
+            'messages_by_day' => $this->getMessagesByDay($phoneNumberId),
+            'top_contacts' => $this->getTopContacts($phoneNumberId),
         ];
 
         return response()->json($stats);
@@ -41,15 +49,15 @@ class StatisticsController extends Controller
     /**
      * Calcular tasa de éxito general
      */
-    private function calculateSuccessRate(): float
+    private function calculateSuccessRate($phoneNumberId = null): float
     {
-        $total = Message::count();
+        $total = Message::byPhoneNumberId($phoneNumberId)->count();
         
         if ($total === 0) {
             return 0;
         }
 
-        $sent = Message::where('status', 'sent')->count();
+        $sent = Message::byPhoneNumberId($phoneNumberId)->where('status', 'sent')->count();
         
         return round(($sent / $total) * 100, 2);
     }
@@ -57,9 +65,10 @@ class StatisticsController extends Controller
     /**
      * Obtener mensajes por día (últimos 7 días)
      */
-    private function getMessagesByDay(): array
+    private function getMessagesByDay($phoneNumberId = null): array
     {
-        $messages = Message::where('created_at', '>=', now()->subDays(7))
+        $messages = Message::byPhoneNumberId($phoneNumberId)
+            ->where('created_at', '>=', now()->subDays(7))
             ->select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('count(*) as total'),
@@ -77,21 +86,26 @@ class StatisticsController extends Controller
     /**
      * Obtener contactos con más mensajes enviados
      */
-    private function getTopContacts(): array
+    private function getTopContacts($phoneNumberId = null): array
     {
-        $contacts = Contact::withCount([
-            'messages',
-            'messages as sent_messages' => function ($query) {
+        $query = Contact::withCount([
+            'messages' => function ($q) use ($phoneNumberId) {
+                if ($phoneNumberId) {
+                    $q->where('phone_number_id', $phoneNumberId);
+                }
+            },
+            'messages as sent_messages' => function ($query) use ($phoneNumberId) {
                 $query->where('status', 'sent');
+                if ($phoneNumberId) {
+                    $query->where('phone_number_id', $phoneNumberId);
+                }
             }
         ])
         ->having('messages_count', '>', 0)
         ->orderBy('messages_count', 'desc')
-        ->limit(10)
-        ->get()
-        ->toArray();
+        ->limit(10);
 
-        return $contacts;
+        return $query->get()->toArray();
     }
 
     /**

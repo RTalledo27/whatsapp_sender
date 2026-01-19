@@ -13,7 +13,7 @@ import { switchMap, filter } from 'rxjs/operators';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './conversations.component.html',
-  styleUrls: ['./conversations.component.css', './conversations-dark.css']
+  styleUrls: ['./conversations.component.css']
 })
 export class ConversationsComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
