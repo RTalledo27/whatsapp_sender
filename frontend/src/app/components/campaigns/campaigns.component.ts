@@ -246,14 +246,18 @@ import { Subscription } from 'rxjs';
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+            <button class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="isCreatingCampaign">Cancelar</button>
             <button class="btn btn-primary" 
                     (click)="createCampaign()"
-                    [disabled]="!canCreateCampaign()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                    [disabled]="!canCreateCampaign() || isCreatingCampaign">
+              <svg *ngIf="!isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
                 <polygon points="2 21 23 12 2 3 2 10 19 12 2 14 2 21"/>
               </svg>
-              Crear y Enviar
+              <svg *ngIf="isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle; animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                <path d="M12 2 A10 10 0 0 1 22 12" opacity="0.75"/>
+              </svg>
+              {{ isCreatingCampaign ? 'Enviando...' : 'Crear y Enviar' }}
             </button>
           </div>
         </div>
@@ -418,17 +422,17 @@ import { Subscription } from 'rxjs';
 
     .phone-selector label {
       font-weight: 500;
-      color: #374151;
+      color: var(--muted);
       white-space: nowrap;
       font-size: 0.9em;
     }
 
     .phone-selector select {
       padding: 8px 12px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--border);
       border-radius: 6px;
-      background-color: white;
-      color: #374151;
+      background-color: var(--panel-bg);
+      color: var(--muted);
       font-size: 0.9em;
       cursor: pointer;
       min-width: 200px;
@@ -436,13 +440,13 @@ import { Subscription } from 'rxjs';
     }
 
     .phone-selector select:hover {
-      border-color: #2563eb;
+      border-color: var(--accent-600);
     }
 
     .phone-selector select:focus {
       outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      border-color: var(--accent-600);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.06);
     }
 
     .campaigns-list {
@@ -451,10 +455,10 @@ import { Subscription } from 'rxjs';
     }
 
     .campaign-card {
-      background: white;
+      background: var(--panel-bg);
       border-radius: 8px;
       padding: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
     }
 
     .campaign-header {
@@ -466,21 +470,21 @@ import { Subscription } from 'rxjs';
 
     .campaign-header h3 {
       margin: 0 0 5px 0;
-      color: #111827;
+      color: var(--text);
     }
 
     .campaign-date {
-      color: #6b7280;
+      color: var(--muted-2);
       font-size: 0.9em;
       margin: 0;
     }
 
     .campaign-message {
       padding: 15px;
-      background: #f9fafb;
+      background: var(--card-bg);
       border-radius: 6px;
       margin-bottom: 15px;
-      color: #374151;
+      color: var(--muted);
     }
 
     .campaign-progress {
@@ -489,7 +493,7 @@ import { Subscription } from 'rxjs';
 
     .progress-bar-container {
       height: 24px;
-      background: #e5e7eb;
+      background: var(--border);
       border-radius: 12px;
       overflow: hidden;
       position: relative;
@@ -497,9 +501,9 @@ import { Subscription } from 'rxjs';
 
     .progress-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, #10b981, #34d399);
+      background: linear-gradient(90deg, var(--success), var(--primary));
       transition: width 0.5s ease;
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
     }
 
     .progress-text {
@@ -507,7 +511,7 @@ import { Subscription } from 'rxjs';
       text-align: center;
       margin-top: 5px;
       font-size: 0.85em;
-      color: #6b7280;
+      color: var(--muted-2);
       font-weight: 600;
     }
 
@@ -521,25 +525,25 @@ import { Subscription } from 'rxjs';
     .stat {
       text-align: center;
       padding: 15px;
-      background: #f9fafb;
+      background: var(--card-bg);
       border-radius: 6px;
     }
 
-    .stat.success { border-left: 4px solid #22c55e; }
-    .stat.error { border-left: 4px solid #ef4444; }
-    .stat.warning { border-left: 4px solid #f59e0b; }
+    .stat.success { border-left: 4px solid var(--success); }
+    .stat.error { border-left: 4px solid var(--danger); }
+    .stat.warning { border-left: 4px solid var(--warning); }
 
     .stat-value {
       display: block;
       font-size: 1.8em;
       font-weight: bold;
-      color: #111827;
+      color: var(--text);
     }
 
     .stat-label {
       display: block;
       font-size: 0.9em;
-      color: #6b7280;
+      color: var(--muted-2);
       margin-top: 5px;
     }
 
@@ -559,33 +563,33 @@ import { Subscription } from 'rxjs';
     }
 
     .btn-primary {
-      background: #3b82f6;
+      background: var(--accent);
       color: white;
     }
 
     .btn-primary:hover {
-      background: #2563eb;
+      background: var(--accent-600);
     }
 
     .btn-secondary {
-      background: #6b7280;
+      background: var(--muted-2);
       color: white;
     }
 
     .btn-small {
       padding: 8px 16px;
       font-size: 0.9em;
-      background: #e5e7eb;
-      color: #374151;
+      background: var(--border);
+      color: var(--muted);
     }
 
     .btn-small:hover {
-      background: #d1d5db;
+      background: rgba(0,0,0,0.04);
     }
 
     .btn-danger {
-      background: #fee2e2;
-      color: #dc2626;
+      background: var(--danger-bg);
+      color: var(--danger);
     }
 
     .btn-danger:hover {
@@ -600,23 +604,23 @@ import { Subscription } from 'rxjs';
     }
 
     .badge-success {
-      background: #dcfce7;
-      color: #16a34a;
+      background: var(--success-bg);
+      color: var(--success);
     }
 
     .badge-warning {
-      background: #fef3c7;
-      color: #d97706;
+      background: var(--warning-bg);
+      color: var(--warning);
     }
 
     .badge-info {
-      background: #dbeafe;
-      color: #2563eb;
+      background: var(--info-bg);
+      color: var(--accent);
     }
 
     .badge-error {
-      background: #fee2e2;
-      color: #dc2626;
+      background: var(--danger-bg);
+      color: var(--danger);
     }
 
     .badge-small {
@@ -627,8 +631,8 @@ import { Subscription } from 'rxjs';
     .empty-state {
       text-align: center;
       padding: 60px 20px;
-      color: #9ca3af;
-      background: white;
+      color: var(--muted-2);
+      background: var(--panel-bg);
       border-radius: 8px;
     }
 
@@ -646,7 +650,7 @@ import { Subscription } from 'rxjs';
     }
 
     .modal-content {
-      background: white;
+      background: var(--panel-bg);
       border-radius: 8px;
       width: 90%;
       max-width: 600px;
@@ -663,7 +667,7 @@ import { Subscription } from 'rxjs';
       justify-content: space-between;
       align-items: center;
       padding: 20px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
     }
 
     .modal-header h2 {
@@ -676,7 +680,7 @@ import { Subscription } from 'rxjs';
       border: none;
       font-size: 1.5em;
       cursor: pointer;
-      color: #6b7280;
+      color: var(--muted-2);
     }
 
     .modal-body {
@@ -688,7 +692,7 @@ import { Subscription } from 'rxjs';
       justify-content: flex-end;
       gap: 10px;
       padding: 20px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid var(--border);
     }
 
     .form-group {
@@ -699,7 +703,7 @@ import { Subscription } from 'rxjs';
       display: block;
       margin-bottom: 8px;
       font-weight: 600;
-      color: #374151;
+      color: var(--muted);
     }
 
     .form-group input,
@@ -708,14 +712,16 @@ import { Subscription } from 'rxjs';
     .form-select {
       width: 100%;
       padding: 10px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 1em;
       font-family: inherit;
+      background: var(--panel-bg);
+      color: var(--text);
     }
 
     .form-group small {
-      color: #6b7280;
+      color: var(--muted-2);
       font-size: 0.85em;
     }
 
@@ -733,24 +739,24 @@ import { Subscription } from 'rxjs';
     .template-preview {
       margin: 20px 0;
       padding: 15px;
-      background: #f0fdf4;
-      border: 1px solid #86efac;
+      background: var(--success-bg);
+      border: 1px solid rgba(134,239,172,0.6);
       border-radius: 6px;
     }
 
     .template-preview h4 {
       margin: 0 0 10px 0;
-      color: #16a34a;
+      color: var(--success);
       font-size: 1em;
     }
 
     .template-body {
-      background: white;
+      background: var(--panel-bg);
       padding: 15px;
       border-radius: 6px;
       white-space: pre-wrap;
       font-family: monospace;
-      color: #374151;
+      color: var(--muted);
     }
 
     .alert {
@@ -760,41 +766,42 @@ import { Subscription } from 'rxjs';
     }
 
     .alert-warning {
-      background: #fef3c7;
-      border: 1px solid #fbbf24;
-      color: #92400e;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning);
+      color: var(--warning);
     }
 
     .alert-success {
-      background: #dcfce7;
-      border: 1px solid #86efac;
-      color: #16a34a;
+      background: var(--success-bg);
+      border: 1px solid rgba(134,239,172,0.6);
+      color: var(--success);
     }
 
     .alert-error {
-      background: #fee2e2;
+      background: var(--danger-bg);
       border: 1px solid #fca5a5;
-      color: #dc2626;
+      color: var(--danger);
     }
 
     .file-upload {
       text-align: center;
       padding: 30px;
-      border: 2px dashed #d1d5db;
+      border: 2px dashed var(--border);
       border-radius: 8px;
       cursor: pointer;
       margin-bottom: 15px;
+      background: transparent;
     }
 
     .file-upload:hover {
-      border-color: #3b82f6;
-      background: #f9fafb;
+      border-color: var(--accent);
+      background: var(--card-bg);
     }
 
     .hint {
       margin-top: 10px;
       font-size: 0.9em;
-      color: #6b7280;
+      color: var(--muted-2);
     }
 
     .import-result {
@@ -808,7 +815,7 @@ import { Subscription } from 'rxjs';
     }
 
     .contacts-selection {
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
     }
@@ -817,7 +824,9 @@ import { Subscription } from 'rxjs';
       width: 100%;
       padding: 10px;
       border: none;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
     }
 
     .contacts-list {
@@ -827,11 +836,11 @@ import { Subscription } from 'rxjs';
 
     .contact-item {
       padding: 10px 15px;
-      border-bottom: 1px solid #f3f4f6;
+      border-bottom: 1px solid var(--bg);
     }
 
     .contact-item:hover {
-      background: #f9fafb;
+      background: var(--card-bg);
     }
 
     .contact-item label {
@@ -842,13 +851,13 @@ import { Subscription } from 'rxjs';
     }
 
     .contact-name {
-      color: #6b7280;
+      color: var(--muted-2);
       font-size: 0.9em;
     }
 
     .selection-summary {
       padding: 15px;
-      background: #f9fafb;
+      background: var(--card-bg);
       display: flex;
       align-items: center;
       gap: 15px;
@@ -857,7 +866,7 @@ import { Subscription } from 'rxjs';
     .btn-link {
       background: none;
       border: none;
-      color: #3b82f6;
+      color: var(--accent);
       cursor: pointer;
       text-decoration: underline;
       font-size: 0.9em;
@@ -872,7 +881,7 @@ import { Subscription } from 'rxjs';
 
     .detail-item {
       padding: 15px;
-      background: #f9fafb;
+      background: var(--card-bg);
       border-radius: 6px;
     }
 
@@ -890,16 +899,30 @@ import { Subscription } from 'rxjs';
     }
 
     th {
-      background: #f9fafb;
+      background: var(--card-bg);
       padding: 10px;
       text-align: left;
       font-weight: 600;
-      border-bottom: 2px solid #e5e7eb;
+      border-bottom: 2px solid var(--border);
     }
 
     td {
       padding: 10px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
   `]
 })
@@ -916,6 +939,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   contactSearch = '';
   useTemplate = false;
   selectedPhoneNumberId: string = '';
+  isCreatingCampaign = false;
   
   showImportContactsModal = false;
   selectedContactsFile: File | null = null;
@@ -1096,20 +1120,30 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   }
 
   createCampaign() {
-    if (!this.canCreateCampaign()) return;
+    if (!this.canCreateCampaign() || this.isCreatingCampaign) return;
+
+    this.isCreatingCampaign = true;
 
     this.campaignService.createCampaign(this.campaignForm).subscribe({
       next: (response) => {
         const campaignId = response.data.id;
         
+        this.isCreatingCampaign = false;
         this.closeCreateModal();
         this.loadCampaigns();
         
         // Iniciar polling automático para esta campaña
         this.pollingService.startPolling(campaignId, 2000);
+        
+        this.notificationService.show({
+          type: 'success',
+          title: 'Campaña creada',
+          message: 'La campaña se está enviando correctamente'
+        });
       },
       error: (error) => {
         console.error('Error creating campaign:', error);
+        this.isCreatingCampaign = false;
         this.notificationService.show({
           type: 'error',
           title: 'Error',
@@ -1121,6 +1155,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
   closeCreateModal() {
     this.showCreateModal = false;
+    this.isCreatingCampaign = false;
     this.campaignForm = { 
       name: '', 
       phone_number_id: this.availableNumbers.length > 0 ? this.availableNumbers[0].id : '',

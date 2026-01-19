@@ -68,6 +68,19 @@ import { AuthService } from './services/auth.service';
               <span>Conversaciones</span>
             </a>
           </li>
+          <li *ngIf="isAdmin()">
+            <a routerLink="/users" routerLinkActive="active">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+                <circle cx="7" cy="6" r="1"/>
+                <circle cx="7" cy="12" r="1"/>
+                <circle cx="7" cy="18" r="1"/>
+              </svg>
+              <span>Usuarios</span>
+            </a>
+          </li>
         </ul>
         <div class="sidebar-footer">
           <button *ngIf="authService.isAuthenticated()" class="logout-btn" (click)="logout()" title="Cerrar sesión">
@@ -531,5 +544,10 @@ export class AppComponent implements OnInit {
 
   cancelLogout(): void {
     this.showLogoutModal = false;
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user && user.role === 'admin';
   }
 }

@@ -11,6 +11,10 @@ export interface Statistics {
     messages_sent: number;
     messages_failed: number;
     messages_pending: number;
+    customer_service_number?: string;
+    customer_service_id?: string;
+    community_number?: string;
+    community_id?: string;
   };
   campaigns_status: Array<{ status: string; count: number }>;
   recent_campaigns: any[];
@@ -32,8 +36,12 @@ export class StatisticsService {
 
   constructor(private http: HttpClient) {}
 
-  getStatistics(): Observable<Statistics> {
-    return this.http.get<Statistics>(this.apiUrl);
+  getStatistics(phoneNumberId?: string | null): Observable<Statistics> {
+    let url = this.apiUrl;
+    if (phoneNumberId) {
+      url += `?phone_number_id=${phoneNumberId}`;
+    }
+    return this.http.get<Statistics>(url);
   }
 
   exportStatistics(): Observable<any> {

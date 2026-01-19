@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { StatisticsService, Statistics } from '../../services/statistics.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -9,6 +10,25 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
   template: `
     <div class="dashboard">
       <h1>Dashboard - Envío Masivo WhatsApp</h1>
+
+      <!-- Cards superiores personalizadas (solo para admins) -->
+      <div class="top-cards" *ngIf="isAdmin()">
+        <div class="top-card" [class.selected]="selectedPhoneNumberId === null" (click)="selectCard(null)">
+          <div class="top-card-title">General</div>
+        </div>
+        <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.customer_service_id" (click)="selectCard(statistics?.overview?.customer_service_id || null)">
+          <div class="top-card-title">Atención al Cliente</div>
+          <div class="top-card-content">
+            <span *ngIf="statistics?.overview?.customer_service_number">{{ statistics?.overview?.customer_service_number }}</span>
+          </div>
+        </div>
+        <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.community_id" (click)="selectCard(statistics?.overview?.community_id || null)">
+          <div class="top-card-title">Comunidad</div>
+          <div class="top-card-content">
+            <span *ngIf="statistics?.overview?.community_number">{{ statistics?.overview?.community_number }}</span>
+          </div>
+        </div>
+      </div>
 
       <div class="stats-grid" *ngIf="statistics">
         <div class="stat-card">
@@ -105,17 +125,23 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
         <div class="chart-container">
           <div class="bar-chart">
             <div class="bar-item" *ngFor="let day of statistics!.messages_by_day">
-              <div class="bar-label">{{ day.date | date:'shortDate' }}</div>
               <div class="bar-wrapper">
-                <div class="bar bar-sent" 
-                     [style.height.px]="(day.sent / getMaxMessages()) * 200">
-                  {{ day.sent }}
-                </div>
-                <div class="bar bar-failed" 
-                     [style.height.px]="(day.failed / getMaxMessages()) * 200">
-                  {{ day.failed }}
+                <div class="bar-stack">
+                  <div class="bar-column">
+                    <span class="bar-value-top" *ngIf="day.sent > 0">{{ day.sent }}</span>
+                    <div class="bar bar-sent" 
+                         [style.height.px]="(day.sent / getMaxMessages()) * 180">
+                    </div>
+                  </div>
+                  <div class="bar-column">
+                    <span class="bar-value-top" *ngIf="day.failed > 0">{{ day.failed }}</span>
+                    <div class="bar bar-failed" 
+                         [style.height.px]="(day.failed / getMaxMessages()) * 180">
+                    </div>
+                  </div>
                 </div>
               </div>
+              <div class="bar-label">{{ day.date | date:'dd/MM' }}</div>
             </div>
           </div>
           <div class="chart-legend">
@@ -137,6 +163,40 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
       padding: 20px;
     }
 
+    .top-cards {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .top-card {
+      background: #f3f4f6;
+      border-radius: 10px;
+      padding: 18px 28px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+      min-width: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border 0.2s;
+    }
+    .top-card.selected {
+      border: 2px solid #3b82f6;
+      background: #e0e7ff;
+    }
+    .top-card-title {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .top-card-content {
+      font-size: 0.95em;
+      color: #555;
+    }
+
     h1 {
       margin-bottom: 30px;
       color: #333;
@@ -150,39 +210,138 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
       margin-bottom: 40px;
+    }
+
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .stat-card {
       background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 18px;
+      transition: all 0.3s ease;
+      border-left: 4px solid #e5e7eb;
+      position: relative;
+      overflow: hidden;
     }
 
-    .stat-card.success { border-left: 4px solid #22c55e; }
-    .stat-card.error { border-left: 4px solid #ef4444; }
-    .stat-card.warning { border-left: 4px solid #f59e0b; }
-    .stat-card.info { border-left: 4px solid #3b82f6; }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      opacity: 0.05;
+      transform: translate(30%, -30%);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+    }
+
+    .stat-card.success { 
+      border-left-color: #22c55e;
+    }
+    
+    .stat-card.success::before {
+      background: #22c55e;
+    }
+
+    .stat-card.success .stat-icon {
+      color: #22c55e;
+    }
+
+    .stat-card.error { 
+      border-left-color: #ef4444;
+    }
+    
+    .stat-card.error::before {
+      background: #ef4444;
+    }
+
+    .stat-card.error .stat-icon {
+      color: #ef4444;
+    }
+
+    .stat-card.warning { 
+      border-left-color: #f59e0b;
+    }
+    
+    .stat-card.warning::before {
+      background: #f59e0b;
+    }
+
+    .stat-card.warning .stat-icon {
+      color: #f59e0b;
+    }
+
+    .stat-card.info { 
+      border-left-color: #3b82f6;
+    }
+    
+    .stat-card.info::before {
+      background: #3b82f6;
+    }
+
+    .stat-card.info .stat-icon {
+      color: #3b82f6;
+    }
+
+    .stat-card:not(.success):not(.error):not(.warning):not(.info) {
+      border-left-color: #8b5cf6;
+    }
+
+    .stat-card:not(.success):not(.error):not(.warning):not(.info)::before {
+      background: #8b5cf6;
+    }
+
+    .stat-card:not(.success):not(.error):not(.warning):not(.info) .stat-icon {
+      color: #8b5cf6;
+    }
 
     .stat-icon {
-      font-size: 2em;
+      flex-shrink: 0;
+      opacity: 0.9;
+    }
+
+    .stat-content {
+      flex: 1;
+      min-width: 0;
     }
 
     .stat-value {
-      font-size: 2em;
-      font-weight: bold;
-      color: #333;
+      font-size: 2.2em;
+      font-weight: 700;
+      color: #1f2937;
+      line-height: 1.2;
+      margin-bottom: 4px;
     }
 
     .stat-label {
       font-size: 0.9em;
-      color: #666;
+      color: #6b7280;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .recent-section {
@@ -255,22 +414,34 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
 
     .messages-chart {
       background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
     .chart-container {
-      margin-top: 20px;
+      margin-top: 30px;
     }
 
     .bar-chart {
       display: flex;
       justify-content: space-around;
       align-items: flex-end;
-      height: 220px;
+      height: 250px;
       padding: 20px;
-      border-bottom: 2px solid #e5e7eb;
+      background: #f9fafb;
+      border-radius: 8px;
+      position: relative;
+    }
+
+    .bar-chart::before {
+      content: '';
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      height: 1px;
+      background: #d1d5db;
     }
 
     .bar-item {
@@ -278,40 +449,70 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      position: relative;
     }
 
     .bar-wrapper {
       display: flex;
-      gap: 5px;
       align-items: flex-end;
       height: 200px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .bar-stack {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+      height: 100%;
+    }
+
+    .bar-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
     }
 
     .bar {
-      width: 30px;
-      min-height: 5px;
-      border-radius: 4px 4px 0 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      color: white;
+      width: 35px;
+      min-height: 4px;
+      border-radius: 6px 6px 0 0;
+      position: relative;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .bar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .bar-value-top {
+      color: #374151;
       font-size: 0.75em;
-      font-weight: bold;
-      padding-bottom: 5px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 2px 6px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      min-width: 24px;
+      text-align: center;
     }
 
     .bar-sent {
-      background: #22c55e;
+      background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
     }
 
     .bar-failed {
-      background: #ef4444;
+      background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
     }
 
     .bar-label {
-      font-size: 0.75em;
-      color: #666;
+      font-size: 0.8em;
+      color: #6b7280;
+      font-weight: 500;
       text-align: center;
     }
 
@@ -337,15 +538,26 @@ import { StatisticsService, Statistics } from '../../services/statistics.service
 })
 export class DashboardComponent implements OnInit {
   statistics: Statistics | null = null;
+  selectedPhoneNumberId: string | null = null;
 
-  constructor(private statisticsService: StatisticsService) {}
+  constructor(
+    private statisticsService: StatisticsService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit() {
+    // Si no es admin, cargar automáticamente las estadísticas filtradas por su phone_number_id
+    if (!this.isAdmin()) {
+      const user = this.authService.getCurrentUser();
+      if (user && user.phone_number_id) {
+        this.selectedPhoneNumberId = user.phone_number_id;
+      }
+    }
     this.loadStatistics();
   }
 
   loadStatistics() {
-    this.statisticsService.getStatistics().subscribe({
+    this.statisticsService.getStatistics(this.selectedPhoneNumberId).subscribe({
       next: (data) => {
         this.statistics = data;
       },
@@ -353,6 +565,16 @@ export class DashboardComponent implements OnInit {
         console.error('Error loading statistics:', error);
       }
     });
+  }
+
+  selectCard(phoneNumberId: string | null) {
+    this.selectedPhoneNumberId = phoneNumberId;
+    this.loadStatistics();
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user && user.role === 'admin';
   }
 
   getMaxMessages(): number {

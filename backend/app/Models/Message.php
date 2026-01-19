@@ -52,4 +52,12 @@ class Message extends Model
     {
         return $this->belongsTo(Contact::class);
     }
+
+    public function scopeByPhoneNumberId($query, $phoneNumberId)
+    {
+        if ($phoneNumberId) {
+            return $query->where('phone_number_id', $phoneNumberId);
+        }
+        return $query;
+    }
 }

@@ -37,6 +37,14 @@ class Campaign extends Model
         return $this->hasMany(Message::class);
     }
 
+    public function scopeByPhoneNumberId($query, $phoneNumberId)
+    {
+        if ($phoneNumberId) {
+            return $query->where('phone_number_id', $phoneNumberId);
+        }
+        return $query;
+    }
+
     public function updateCounts(): void
     {
         $this->sent_count = $this->messages()->where('status', 'sent')->count();
