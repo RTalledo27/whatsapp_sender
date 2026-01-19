@@ -1,10 +1,8 @@
 .login-container {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 2rem;
+  padding: 1.2rem;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -13,8 +11,7 @@
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   padding: 3rem;
-  width: 100%;
-  max-width: 420px;
+  width: 48%;
   animation: slideUp 0.4s ease-out;
 }
 
@@ -39,9 +36,15 @@
 }
 
 .logo {
-  font-size: 4rem;
-  display: inline-block;
-  animation: pulse 2s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo img {
+  width: 25%;
+  object-fit: contain;
+  display: block;
 }
 
 @keyframes pulse {
