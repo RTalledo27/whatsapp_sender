@@ -560,7 +560,6 @@ export class DashboardComponent implements OnInit {
     this.statisticsService.getStatistics(this.selectedPhoneNumberId).subscribe({
       next: (data) => {
         this.statistics = data;
-        console.log('Dashboard statistics loaded:', data);
       },
       error: (error) => {
         console.error('Error loading statistics:', error);
