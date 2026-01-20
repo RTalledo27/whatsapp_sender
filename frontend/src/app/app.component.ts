@@ -1,5 +1,6 @@
 import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { NotificationToastComponent } from './components/notification-toast/notification-toast.component';
 import { ThemeService } from './services/theme.service';
@@ -11,7 +12,7 @@ import { AuthService } from './services/auth.service';
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, NotificationToastComponent],
   template: `
     <app-notification-toast></app-notification-toast>
-    <div class="app-container" [class.dark-theme]="currentTheme === 'dark'">
+    <div class="app-container" [class.dark-theme]="currentTheme === 'dark'" [class.login-route]="isLoginRoute">
       <nav class="sidebar" [class.collapsed]="isCollapsed">
         <div class="logo">
           <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -140,6 +141,24 @@ import { AuthService } from './services/auth.service';
       display: flex;
       height: 100vh;
       background: #f3f4f6;
+    }
+
+    /* Ocultar sidebar y centrar contenido en la ruta de login */
+    .app-container.login-route .sidebar {
+      display: none;
+    }
+
+    .app-container.login-route {
+      background: #fffffff5;
+    }
+
+    .app-container.login-route .main-content {
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
     .sidebar {
@@ -497,6 +516,7 @@ import { AuthService } from './services/auth.service';
 export class AppComponent implements OnInit {
   title = 'WhatsApp Sender';
   isCollapsed = false;
+  isLoginRoute = false;
   currentTheme: 'light' | 'dark' = 'light';
   showLogoutModal = false;
 
@@ -515,6 +535,13 @@ export class AppComponent implements OnInit {
     this.themeService.theme$.subscribe(theme => {
       this.currentTheme = theme;
       console.log('AppComponent tema actualizado:', theme);
+      this.cdr.markForCheck();
+    });
+
+    // Detectar ruta de login para ocultar sidebar
+    this.isLoginRoute = this.router.url?.startsWith('/login');
+    this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(e => {
+      this.isLoginRoute = e.urlAfterRedirects.startsWith('/login');
       this.cdr.markForCheck();
     });
   }
