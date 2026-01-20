@@ -25,10 +25,10 @@ class StatisticsController extends Controller
                 'messages_sent' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'sent')->count(),
                 'messages_failed' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'failed')->count(),
                 'messages_pending' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'pending')->count(),
-                'customer_service_number' => env('WHATSAPP_PHONE_NUMBER'),
-                'customer_service_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
-                'community_number' => env('WHATSAPP_ALT_PHONE_NUMBER'),
-                'community_id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID'),
+                'customer_service_number' => env('WHATSAPP_PHONE_NUMBER', '51 922 902 212'),
+                'customer_service_id' => env('WHATSAPP_PHONE_NUMBER_ID', '1000703976450053'),
+                'community_number' => env('WHATSAPP_ALT_PHONE_NUMBER', '51 922 902 154'),
+                'community_id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID', '1003622752825127'),
             ],
             'campaigns_status' => Campaign::byPhoneNumberId($phoneNumberId)
                 ->select('status', DB::raw('count(*) as count'))
