@@ -390,6 +390,20 @@ class WebhookController extends Controller
 
         $message->save();
 
+        // Si el mensaje pertenece a una campaña, actualizar los contadores
+        if ($message->campaign_id) {
+            $campaign = $message->campaign;
+            if ($campaign) {
+                $campaign->updateCounts();
+                \Log::info('Campaign counts updated after message status change', [
+                    'campaign_id' => $campaign->id,
+                    'sent_count' => $campaign->sent_count,
+                    'failed_count' => $campaign->failed_count,
+                    'pending_count' => $campaign->pending_count
+                ]);
+            }
+        }
+
         Log::info('Message status updated', [
             'message_id' => $messageId,
             'status' => $statusType,
