@@ -78,6 +78,14 @@ class StatisticsController extends Controller
             ->groupBy('date')
             ->orderBy('date', 'desc')
             ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item['date'],
+                    'total' => (int) $item['total'],
+                    'sent' => (int) $item['sent'],
+                    'failed' => (int) $item['failed'],
+                ];
+            })
             ->toArray();
 
         return $messages;
