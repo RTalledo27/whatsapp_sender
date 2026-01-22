@@ -17,12 +17,13 @@ class StatisticsController extends Controller
     {
         $phoneNumberId = request('phone_number_id');
         
+        $sentStatuses = ['sent', 'delivered', 'read'];
         $stats = [
             'overview' => [
                 'total_contacts' => Contact::count(),
                 'total_campaigns' => Campaign::byPhoneNumberId($phoneNumberId)->count(),
                 'total_messages' => Message::byPhoneNumberId($phoneNumberId)->count(),
-                'messages_sent' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'sent')->count(),
+                'messages_sent' => Message::byPhoneNumberId($phoneNumberId)->whereIn('status', $sentStatuses)->count(),
                 'messages_failed' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'failed')->count(),
                 'messages_pending' => Message::byPhoneNumberId($phoneNumberId)->where('status', 'pending')->count(),
                 'customer_service_number' => env('WHATSAPP_PHONE_NUMBER', '51 922 902 212'),
@@ -38,8 +39,8 @@ class StatisticsController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->limit(3)
                 ->get(),
-            'success_rate' => $this->calculateSuccessRate($phoneNumberId),
-            'messages_by_day' => $this->getMessagesByDay($phoneNumberId),
+            'success_rate' => $this->calculateSuccessRate($phoneNumberId, $sentStatuses),
+            'messages_by_day' => $this->getMessagesByDay($phoneNumberId, $sentStatuses),
             'top_contacts' => $this->getTopContacts($phoneNumberId),
         ];
 
@@ -51,14 +52,13 @@ class StatisticsController extends Controller
      */
     private function calculateSuccessRate($phoneNumberId = null): float
     {
+        $args = func_get_args();
+        $sentStatuses = isset($args[1]) ? $args[1] : ['sent', 'delivered', 'read'];
         $total = Message::byPhoneNumberId($phoneNumberId)->count();
-        
         if ($total === 0) {
             return 0;
         }
-
-        $sent = Message::byPhoneNumberId($phoneNumberId)->where('status', 'sent')->count();
-        
+        $sent = Message::byPhoneNumberId($phoneNumberId)->whereIn('status', $sentStatuses)->count();
         return round(($sent / $total) * 100, 2);
     }
 
@@ -67,12 +67,15 @@ class StatisticsController extends Controller
      */
     private function getMessagesByDay($phoneNumberId = null): array
     {
+        $args = func_get_args();
+        $sentStatuses = isset($args[1]) ? $args[1] : ['sent', 'delivered', 'read'];
+        $statusesSql = implode('", "', $sentStatuses);
         $messages = Message::byPhoneNumberId($phoneNumberId)
             ->where('created_at', '>=', now()->subDays(7))
             ->select(
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('count(*) as total'),
-                DB::raw('sum(case when status = "sent" then 1 else 0 end) as sent'),
+                DB::raw("sum(case when status in (\"$statusesSql\") then 1 else 0 end) as sent"),
                 DB::raw('sum(case when status = "failed" then 1 else 0 end) as failed')
             )
             ->groupBy('date')
