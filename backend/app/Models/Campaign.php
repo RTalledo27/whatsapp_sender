@@ -47,7 +47,8 @@ class Campaign extends Model
 
     public function updateCounts(): void
     {
-        $this->sent_count = $this->messages()->where('status', 'sent')->count();
+        $sentStatuses = ['sent', 'delivered', 'read'];
+        $this->sent_count = $this->messages()->whereIn('status', $sentStatuses)->count();
         $this->failed_count = $this->messages()->where('status', 'failed')->count();
         $this->pending_count = $this->messages()->where('status', 'pending')->count();
         $this->save();

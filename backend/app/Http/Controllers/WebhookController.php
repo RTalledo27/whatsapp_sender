@@ -311,72 +311,35 @@ class WebhookController extends Controller
         $messageId = $status['id'] ?? null;
         $statusType = $status['status'] ?? null;
         $timestamp = $status['timestamp'] ?? null;
-
-        Log::debug('processMessageStatus called', [
-            'message_id' => $messageId,
-            'status_type' => $statusType,
-            'timestamp' => $timestamp,
-            'full_status' => $status
-        ]);
-
+        
         if (!$messageId || !$statusType) {
-            Log::warning('Missing messageId or statusType in status update', [
-                'message_id' => $messageId,
-                'status_type' => $statusType
-            ]);
             return;
         }
-
+        
         $message = Message::where('whatsapp_message_id', $messageId)->first();
-
+        
         if (!$message) {
-            Log::warning('Message not found for status update', [
-                'message_id' => $messageId,
-                'status_type' => $statusType,
-                'search_query' => ['whatsapp_message_id' => $messageId]
-            ]);
+            Log::warning('Message not found for status update', ['message_id' => $messageId]);
             return;
         }
-
-        Log::debug('Message found for status update', [
-            'db_id' => $message->id,
-            'whatsapp_message_id' => $message->whatsapp_message_id,
-            'current_status' => $message->status
-        ]);
-
+        
         // Actualizar estado según el tipo
         switch ($statusType) {
             case 'sent':
-                Log::info('Updating message status to sent', [
-                    'message_id' => $messageId,
-                    'db_id' => $message->id
-                ]);
                 $message->status = 'sent';
                 break;
-
+                
             case 'delivered':
-                Log::info('Updating message status to delivered', [
-                    'message_id' => $messageId,
-                    'db_id' => $message->id
-                ]);
                 $message->status = 'delivered';
                 $message->delivered_at = $timestamp ? date('Y-m-d H:i:s', $timestamp) : now();
                 break;
-
+                
             case 'read':
-                Log::info('Updating message status to read', [
-                    'message_id' => $messageId,
-                    'db_id' => $message->id
-                ]);
                 $message->status = 'read';
                 $message->read_at = $timestamp ? date('Y-m-d H:i:s', $timestamp) : now();
                 break;
-
+                
             case 'failed':
-                Log::info('Updating message status to failed', [
-                    'message_id' => $messageId,
-                    'db_id' => $message->id
-                ]);
                 $message->status = 'failed';
                 if (isset($status['errors'])) {
                     $message->error = json_encode($status['errors']);
@@ -387,28 +350,12 @@ class WebhookController extends Controller
                 }
                 break;
         }
-
+        
         $message->save();
-
-        // Si el mensaje pertenece a una campaña, actualizar los contadores
-        if ($message->campaign_id) {
-            $campaign = $message->campaign;
-            if ($campaign) {
-                $campaign->updateCounts();
-                \Log::info('Campaign counts updated after message status change', [
-                    'campaign_id' => $campaign->id,
-                    'sent_count' => $campaign->sent_count,
-                    'failed_count' => $campaign->failed_count,
-                    'pending_count' => $campaign->pending_count
-                ]);
-            }
-        }
-
+        
         Log::info('Message status updated', [
             'message_id' => $messageId,
-            'status' => $statusType,
-            'db_id' => $message->id,
-            'final_status' => $message->status
+            'status' => $statusType
         ]);
     }
     
