@@ -121,18 +121,30 @@ class ConversationController extends Controller
     /**
      * Obtener estadísticas de conversaciones
      */
-    public function stats()
+    public function stats(Request $request)
     {
+        $phoneNumberId = $request->query('phone_number_id');
+
+        $messageQuery = Message::query();
+        $contactQuery = Contact::query();
+
+        if ($phoneNumberId) {
+            $messageQuery->where('phone_number_id', $phoneNumberId);
+            $contactQuery->whereHas('messages', function ($query) use ($phoneNumberId) {
+                $query->where('phone_number_id', $phoneNumberId);
+            });
+        }
+
         $stats = [
-            'total_conversations' => Contact::has('messages')->count(),
-            'unread_messages' => Message::where('direction', 'inbound')
+            'total_conversations' => $contactQuery->has('messages')->count(),
+            'unread_messages' => (clone $messageQuery)->where('direction', 'inbound')
                 ->whereNull('read_at')
                 ->count(),
-            'messages_today' => Message::whereDate('message_timestamp', today())->count(),
-            'incoming_today' => Message::where('direction', 'inbound')
+            'messages_today' => (clone $messageQuery)->whereDate('message_timestamp', today())->count(),
+            'incoming_today' => (clone $messageQuery)->where('direction', 'inbound')
                 ->whereDate('message_timestamp', today())
                 ->count(),
-            'outgoing_today' => Message::where('direction', 'outbound')
+            'outgoing_today' => (clone $messageQuery)->where('direction', 'outbound')
                 ->whereDate('message_timestamp', today())
                 ->count(),
         ];
