@@ -20,13 +20,13 @@ return [
         'available_numbers' => [
             [
                 'id' => env('WHATSAPP_PHONE_NUMBER_ID'),
-                'name' => 'Número Atención Cliente',
+                'name' => 'Cobranza',
                 'phone' => env('WHATSAPP_PHONE_NUMBER', '51 922 902 212'),
                 'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
             ],
             [
                 'id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID'),
-                'name' => 'Número Comunidad',
+                'name' => 'Atención al Cliente',
                 'phone' => env('WHATSAPP_ALT_PHONE_NUMBER', '51 922 902 154'),
                 'access_token' => env('WHATSAPP_ALT_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
             ],

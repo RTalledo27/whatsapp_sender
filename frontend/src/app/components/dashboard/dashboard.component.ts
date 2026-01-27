@@ -17,13 +17,13 @@ import { AuthService } from '../../services/auth.service';
           <div class="top-card-title">General</div>
         </div>
         <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.customer_service_id" (click)="selectCard(statistics?.overview?.customer_service_id || null)">
-          <div class="top-card-title">Atención al Cliente</div>
+          <div class="top-card-title">Cobranza</div>
           <div class="top-card-content">
             <span *ngIf="statistics?.overview?.customer_service_number">{{ statistics?.overview?.customer_service_number }}</span>
           </div>
         </div>
         <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.community_id" (click)="selectCard(statistics?.overview?.community_id || null)">
-          <div class="top-card-title">Comunidad</div>
+          <div class="top-card-title">Atención al Cliente</div>
           <div class="top-card-content">
             <span *ngIf="statistics?.overview?.community_number">{{ statistics?.overview?.community_number }}</span>
           </div>
@@ -169,7 +169,7 @@ import { AuthService } from '../../services/auth.service';
       margin-bottom: 30px;
     }
     .top-card {
-      background: #f3f4f6;
+      background: var(--card-top-dash);
       border-radius: 10px;
       padding: 18px 28px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.07);
@@ -184,27 +184,27 @@ import { AuthService } from '../../services/auth.service';
     }
     .top-card.selected {
       border: 2px solid #3b82f6;
-      background: #e0e7ff;
+      background: var(--card-top-dash);
     }
     .top-card-title {
       font-size: 1.1em;
       font-weight: 600;
-      color: #374151;
+      color: var(--text-dash);
       margin-bottom: 6px;
     }
     .top-card-content {
       font-size: 0.95em;
-      color: #555;
+      color: var(--muted);
     }
 
     h1 {
       margin-bottom: 30px;
-      color: #333;
+      color: var(--text);
     }
 
     h2 {
       margin: 30px 0 20px;
-      color: #555;
+      color: var(--text-dash);
       font-size: 1.4em;
     }
 
@@ -228,7 +228,7 @@ import { AuthService } from '../../services/auth.service';
     }
 
     .stat-card {
-      background: white;
+      background: var(--panel-bg);
       padding: 24px;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -331,7 +331,7 @@ import { AuthService } from '../../services/auth.service';
     .stat-value {
       font-size: 2.2em;
       font-weight: 700;
-      color: #1f2937;
+      color: var(--text);
       line-height: 1.2;
       margin-bottom: 4px;
     }
@@ -345,7 +345,7 @@ import { AuthService } from '../../services/auth.service';
     }
 
     .recent-section {
-      background: white;
+      background: var(--panel-bg);
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -363,13 +363,13 @@ import { AuthService } from '../../services/auth.service';
       justify-content: space-between;
       align-items: center;
       padding: 15px;
-      background: #f9fafb;
+      background: var(--camp-card-bg);
       border-radius: 6px;
     }
 
     .campaign-name {
       font-weight: 600;
-      color: #333;
+      color: var(--text-dash);
     }
 
     .campaign-date {
@@ -413,7 +413,7 @@ import { AuthService } from '../../services/auth.service';
     }
 
     .messages-chart {
-      background: white;
+      background: var(--panel-bg);
       padding: 30px;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -429,7 +429,7 @@ import { AuthService } from '../../services/auth.service';
       align-items: flex-end;
       height: 250px;
       padding: 20px;
-      background: #f9fafb;
+      background: var(--camp-card-bg);
       border-radius: 8px;
       position: relative;
     }
@@ -490,13 +490,11 @@ import { AuthService } from '../../services/auth.service';
     }
 
     .bar-value-top {
-      color: #374151;
+      color: var(--text);
       font-size: 0.75em;
       font-weight: 700;
-      background: rgba(255, 255, 255, 0.9);
       padding: 2px 6px;
       border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       min-width: 24px;
       text-align: center;
     }
@@ -511,7 +509,7 @@ import { AuthService } from '../../services/auth.service';
 
     .bar-label {
       font-size: 0.8em;
-      color: #6b7280;
+      color: var(--muted);
       font-weight: 500;
       text-align: center;
     }
@@ -521,6 +519,7 @@ import { AuthService } from '../../services/auth.service';
       justify-content: center;
       gap: 30px;
       margin-top: 20px;
+      color: var(--text);
     }
 
     .legend-item {

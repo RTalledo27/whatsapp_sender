@@ -69,6 +69,7 @@ import { AuthService } from './services/auth.service';
               <span>Conversaciones</span>
             </a>
           </li>
+
           <li *ngIf="isAdmin()">
             <a routerLink="/users" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,6 +170,7 @@ import { AuthService } from './services/auth.service';
       flex-direction: column;
       transition: width 0.25s ease-in-out;
       border-right: 1px solid #2e2f2f;
+      overflow: hidden;
     }
 
     .logo {
@@ -273,6 +275,7 @@ import { AuthService } from './services/auth.service';
     .main-content {
       flex: 1;
       overflow-y: auto;
+      background:var(--bg-main);
     }
 
     .sidebar-footer {

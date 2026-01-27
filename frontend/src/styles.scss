@@ -13,6 +13,7 @@ body {
 /* Theme variables (light default) */
 :root {
   --bg: #f3f4f6;
+  --bg-main: #f3f4f6;
   --panel-bg: #ffffff;
   --card-bg: #f0f2f5;
   --chat-bg: #efeae2;
@@ -40,11 +41,17 @@ body {
   --danger: #ef4444;
   --scroll-track: #f1f1f1;
   --scroll-thumb: #888;
+  --card-top-dash:#f3f4f6;
+  --camp-card-bg: #f0f2f5a8;
+  --text-dash: #374151;
+  --text-cont: #374151;
+  --table-bg: #ffffff5d;
 }
 
 /* Dark theme overrides */
 .dark-theme {
   --bg: #0b1220;
+  --bg-main:#1d1f1f;
   --panel-bg: #161717;
   --card-bg: #1d1f1f;
   --chat-bg: #161717;
@@ -72,6 +79,11 @@ body {
   --danger: #ef4444;
   --scroll-track: #161717;
   --scroll-thumb: #374151;
+  --card-top-dash:#161717;
+  --camp-card-bg: #1d1f1f;
+  --text-dash: #ffffffe0;
+  --text-cont: #ffffffaf;
+  --table-bg: #1d1f1f;
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -171,6 +171,10 @@ import { ContactService, Contact } from '../../services/contact.service';
     .contacts-page {
       padding: 20px;
     }
+    
+    h1{
+      color: var(--text);
+    }
 
     .header {
       display: flex;
@@ -193,15 +197,16 @@ import { ContactService, Contact } from '../../services/contact.service';
     .search-bar input {
       flex: 1;
       padding: 10px 15px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 1em;
+      background: var(--search-bg);
     }
 
     .contacts-table {
-      background: white;
+      background: var(--table-bg);
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgb(0 0 0 / 25%);
       overflow: hidden;
     }
 
@@ -211,21 +216,22 @@ import { ContactService, Contact } from '../../services/contact.service';
     }
 
     th {
-      background: #f9fafb;
+      background: var(--scroll-track);
       padding: 12px;
       text-align: left;
       font-weight: 600;
-      color: #374151;
-      border-bottom: 2px solid #e5e7eb;
+      color: var(--text);
+      border-bottom: 2px solid var(--border);
     }
 
     td {
       padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-cont);
     }
 
     tr:hover {
-      background: #f9fafb;
+      background: var(--search-bg);
     }
 
     .btn {
@@ -262,6 +268,7 @@ import { ContactService, Contact } from '../../services/contact.service';
       cursor: pointer;
       padding: 5px;
       margin: 0 5px;
+      color: var(--text);
     }
 
     .btn-icon:hover {
@@ -274,26 +281,28 @@ import { ContactService, Contact } from '../../services/contact.service';
       align-items: center;
       gap: 20px;
       padding: 20px;
+      color: var(--text);
     }
 
     .pagination button {
       padding: 8px 16px;
       border: 1px solid #d1d5db;
-      background: white;
+      background: var(--panel-bg);
       border-radius: 6px;
       cursor: pointer;
+      color: var(--text);
     }
 
     .pagination button:disabled {
-      opacity: 0.5;
+      opacity: 0.24;
       cursor: not-allowed;
     }
 
     .empty-state {
       text-align: center;
       padding: 60px 20px;
-      color: #9ca3af;
-      background: white;
+      color: var(--muted-2);
+      background: var(--panel-bg);
       border-radius: 8px;
     }
 
