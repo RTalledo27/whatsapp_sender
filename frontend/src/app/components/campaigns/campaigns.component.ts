@@ -414,6 +414,10 @@ import { Subscription } from 'rxjs';
       flex-wrap: wrap;
     }
 
+    h1{
+      color: var(--text);
+    }
+
     .phone-selector {
       display: flex;
       align-items: center;
@@ -668,6 +672,7 @@ import { Subscription } from 'rxjs';
       align-items: center;
       padding: 20px;
       border-bottom: 1px solid var(--border);
+      color: var(--text);
     }
 
     .modal-header h2 {
@@ -685,6 +690,7 @@ import { Subscription } from 'rxjs';
 
     .modal-body {
       padding: 20px;
+      color : var(--text-dash);
     }
 
     .modal-footer {
@@ -877,6 +883,7 @@ import { Subscription } from 'rxjs';
       grid-template-columns: repeat(2, 1fr);
       gap: 15px;
       margin-bottom: 20px;
+  
     }
 
     .detail-item {
