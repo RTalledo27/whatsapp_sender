@@ -137,6 +137,38 @@
               <p class="contact-phone">{{ selectedConversation.contact.phone_number }}</p>
             </div>
           </div>
+            <!-- Menú de opciones (3 puntos) -->
+            <div class="chat-menu" (click)="toggleMenu()" [class.menu-open]="menuOpen">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#606263" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5" cy="12" r="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="19" cy="12" r="2"/>
+              </svg>
+              <div class="menu-dropdown" *ngIf="menuOpen" (click)="$event.stopPropagation()">
+                <button class="menu-item" (click)="$event.stopPropagation(); openNoteModal();">Notas</button>
+                <button class="menu-item" (click)="$event.stopPropagation();">Transferencia</button>
+              </div>
+                    <!-- Modal para agregar nota -->
+                    <div class="modal-backdrop" *ngIf="noteModalOpen" (click)="closeNoteModal()">
+                      <div class="note-modal modal" (click)="$event.stopPropagation()">
+                        <h3>Agregar Nota</h3>
+                        <form>
+                          <label for="note-title">Título</label>
+                          <input id="note-title" type="text" [(ngModel)]="noteTitle" name="noteTitle" placeholder="Título de la nota" />
+                          <label for="note-content">Nota</label>
+                          <textarea id="note-content" [(ngModel)]="noteContent" name="noteContent" placeholder="Escribe la nota..."></textarea>
+                          <div class="modal-actions">
+                            <button type="button" (click)="closeNoteModal()">Cerrar</button>
+                            <button type="button"
+                              [disabled]="!noteTitle.trim() || !noteContent.trim()"
+                              (click)="saveNote()"
+                            >Guardar</button>
+                          </div>
+                          <div *ngIf="noteError" class="note-error" style="color: #c00; margin-top: 8px;">{{ noteError }}</div>
+                        </form>
+                      </div>
+                    </div>
+          </div>
         </div>
 
         <!-- Mensajes -->

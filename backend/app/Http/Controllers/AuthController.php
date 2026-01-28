@@ -24,11 +24,14 @@ class AuthController extends Controller
             ]);
         }
 
-        // Generate a simple token (in production, use Laravel Sanctum)
-        $token = base64_encode($user->email . ':' . now()->timestamp);
+        // Solo generar y guardar api_token si no existe
+        if (!$user->api_token) {
+            $user->api_token = bin2hex(random_bytes(32));
+            $user->save();
+        }
 
         return response()->json([
-            'access_token' => $token,
+            'access_token' => $user->api_token,
             'token_type' => 'Bearer',
             'user' => [
                 'id' => $user->id,
