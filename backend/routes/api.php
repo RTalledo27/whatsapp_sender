@@ -35,6 +35,12 @@ Route::post('/webhook/whatsapp', [WebhookController::class, 'receive']);
 Route::middleware('api')->group(function () {
     
     // Conversations (historial de chat)
+    // Notas
+    Route::middleware('auth:api')->prefix('notes')->group(function () {
+        Route::get('/', [App\Http\Controllers\NoteController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\NoteController::class, 'store']);
+        Route::get('/{id}', [App\Http\Controllers\NoteController::class, 'show']);
+    });
     Route::prefix('conversations')->group(function () {
         Route::get('/', [ConversationController::class, 'index']);
         Route::get('/stats', [ConversationController::class, 'stats']);
