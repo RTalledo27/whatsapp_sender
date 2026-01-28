@@ -119,8 +119,12 @@ export class ConversationService {
   /**
    * Obtener estadísticas
    */
-  getStats(): Observable<ConversationStats> {
-    return this.http.get<ConversationStats>(`${this.apiUrl}/stats`);
+  getStats(phoneNumberId?: string): Observable<ConversationStats> {
+    let params = new HttpParams();
+    if (phoneNumberId) {
+      params = params.set('phone_number_id', phoneNumberId);
+    }
+    return this.http.get<ConversationStats>(`${this.apiUrl}/stats`, { params });
   }
 
   /**
