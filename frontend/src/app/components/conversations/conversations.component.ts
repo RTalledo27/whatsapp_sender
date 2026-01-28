@@ -1,17 +1,19 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { NotesComponent } from '../notes/notes.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { ConversationService, Conversation, ConversationDetail, Message } from '../../services/conversation.service';
 import { CampaignService, WhatsAppNumber } from '../../services/campaign.service';
 import { AuthService } from '../../services/auth.service';
+import { NotesService } from '../../services/notes.service';
 import { interval, Subscription } from 'rxjs';
 import { switchMap, filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-conversations',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NotesComponent],
   templateUrl: './conversations.component.html',
   styleUrls: ['./conversations.component.css']
 })
@@ -38,6 +40,15 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   private mediaRecorder?: MediaRecorder;
   private mediaStream?: MediaStream;
   private recordedChunks: BlobPart[] = [];
+
+  // Estado para el menú de 3 puntos
+  menuOpen = false;
+
+  // Estado para el modal de nota
+  noteModalOpen = false;
+  noteTitle = '';
+  noteContent = '';
+  noteError = '';
   
   // Paginación
   currentPage = 1;
@@ -62,8 +73,74 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     private conversationService: ConversationService,
     private campaignService: CampaignService,
     private authService: AuthService,
+    private notesService: NotesService,
     private router: Router
   ) {}
+  // Guardar nota desde el modal
+  saveNote() {
+    if (!this.noteTitle.trim() || !this.noteContent.trim() || !this.selectedConversation) return;
+    const note = {
+      title: this.noteTitle.trim(),
+      content: this.noteContent.trim(),
+      client_id: this.selectedConversation.contact.id
+    };
+    this.notesService.addNote(note).subscribe({
+      next: () => {
+        this.closeNoteModal();
+      },
+      error: () => {
+        this.noteError = 'No se pudo guardar la nota. Intenta de nuevo.';
+      }
+    });
+  }
+
+
+  // Mostrar/ocultar menú de 3 puntos
+  toggleMenu() {
+    this.menuOpen = !this.menuOpen;
+  }
+
+  // Abrir modal de nota
+  openNoteModal() {
+    this.noteModalOpen = true;
+    this.menuOpen = false;
+    this.noteError = '';
+  }
+
+  // Cerrar modal de nota
+  closeNoteModal() {
+    this.noteModalOpen = false;
+    this.noteTitle = '';
+    this.noteContent = '';
+    this.noteError = '';
+  }
+
+    // Cerrar menú si se hace click fuera
+    ngAfterViewInit() {
+      document.addEventListener('click', this.closeMenuOnClickOutside.bind(this));
+    }
+
+    // Eliminar el listener y limpiar recursos al destruir el componente
+    ngOnDestroy(): void {
+      document.removeEventListener('click', this.closeMenuOnClickOutside.bind(this));
+      this.stopPolling();
+      this.cleanupRecorder();
+      if (this.navigationSubscription) {
+        this.navigationSubscription.unsubscribe();
+      }
+    }
+
+    closeMenuOnClickOutside(event: MouseEvent) {
+      const menu = document.querySelector('.chat-menu');
+      const modal = document.querySelector('.note-modal');
+      if (menu && !menu.contains(event.target as Node)) {
+        this.menuOpen = false;
+      }
+      // Si el modal está abierto y se hace click fuera, ciérralo
+      if (this.noteModalOpen && modal && !modal.contains(event.target as Node)) {
+        this.closeNoteModal();
+      }
+    }
 
   ngOnInit(): void {
     // Si el usuario no es admin, auto-seleccionar su número ANTES de cargar
@@ -86,14 +163,6 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       this.loadConversations();
       this.loadStats();
     });
-  }
-
-  ngOnDestroy(): void {
-    this.stopPolling();
-    this.cleanupRecorder();
-    if (this.navigationSubscription) {
-      this.navigationSubscription.unsubscribe();
-    }
   }
 
   /**
@@ -120,6 +189,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     this.conversations = [];
     this.selectedConversation = null;
     this.loadConversations();
+    this.loadStats();
   }
 
   /**
@@ -160,7 +230,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Cargar estadísticas
    */
   loadStats(): void {
-    this.conversationService.getStats().subscribe({
+    this.conversationService.getStats(this.selectedPhoneNumberId || undefined).subscribe({
       next: (stats) => {
         this.stats = stats;
       },
@@ -228,7 +298,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       .pipe(
         switchMap(() => {
           // Solo actualizar stats, no recargar mensajes constantemente
-          return this.conversationService.getStats();
+          return this.conversationService.getStats(this.selectedPhoneNumberId || undefined);
         })
       )
       .subscribe({
@@ -418,6 +488,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         
         this.messages.push(newMessage);
         this.sendingMessage = false;
+        
+        // Actualizar estadísticas localmente
+        this.stats.messages_today += 1;
+        this.stats.outgoing_today += 1;
         
         // Actualizar la vista previa en la lista de conversaciones
         this.updateConversationPreview(contactId, messageText || '[Archivo]', 'outbound');
