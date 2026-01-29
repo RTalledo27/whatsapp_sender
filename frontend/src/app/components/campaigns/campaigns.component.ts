@@ -190,6 +190,17 @@ import { Subscription } from 'rxjs';
                          [placeholder]="'Valor para {{' + (i+1) + '}}'"/>
                 </div>
               </div>
+
+              <div *ngIf="hasVideoHeader" class="form-group video-input-group">
+                <label>Enlace del Video (Header) *</label>
+                <div class="input-with-icon">
+                  <input type="url" 
+                         [(ngModel)]="campaignForm.video_link"
+                         placeholder="https://ejemplo.com/video.mp4"
+                         class="form-control" />
+                </div>
+                <small class="hint">El template requiere un video en la cabecera. Ingresa una URL pública MP4 válida.</small>
+              </div>
             </div>
 
             <!-- Sección de Mensaje de Texto -->
@@ -731,6 +742,17 @@ import { Subscription } from 'rxjs';
       font-size: 0.85em;
     }
 
+    .video-input-group {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    
+    .input-with-icon input {
+      width: 100%;
+    }
+
     .checkbox-label {
       display: flex;
       align-items: center;
@@ -941,19 +963,20 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   templates: WhatsAppTemplate[] = [];
   selectedTemplate: WhatsAppTemplate | null = null;
   templateParameters: string[] = [];
-  
+  hasVideoHeader = false;
+
   showCreateModal = false;
   contactSearch = '';
   useTemplate = false;
   selectedPhoneNumberId: string = '';
   isCreatingCampaign = false;
-  
+
   showImportContactsModal = false;
   selectedContactsFile: File | null = null;
   importContactsResult: any = null;
-  
+
   private pollingSubscription?: Subscription;
-  
+
   campaignForm = {
     name: '',
     phone_number_id: '',
@@ -961,6 +984,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     message: '',
     template_name: '',
     template_parameters: [] as string[],
+    video_link: '',
     contact_ids: [] as number[]
   };
 
@@ -971,7 +995,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     private pollingService: CampaignPollingService,
     private notificationService: NotificationService,
     private authService: AuthService
-  ) {}
+  ) { }
 
   ngOnInit() {
     // Auto-seleccionar número si el usuario no es admin
@@ -1069,12 +1093,19 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   onTemplateSelected(event: any) {
     const templateName = event.target.value;
     this.selectedTemplate = this.templates.find(t => t.name === templateName) || null;
-    
+
     if (this.selectedTemplate) {
       this.campaignForm.template_name = this.selectedTemplate.name;
       const params = this.templateService.getTemplateParameters(this.selectedTemplate);
       this.templateParameters = params;
       this.campaignForm.template_parameters = new Array(params.length).fill('');
+
+      // Chequear si tiene header de video
+      const header = this.selectedTemplate.components.find(c => c.type === 'HEADER');
+      this.hasVideoHeader = header?.format === 'VIDEO';
+      if (!this.hasVideoHeader) {
+        this.campaignForm.video_link = '';
+      }
     }
   }
 
@@ -1115,16 +1146,18 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
   canCreateCampaign(): boolean {
     if (this.useTemplate) {
-      return !!(this.campaignForm.name && 
-                this.campaignForm.phone_number_id &&
-                this.campaignForm.template_name && 
-                this.campaignForm.contact_ids.length > 0 &&
-                this.campaignForm.template_parameters.every(p => p.trim() !== ''));
+      return !!(this.campaignForm.name &&
+        this.campaignForm.phone_number_id &&
+        this.campaignForm.template_name &&
+        this.campaignForm.contact_ids.length > 0 &&
+        this.campaignForm.contact_ids.length > 0 &&
+        this.campaignForm.template_parameters.every(p => p.trim() !== '') &&
+        (!this.hasVideoHeader || (this.hasVideoHeader && !!this.campaignForm.video_link)));
     } else {
-      return !!(this.campaignForm.name && 
-                this.campaignForm.phone_number_id &&
-                this.campaignForm.message && 
-                this.campaignForm.contact_ids.length > 0);
+      return !!(this.campaignForm.name &&
+        this.campaignForm.phone_number_id &&
+        this.campaignForm.message &&
+        this.campaignForm.contact_ids.length > 0);
     }
   }
 
@@ -1136,14 +1169,14 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     this.campaignService.createCampaign(this.campaignForm).subscribe({
       next: (response) => {
         const campaignId = response.data.id;
-        
+
         this.isCreatingCampaign = false;
         this.closeCreateModal();
         this.loadCampaigns();
-        
+
         // Iniciar polling automático para esta campaña
         this.pollingService.startPolling(campaignId, 2000);
-        
+
         this.notificationService.show({
           type: 'success',
           title: 'Campaña creada',
@@ -1165,19 +1198,21 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   closeCreateModal() {
     this.showCreateModal = false;
     this.isCreatingCampaign = false;
-    this.campaignForm = { 
-      name: '', 
+    this.campaignForm = {
+      name: '',
       phone_number_id: this.availableNumbers.length > 0 ? this.availableNumbers[0].id : '',
       phone_number_name: this.availableNumbers.length > 0 ? this.availableNumbers[0].name : '',
-      message: '', 
+      message: '',
       template_name: '',
       template_parameters: [],
-      contact_ids: [] 
+      video_link: '',
+      contact_ids: []
     };
     this.contactSearch = '';
     this.useTemplate = false;
     this.selectedTemplate = null;
     this.templateParameters = [];
+    this.hasVideoHeader = false;
   }
 
   viewDetails(campaign: Campaign) {
@@ -1233,7 +1268,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
               this.campaignForm.contact_ids.push(contact.id);
             }
           });
-          
+
           // Cerrar el modal después de 2 segundos si fue exitoso
           if (result.found > 0) {
             setTimeout(() => {

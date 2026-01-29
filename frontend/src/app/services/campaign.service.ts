@@ -31,6 +31,9 @@ export interface Campaign {
   started_at?: string;
   completed_at?: string;
   created_at: string;
+  template_name?: string;
+  template_parameters?: string[];
+  video_link?: string;
   messages?: Message[];
 }
 
@@ -61,19 +64,19 @@ export class CampaignService {
   constructor(
     private http: HttpClient,
     private authService: AuthService
-  ) {}
+  ) { }
 
   getAvailableNumbers(): Observable<{ success: boolean; numbers: WhatsAppNumber[] }> {
     return this.http.get<{ success: boolean; numbers: WhatsAppNumber[] }>(`${this.apiUrl}/available-numbers`)
       .pipe(
         map(response => {
           const user = this.authService.getCurrentUser();
-          
+
           // Si es admin, devolver todos los números
           if (user && user.role === 'admin') {
             return response;
           }
-          
+
           // Si es usuario normal, filtrar solo su número asignado
           if (user && user.phone_number_id) {
             return {
@@ -81,7 +84,7 @@ export class CampaignService {
               numbers: response.numbers.filter(n => n.id === user.phone_number_id)
             };
           }
-          
+
           // Si no hay usuario o no tiene número, devolver array vacío
           return {
             success: response.success,
@@ -111,7 +114,7 @@ export class CampaignService {
     return this.http.get<Campaign>(`${this.apiUrl}/${id}/details`);
   }
 
-  createCampaign(data: { name: string; message: string; contact_ids: number[] }): Observable<any> {
+  createCampaign(data: any): Observable<any> {
     return this.http.post(this.apiUrl, data);
   }
 
