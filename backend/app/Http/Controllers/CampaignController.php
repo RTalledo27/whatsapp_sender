@@ -92,6 +92,7 @@ class CampaignController extends Controller
         if ($request->filled('template_name')) {
             $rules['template_name'] = 'required|string';
             $rules['template_parameters'] = 'nullable|array';
+            $rules['video_link'] = 'nullable|url';
         } 
         // Si NO usa template, el mensaje es requerido
         else {
@@ -105,11 +106,6 @@ class CampaignController extends Controller
                 'success' => false,
                 'errors' => $validator->errors(),
             ], 422);
-        }
-
-        // Automatizar video para template específico
-        if ($request->template_name === 'inicioobras_mktg') {
-            $request->merge(['video_link' => 'https://res.cloudinary.com/dokkvnbeg/video/upload/f_mp4/inicioobras_mktg_r2wkqw.mp4']);
         }
 
         DB::beginTransaction();
