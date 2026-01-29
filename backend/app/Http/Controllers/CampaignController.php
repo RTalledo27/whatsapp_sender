@@ -107,6 +107,11 @@ class CampaignController extends Controller
             ], 422);
         }
 
+        // Automatizar video para template específico
+        if ($request->template_name === 'inicioobras_mktg') {
+            $request->merge(['video_link' => 'https://res.cloudinary.com/dokkvnbeg/video/upload/f_mp4/inicioobras_mktg_r2wkqw.mp4']);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -118,6 +123,7 @@ class CampaignController extends Controller
                 'message' => $request->message,
                 'template_name' => $request->template_name,
                 'template_parameters' => $request->template_parameters,
+                'video_link' => $request->video_link,
                 'status' => 'pending',
                 'total_contacts' => count($request->contact_ids),
                 'pending_count' => count($request->contact_ids),

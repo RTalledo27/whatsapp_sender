@@ -17,6 +17,7 @@ class Campaign extends Model
         'message',
         'template_name',
         'template_parameters',
+        'video_link',
         'status',
         'total_contacts',
         'sent_count',

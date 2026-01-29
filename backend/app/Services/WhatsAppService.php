@@ -12,6 +12,7 @@ class WhatsAppService
     private string $apiUrl;
     private string $accessToken;
     private string $phoneNumberId;
+    private string $businessAccountId;
     private string $version;
 
     public function __construct(?string $phoneNumberId = null, ?string $accessToken = null)
@@ -23,9 +24,11 @@ class WhatsAppService
             $numberConfig = $this->getNumberConfig($phoneNumberId);
             $this->phoneNumberId = $phoneNumberId;
             $this->accessToken = $accessToken ?? $numberConfig['access_token'] ?? config('services.whatsapp.access_token');
+            $this->businessAccountId = $numberConfig['business_account_id'] ?? config('services.whatsapp.business_account_id');
         } else {
             $this->accessToken = config('services.whatsapp.access_token');
             $this->phoneNumberId = config('services.whatsapp.phone_number_id');
+            $this->businessAccountId = config('services.whatsapp.business_account_id');
         }
     }
     
@@ -71,28 +74,50 @@ class WhatsAppService
                     ]
                 ];
 
-                // Agregar parámetros si existen y no están vacíos
-                if (isset($templateData['parameters']) && is_array($templateData['parameters']) && !empty($templateData['parameters'])) {
+                $components = [];
+
+                // Si se proporciona video_link, agregar componente header
+                if (isset($templateData['video_link']) && !empty($templateData['video_link'])) {
+                    $components[] = [
+                        'type' => 'header',
+                        'parameters' => [
+                            [
+                                'type' => 'video',
+                                'video' => [
+                                    'link' => $templateData['video_link']
+                                ]
+                            ]
+                        ]
+                    ];
+                }
+
+                // Si se proporcionan components directamente, usarlos
+                if (isset($templateData['components']) && is_array($templateData['components']) && !empty($templateData['components'])) {
+                    $components = array_merge($components, $templateData['components']);
+                } elseif (isset($templateData['parameters']) && is_array($templateData['parameters']) && !empty($templateData['parameters'])) {
+                    // Compatibilidad con la lógica anterior: solo body con texto
                     // Filtrar parámetros vacíos
                     $validParams = array_filter($templateData['parameters'], function($param) {
                         return !empty($param);
                     });
 
                     if (!empty($validParams)) {
-                        $payload['template']['components'] = [
-                            [
-                                'type' => 'body',
-                                'parameters' => array_values(array_map(function($param) {
-                                    return ['type' => 'text', 'text' => (string)$param];
-                                }, $validParams))
-                            ]
+                        $components[] = [
+                            'type' => 'body',
+                            'parameters' => array_values(array_map(function($param) {
+                                return ['type' => 'text', 'text' => (string)$param];
+                            }, $validParams))
                         ];
                     }
                 }
 
+                if (!empty($components)) {
+                    $payload['template']['components'] = $components;
+                }
+
                 Log::info('Sending WhatsApp Template', [
                     'template_name' => $templateData['name'],
-                    'parameters' => $templateData['parameters'] ?? [],
+                    'components' => $components,
                     'payload' => $payload
                 ]);
             } else {
@@ -270,7 +295,7 @@ class WhatsAppService
     public function getTemplates($businessAccountId = null): array
     {
         try {
-            $businessAccountId = $businessAccountId ?: config('services.whatsapp.business_account_id');
+            $businessAccountId = $businessAccountId ?: $this->businessAccountId;
             $url = "{$this->apiUrl}/{$this->version}/{$businessAccountId}/message_templates";
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->accessToken}",
