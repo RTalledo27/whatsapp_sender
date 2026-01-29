@@ -1150,7 +1150,6 @@ export class CampaignsComponent implements OnInit, OnDestroy {
         this.campaignForm.phone_number_id &&
         this.campaignForm.template_name &&
         this.campaignForm.contact_ids.length > 0 &&
-        this.campaignForm.contact_ids.length > 0 &&
         this.campaignForm.template_parameters.every(p => p.trim() !== '') &&
         (!this.hasVideoHeader || (this.hasVideoHeader && !!this.campaignForm.video_link)));
     } else {
