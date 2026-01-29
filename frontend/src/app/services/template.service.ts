@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -27,8 +27,12 @@ export class TemplateService {
 
   constructor(private http: HttpClient) { }
 
-  getTemplates(): Observable<{ templates: WhatsAppTemplate[] }> {
-    return this.http.get<{ templates: WhatsAppTemplate[] }>(this.apiUrl);
+  getTemplates(phoneNumberId?: string): Observable<{ templates: WhatsAppTemplate[] }> {
+    let params = new HttpParams();
+    if (phoneNumberId) {
+      params = params.set('phone_number_id', phoneNumberId);
+    }
+    return this.http.get<{ templates: WhatsAppTemplate[] }>(this.apiUrl, { params });
   }
 
   getTemplateParameters(template: WhatsAppTemplate): string[] {

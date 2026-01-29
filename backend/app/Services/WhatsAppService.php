@@ -267,30 +267,26 @@ class WhatsAppService
     /**
      * Obtener templates aprobados de Meta
      */
-    public function getTemplates(): array
+    public function getTemplates($businessAccountId = null): array
     {
         try {
-            $businessAccountId = config('services.whatsapp.business_account_id');
+            $businessAccountId = $businessAccountId ?: config('services.whatsapp.business_account_id');
             $url = "{$this->apiUrl}/{$this->version}/{$businessAccountId}/message_templates";
-            
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->accessToken}",
             ])->get($url, [
                 'limit' => 100
             ]);
-
             if ($response->successful()) {
                 return [
                     'success' => true,
                     'templates' => $response->json()['data'] ?? []
                 ];
             }
-
             Log::error('WhatsApp Templates API Error', [
                 'status' => $response->status(),
                 'response' => $response->json(),
             ]);
-
             return [
                 'success' => false,
                 'error' => $response->json()['error']['message'] ?? 'Error desconocido',
@@ -298,9 +294,8 @@ class WhatsAppService
             ];
         } catch (\Exception $e) {
             Log::error('WhatsApp Templates Exception', [
-                'message' => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
-
             return [
                 'success' => false,
                 'error' => $e->getMessage(),

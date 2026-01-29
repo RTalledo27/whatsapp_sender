@@ -16,9 +16,26 @@ class TemplateController extends Controller
 
     public function index(): JsonResponse
     {
-        // Verificar si el Business Account ID está configurado
-        $businessAccountId = config('services.whatsapp.business_account_id');
-        
+        $phoneNumberId = request('phone_number_id');
+        $accessToken = null;
+        $businessAccountId = null;
+        // Buscar access_token y business_account_id correspondiente si se pasa phone_number_id
+        if ($phoneNumberId) {
+            $numbers = config('services.whatsapp.available_numbers', []);
+            foreach ($numbers as $number) {
+                if ($number['id'] === $phoneNumberId) {
+                    $accessToken = $number['access_token'] ?? null;
+                    // Buscar también el business_account_id alternativo si existe
+                    $businessAccountId = $number['business_account_id'] ?? null;
+                    break;
+                }
+            }
+        }
+        // Instanciar el servicio con el número y token (o el global si no se pasa nada)
+        $waService = new \App\Services\WhatsAppService($phoneNumberId, $accessToken);
+
+        // Si no se encontró business_account_id alternativo, usar el global
+        $businessAccountId = $businessAccountId ?: config('services.whatsapp.business_account_id');
         if (empty($businessAccountId)) {
             return response()->json([
                 'error' => 'WHATSAPP_BUSINESS_ACCOUNT_ID no está configurado en .env',
@@ -37,19 +54,16 @@ class TemplateController extends Controller
             ], 400);
         }
 
-        $result = $this->whatsappService->getTemplates();
-        
+        $result = $waService->getTemplates($businessAccountId);
         if ($result['success']) {
             // Filtrar solo templates aprobados
             $approvedTemplates = array_filter($result['templates'], function($template) {
                 return $template['status'] === 'APPROVED';
             });
-
             return response()->json([
                 'templates' => array_values($approvedTemplates)
             ]);
         }
-
         return response()->json([
             'error' => $result['error'],
             'templates' => [],
