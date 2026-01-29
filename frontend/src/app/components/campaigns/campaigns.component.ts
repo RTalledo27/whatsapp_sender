@@ -979,10 +979,9 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     if (user && user.role !== 'admin' && user.phone_number_id) {
       this.selectedPhoneNumberId = user.phone_number_id;
     }
-    
     this.loadCampaigns();
     this.loadContacts();
-    this.loadTemplates();
+    this.loadTemplates(this.selectedPhoneNumberId);
     this.loadAvailableNumbers();
     this.startAutoRefresh();
   }
@@ -1023,6 +1022,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
   onPhoneNumberFilterChange() {
     this.loadCampaigns();
+    this.loadTemplates(this.selectedPhoneNumberId);
   }
 
   loadContacts() {
@@ -1034,8 +1034,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadTemplates() {
-    this.templateService.getTemplates().subscribe({
+  loadTemplates(phoneNumberId?: string) {
+    this.templateService.getTemplates(phoneNumberId).subscribe({
       next: (response) => {
         this.templates = response.templates;
       },
@@ -1061,6 +1061,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     const number = this.availableNumbers.find(n => n.id === numberId);
     if (number) {
       this.campaignForm.phone_number_name = number.name;
+      this.campaignForm.phone_number_id = number.id;
+      this.loadTemplates(number.id);
     }
   }
 
