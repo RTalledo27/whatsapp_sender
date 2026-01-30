@@ -94,6 +94,12 @@ class SendWhatsAppMessageJob implements ShouldQueue
                     sleep($delaySeconds);
                 }
             } else {
+                Log::warning('Updating failed message with phone_number_id', [
+                   'message_id' => $this->message->id,
+                   'phone_number_id' => $phoneNumberId,
+                   'error' => $result['error'] ?? 'Unknown'
+                ]);
+
                 $this->message->update([
                     'phone_number_id' => $phoneNumberId,
                     'status' => 'failed',
@@ -117,6 +123,12 @@ class SendWhatsAppMessageJob implements ShouldQueue
             ]);
 
             $phoneNumberId = $this->message->campaign->phone_number_id ?? config('services.whatsapp.phone_number_id');
+            
+            Log::warning('Updating exception failed message with phone_number_id', [
+                'message_id' => $this->message->id,
+                'phone_number_id' => $phoneNumberId
+             ]);
+
             $this->message->update([
                 'phone_number_id' => $phoneNumberId,
                 'status' => 'failed',
