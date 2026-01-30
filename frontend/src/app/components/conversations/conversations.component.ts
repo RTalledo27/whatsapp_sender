@@ -19,16 +19,17 @@ import { switchMap, filter } from 'rxjs/operators';
 })
 export class ConversationsComponent implements OnInit, OnDestroy {
   conversations: Conversation[] = [];
+  filteredConversations: Conversation[] = []; // Conversaciones filtradas por stat
   selectedConversation: ConversationDetail | null = null;
   messages: Message[] = [];
   loading = false;
   loadingMessages = false;
   searchTerm = '';
-  
+
   // Filtro por número de WhatsApp
   availableNumbers: WhatsAppNumber[] = [];
   selectedPhoneNumberId: string = '';
-  
+
   // Input de mensaje
   newMessageText = '';
   selectedFile: File | null = null;
@@ -49,12 +50,15 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   noteTitle = '';
   noteContent = '';
   noteError = '';
-  
+
+  // Filtro por estadísticas (por defecto 'all' está seleccionado)
+  selectedStat = 'all'; // 'all', 'unread', 'messages_today', 'incoming_today'
+
   // Paginación
   currentPage = 1;
   totalPages = 1;
   loadingMoreConversations = false;
-  
+
   // Polling para nuevos mensajes
   private pollingSubscription?: Subscription;
   private navigationSubscription?: Subscription;
@@ -75,7 +79,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private notesService: NotesService,
     private router: Router
-  ) {}
+  ) { }
   // Guardar nota desde el modal
   saveNote() {
     if (!this.noteTitle.trim() || !this.noteContent.trim() || !this.selectedConversation) return;
@@ -115,32 +119,74 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     this.noteError = '';
   }
 
-    // Cerrar menú si se hace click fuera
-    ngAfterViewInit() {
-      document.addEventListener('click', this.closeMenuOnClickOutside.bind(this));
-    }
+  /**
+   * Manejar clic en estadística
+   */
+  onStatClick(stat: string): void {
+    this.selectedStat = stat;
+    this.applyStatFilter();
+  }
 
-    // Eliminar el listener y limpiar recursos al destruir el componente
-    ngOnDestroy(): void {
-      document.removeEventListener('click', this.closeMenuOnClickOutside.bind(this));
-      this.stopPolling();
-      this.cleanupRecorder();
-      if (this.navigationSubscription) {
-        this.navigationSubscription.unsubscribe();
-      }
+  /**
+   * Aplicar filtro basado en estadística seleccionada
+   */
+  applyStatFilter(): void {
+    switch (this.selectedStat) {
+      case 'all':
+        this.filteredConversations = [...this.conversations];
+        break;
+      case 'unread':
+        this.filteredConversations = this.conversations.filter(conv => (conv.unread_count ?? 0) > 0);
+        break;
+      case 'messages_today':
+        // Filtrar por last_message_at de hoy
+        const today = new Date().toDateString();
+        this.filteredConversations = this.conversations.filter(conv => {
+          if (!conv.last_message_at) return false;
+          const messageDate = new Date(conv.last_message_at).toDateString();
+          return messageDate === today;
+        });
+        break;
+      case 'incoming_today':
+        // Filtrar por mensajes entrantes de hoy
+        const todayIncoming = new Date().toDateString();
+        this.filteredConversations = this.conversations.filter(conv => {
+          if (!conv.last_message_at || conv.last_message_direction !== 'inbound') return false;
+          const messageDate = new Date(conv.last_message_at).toDateString();
+          return messageDate === todayIncoming;
+        });
+        break;
+      default:
+        this.filteredConversations = [...this.conversations];
     }
+  }
 
-    closeMenuOnClickOutside(event: MouseEvent) {
-      const menu = document.querySelector('.chat-menu');
-      const modal = document.querySelector('.note-modal');
-      if (menu && !menu.contains(event.target as Node)) {
-        this.menuOpen = false;
-      }
-      // Si el modal está abierto y se hace click fuera, ciérralo
-      if (this.noteModalOpen && modal && !modal.contains(event.target as Node)) {
-        this.closeNoteModal();
-      }
+  // Cerrar menú si se hace click fuera
+  ngAfterViewInit() {
+    document.addEventListener('click', this.closeMenuOnClickOutside.bind(this));
+  }
+
+  // Eliminar el listener y limpiar recursos al destruir el componente
+  ngOnDestroy(): void {
+    document.removeEventListener('click', this.closeMenuOnClickOutside.bind(this));
+    this.stopPolling();
+    this.cleanupRecorder();
+    if (this.navigationSubscription) {
+      this.navigationSubscription.unsubscribe();
     }
+  }
+
+  closeMenuOnClickOutside(event: MouseEvent) {
+    const menu = document.querySelector('.chat-menu');
+    const modal = document.querySelector('.note-modal');
+    if (menu && !menu.contains(event.target as Node)) {
+      this.menuOpen = false;
+    }
+    // Si el modal está abierto y se hace click fuera, ciérralo
+    if (this.noteModalOpen && modal && !modal.contains(event.target as Node)) {
+      this.closeNoteModal();
+    }
+  }
 
   ngOnInit(): void {
     // Si el usuario no es admin, auto-seleccionar su número ANTES de cargar
@@ -148,7 +194,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     if (user && user.role !== 'admin' && user.phone_number_id) {
       this.selectedPhoneNumberId = user.phone_number_id;
     }
-    
+
     this.loadAvailableNumbers();
     this.loadConversations();
     this.loadStats();
@@ -217,6 +263,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           this.totalPages = response.last_page;
           this.loading = false;
           this.loadingMoreConversations = false;
+          // Aplicar filtro de estadísticas
+          this.applyStatFilter();
         },
         error: (error) => {
           console.error('Error loading conversations:', error);
@@ -254,14 +302,14 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           .filter(msg => msg.message_type !== 'reaction')
           .reverse(); // Más antiguos primero
         this.loadingMessages = false;
-        
+
         // Marcar como leído
         if (conversation.unread_count > 0) {
           this.conversationService.markAsRead(conversation.id).subscribe();
           conversation.unread_count = 0;
           this.stats.unread_messages = Math.max(0, this.stats.unread_messages - conversation.unread_count);
         }
-        
+
         // Scroll al final después de que se rendericen los mensajes
         setTimeout(() => this.scrollToBottom(), 200);
       },
@@ -305,11 +353,11 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         next: (stats) => {
           const hadNewMessages = stats.unread_messages > this.stats.unread_messages;
           this.stats = stats;
-          
+
           // Si hay nuevos mensajes no leídos, recargar conversaciones (lista)
           if (hadNewMessages) {
             this.loadConversations();
-            
+
             // Si la conversación seleccionada tiene nuevos mensajes, recargarla
             if (this.selectedConversation) {
               const phoneNumberId = this.selectedPhoneNumberId || null;
@@ -319,7 +367,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
                     const newMessages = detail.messages.data
                       .filter(msg => msg.message_type !== 'reaction')
                       .reverse();
-                    
+
                     // Solo actualizar si hay cambios en la cantidad de mensajes
                     if (newMessages.length !== this.messages.length) {
                       this.messages = newMessages;
@@ -356,19 +404,19 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     const date = new Date(timestamp);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
+
     if (isToday) {
       return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     } else {
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
       const isYesterday = date.toDateString() === yesterday.toDateString();
-      
+
       if (isYesterday) {
         return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       } else {
-        return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' + 
-               date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' +
+          date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       }
     }
   }
@@ -397,7 +445,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Obtener contenido del mensaje
    */
   getMessageContent(message: Message): string {
-    return message.direction === 'inbound' 
+    return message.direction === 'inbound'
       ? (message.message_content || message.message || '')
       : (message.message || message.message_content || '');
   }
@@ -407,7 +455,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   getStatusClass(message: Message): string {
     if (message.direction === 'inbound') return '';
-    
+
     switch (message.status) {
       case 'sent': return 'status-sent';
       case 'delivered': return 'status-delivered';
@@ -422,7 +470,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   getStatusIcon(message: Message): string {
     if (message.direction === 'inbound') return '';
-    
+
     switch (message.status) {
       case 'sent': return '✓';
       case 'delivered': return '✓✓';
@@ -473,7 +521,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         // Limpiar input
         this.newMessageText = '';
         this.selectedFile = null;
-        
+
         const backendMessage = response.message as Message;
         const newMessage: Message = {
           ...backendMessage,
@@ -485,17 +533,17 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           phone: backendMessage.phone ?? this.selectedConversation!.contact.phone_number,
           phone_number: backendMessage.phone_number ?? this.selectedConversation!.contact.phone_number,
         };
-        
+
         this.messages.push(newMessage);
         this.sendingMessage = false;
-        
+
         // Actualizar estadísticas localmente
         this.stats.messages_today += 1;
         this.stats.outgoing_today += 1;
-        
+
         // Actualizar la vista previa en la lista de conversaciones
         this.updateConversationPreview(contactId, messageText || '[Archivo]', 'outbound');
-        
+
         // Scroll al final
         setTimeout(() => this.scrollToBottom(), 100);
       },
@@ -663,9 +711,9 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   onScrollConversations(event: Event): void {
     const element = event.target as HTMLElement;
     const threshold = 100; // Pixels antes del final para cargar más
-    
+
     const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
-    
+
     if (atBottom && !this.loadingMoreConversations && this.currentPage < this.totalPages) {
       // Cargar siguiente página
       this.currentPage++;
@@ -693,11 +741,11 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
 }
