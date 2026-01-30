@@ -34,27 +34,10 @@ class SendWhatsAppMessageJob implements ShouldQueue
         try {
             $campaign = $this->message->campaign->fresh();
             
-            // Debug: verificar que el video_link se carga
-            Log::info('Campaign data loaded', [
-                'campaign_id' => $campaign->id,
-                'video_link' => $campaign->video_link,
-                'video_link_type' => gettype($campaign->video_link),
-                'video_link_empty' => empty($campaign->video_link)
-            ]);
-            
-            $phoneNumberId = $campaign->phone_number_id ?? config('services.whatsapp.phone_number_id');
-            $whatsAppService = new WhatsAppService($phoneNumberId);
-            
             Log::info('SendWhatsAppMessageJob: Starting', [
                 'message_id' => $this->message->id,
-                'phone' => $this->message->phone_number,
                 'campaign_id' => $campaign->id,
-                'campaign_name' => $campaign->name,
-                'phone_number_id' => $phoneNumberId,
                 'has_template' => !empty($campaign->template_name),
-                'template_name' => $campaign->template_name,
-                'template_params' => $campaign->template_parameters,
-                'video_link' => $campaign->video_link,
             ]);
 
             // Determinar si se usa template o mensaje de texto
@@ -71,20 +54,12 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 // Agregar video_link si existe
                 if ($campaign->video_link && !empty($campaign->video_link)) {
                     $templateData['video_link'] = $campaign->video_link;
-                    Log::info('Video link added to template', ['video_link' => $campaign->video_link]);
-                } else {
-                    Log::info('No video link found', ['video_link' => $campaign->video_link]);
                 }
                 
-                Log::info('Using WhatsApp Template', [
-                    'template' => $templateData
-                ]);
+                Log::info('Using WhatsApp Template', ['template_name' => $templateData['name']]);
             } else {
                 $message = $this->message->message;
-                
-                Log::info('Using Text Message', [
-                    'message' => $message
-                ]);
+                Log::info('Using Text Message');
             }
 
             $result = $whatsAppService->sendMessage(

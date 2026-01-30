@@ -1,29 +1,30 @@
 <div class="conversations-container">
   <!-- Header con estadísticas -->
   <div class="stats-header">
-    <div class="stat-card">
+    <div class="stat-card" [class.highlight]="selectedStat === 'all'" (click)="onStatClick('all')"
+      style="cursor: pointer;" title="Ver todas las conversaciones">
       <div class="stat-value">{{ stats.total_conversations }}</div>
       <div class="stat-label">Todos</div>
     </div>
-    <div class="stat-card highlight">
+    <div class="stat-card" [class.highlight]="selectedStat === 'unread'" (click)="onStatClick('unread')"
+      style="cursor: pointer;" title="Ver solo mensajes no leídos">
       <div class="stat-value">{{ stats.unread_messages }}</div>
       <div class="stat-label">No leídos</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" [class.highlight]="selectedStat === 'messages_today'" (click)="onStatClick('messages_today')"
+      style="cursor: pointer;" title="Ver mensajes de hoy">
       <div class="stat-value">{{ stats.messages_today }}</div>
       <div class="stat-label">Mensajes hoy</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" [class.highlight]="selectedStat === 'incoming_today'" (click)="onStatClick('incoming_today')"
+      style="cursor: pointer;" title="Ver mensajes recibidos hoy">
       <div class="stat-value">{{ stats.incoming_today }}</div>
       <div class="stat-label">Recibidos hoy</div>
     </div>
-    
+
     <!-- Selector de número de WhatsApp (solo para admin) -->
     <div class="stat-card phone-selector" *ngIf="availableNumbers.length > 1">
-      <select 
-        [(ngModel)]="selectedPhoneNumberId" 
-        (change)="onPhoneNumberChange()"
-        class="phone-number-select">
+      <select [(ngModel)]="selectedPhoneNumberId" (change)="onPhoneNumberChange()" class="phone-number-select">
         <option value="">Todos los números</option>
         <option *ngFor="let number of availableNumbers" [value]="number.id">
           {{ number.name }}
@@ -39,35 +40,27 @@
       <div class="sidebar-header">
         <h2>Conversaciones</h2>
         <div class="search-box">
-          <input 
-            type="text" 
-            [(ngModel)]="searchTerm" 
-            (keyup.enter)="onSearch()"
-            placeholder="Buscar contacto..."
-            class="search-input"
-          />
+          <input type="text" [(ngModel)]="searchTerm" (keyup.enter)="onSearch()" placeholder="Buscar contacto..."
+            class="search-input" />
           <button (click)="onSearch()" class="search-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="10" cy="10" r="7"/>
-              <line x1="16" y1="16" x2="22" y2="22"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="10" cy="10" r="7" />
+              <line x1="16" y1="16" x2="22" y2="22" />
             </svg>
           </button>
         </div>
       </div>
 
       <div class="conversations-list" *ngIf="!loading" (scroll)="onScrollConversations($event)">
-        <div 
-          *ngFor="let conv of conversations" 
-          class="conversation-item"
-          [class.active]="selectedConversation?.contact?.id === conv?.id"
-          [class.unread]="(conv?.unread_count ?? 0) > 0"
-          (click)="selectConversation(conv)"
-        >
+        <div *ngFor="let conv of filteredConversations" class="conversation-item"
+          [class.active]="selectedConversation?.contact?.id === conv?.id" [class.unread]="(conv?.unread_count ?? 0) > 0"
+          (click)="selectConversation(conv)">
           <div class="conv-avatar">
             <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="48" cy="48" r="48" fill="#606263"/>
-              <circle cx="48" cy="26" r="14" fill="#ffffff"/>
-              <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+              <circle cx="48" cy="48" r="48" fill="#606263" />
+              <circle cx="48" cy="26" r="14" fill="#ffffff" />
+              <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff" />
             </svg>
           </div>
           <div class="conv-info">
@@ -93,13 +86,16 @@
           <span>Cargando más conversaciones...</span>
         </div>
 
-        <div *ngIf="conversations.length === 0" class="empty-state">
-          <p>No hay conversaciones</p>
+        <div *ngIf="filteredConversations.length === 0 && !loadingMoreConversations" class="empty-state">
+          <p>{{ conversations.length === 0 ? 'No hay conversaciones' : 'No hay conversaciones que coincidan con el
+            filtro' }}</p>
         </div>
 
         <!-- Mensaje cuando se cargaron todas -->
-        <div *ngIf="conversations.length > 0 && currentPage >= totalPages && !loadingMoreConversations" class="all-loaded">
-          <span>Todas las conversaciones cargadas ({{ conversations.length }})</span>
+        <div *ngIf="filteredConversations.length > 0 && currentPage >= totalPages && !loadingMoreConversations"
+          class="all-loaded">
+          <span>{{ selectedStat === 'all' ? 'Todas las conversaciones cargadas' : 'Conversaciones filtradas' }} ({{
+            filteredConversations.length }})</span>
         </div>
       </div>
 
@@ -113,8 +109,9 @@
     <div class="chat-area">
       <!-- Sin conversación seleccionada -->
       <div class="no-conversation" *ngIf="!selectedConversation && !loadingMessages">
-        <svg class="empty-icon" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <svg class="empty-icon" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#ffffff"
+          stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
         <h3>Selecciona una conversación</h3>
         <p>Elige un contacto de la lista para ver el historial de mensajes</p>
@@ -127,9 +124,9 @@
           <div class="contact-info">
             <div class="contact-avatar">
               <svg width="100%" height="100%" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="48" cy="48" r="48" fill="#606263"/>
-                <circle cx="48" cy="26" r="14" fill="#ffffff"/>
-                <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff"/>
+                <circle cx="48" cy="48" r="48" fill="#606263" />
+                <circle cx="48" cy="26" r="14" fill="#ffffff" />
+                <rect x="26" y="44" width="44" height="32" rx="16" fill="#ffffff" />
               </svg>
             </div>
             <div>
@@ -137,140 +134,126 @@
               <p class="contact-phone">{{ selectedConversation.contact.phone_number }}</p>
             </div>
           </div>
-            <!-- Menú de opciones (3 puntos) -->
-            <div class="chat-menu" (click)="toggleMenu()" [class.menu-open]="menuOpen">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#606263" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="5" cy="12" r="2"/>
-                <circle cx="12" cy="12" r="2"/>
-                <circle cx="19" cy="12" r="2"/>
-              </svg>
-              <div class="menu-dropdown" *ngIf="menuOpen" (click)="$event.stopPropagation()">
-                <button class="menu-item" (click)="$event.stopPropagation(); openNoteModal();">Notas</button>
-                <button class="menu-item" (click)="$event.stopPropagation();">Transferencia</button>
+          <!-- Menú de opciones (3 puntos) -->
+          <div class="chat-menu" (click)="toggleMenu()" [class.menu-open]="menuOpen">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#606263" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5" cy="12" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="19" cy="12" r="2" />
+            </svg>
+            <div class="menu-dropdown" *ngIf="menuOpen" (click)="$event.stopPropagation()">
+              <button class="menu-item" (click)="$event.stopPropagation(); openNoteModal();">Notas</button>
+            </div>
+            <!-- Modal para agregar nota -->
+            <div class="modal-backdrop" *ngIf="noteModalOpen" (click)="closeNoteModal()">
+              <div class="note-modal modal" (click)="$event.stopPropagation()">
+                <h3>Agregar Nota</h3>
+                <form>
+                  <label for="note-title">Título</label>
+                  <input id="note-title" type="text" [(ngModel)]="noteTitle" name="noteTitle"
+                    placeholder="Título de la nota" />
+                  <label for="note-content">Nota</label>
+                  <textarea id="note-content" [(ngModel)]="noteContent" name="noteContent"
+                    placeholder="Escribe la nota..."></textarea>
+                  <div class="modal-actions">
+                    <button type="button" (click)="closeNoteModal()">Cerrar</button>
+                    <button type="button" [disabled]="!noteTitle.trim() || !noteContent.trim()"
+                      (click)="saveNote()">Guardar</button>
+                  </div>
+                  <div *ngIf="noteError" class="note-error" style="color: #c00; margin-top: 8px;">{{ noteError }}</div>
+                </form>
               </div>
-                    <!-- Modal para agregar nota -->
-                    <div class="modal-backdrop" *ngIf="noteModalOpen" (click)="closeNoteModal()">
-                      <div class="note-modal modal" (click)="$event.stopPropagation()">
-                        <h3>Agregar Nota</h3>
-                        <form>
-                          <label for="note-title">Título</label>
-                          <input id="note-title" type="text" [(ngModel)]="noteTitle" name="noteTitle" placeholder="Título de la nota" />
-                          <label for="note-content">Nota</label>
-                          <textarea id="note-content" [(ngModel)]="noteContent" name="noteContent" placeholder="Escribe la nota..."></textarea>
-                          <div class="modal-actions">
-                            <button type="button" (click)="closeNoteModal()">Cerrar</button>
-                            <button type="button"
-                              [disabled]="!noteTitle.trim() || !noteContent.trim()"
-                              (click)="saveNote()"
-                            >Guardar</button>
-                          </div>
-                          <div *ngIf="noteError" class="note-error" style="color: #c00; margin-top: 8px;">{{ noteError }}</div>
-                        </form>
-                      </div>
-                    </div>
+            </div>
           </div>
         </div>
 
         <!-- Mensajes -->
         <div class="messages-container">
-          <div 
-            *ngFor="let message of messages" 
-            class="message"
+          <div *ngFor="let message of messages" class="message"
             [class.message-outbound]="message.direction === 'outbound'"
-            [class.message-inbound]="message.direction === 'inbound'"
-          >
+            [class.message-inbound]="message.direction === 'inbound'">
             <div class="message-bubble">
               <div class="message-content">
                 <!-- Imagen -->
-                <img 
-                  *ngIf="message.message_type === 'image' && message.media_url" 
-                  [src]="message.media_url" 
-                  alt="Imagen"
-                  class="message-image"
-                  (error)="onImageError($event)"
-                />
-                
+                <img *ngIf="message.message_type === 'image' && message.media_url" [src]="message.media_url"
+                  alt="Imagen" class="message-image" (error)="onImageError($event)" />
+
                 <!-- Video -->
-                <video 
-                  *ngIf="message.message_type === 'video' && message.media_url" 
-                  [src]="message.media_url"
-                  controls
-                  class="message-video"
-                  preload="metadata"
-                >
+                <video *ngIf="message.message_type === 'video' && message.media_url" [src]="message.media_url" controls
+                  class="message-video" preload="metadata">
                   Tu navegador no soporta video.
                 </video>
-                
+
                 <!-- Sticker -->
-                <img 
-                  *ngIf="message.message_type === 'sticker' && message.media_url" 
-                  [src]="message.media_url" 
-                  alt="Sticker"
-                  class="message-sticker"
-                  (error)="onImageError($event)"
-                />
-                
+                <img *ngIf="message.message_type === 'sticker' && message.media_url" [src]="message.media_url"
+                  alt="Sticker" class="message-sticker" (error)="onImageError($event)" />
+
                 <!-- Audio -->
-                <audio 
-                  *ngIf="message.message_type === 'audio' && message.media_url" 
-                  [src]="message.media_url"
-                  controls
-                  class="message-audio"
-                  preload="metadata"
-                >
+                <audio *ngIf="message.message_type === 'audio' && message.media_url" [src]="message.media_url" controls
+                  class="message-audio" preload="metadata">
                   Tu navegador no soporta audio.
                 </audio>
-                
+
                 <!-- Documento PDF y otros archivos -->
                 <div *ngIf="message.message_type === 'document' && message.media_url" class="message-document">
                   <div class="document-icon">
-                    <svg class="doc-emoji" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                      <line x1="16" y1="13" x2="8" y2="13"/>
-                      <line x1="16" y1="17" x2="8" y2="17"/>
-                      <polyline points="10 9 9 9 8 9"/>
+                    <svg class="doc-emoji" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
                     </svg>
                   </div>
                   <div class="document-info">
                     <div class="document-name">{{ message.metadata?.filename || 'Documento' }}</div>
-                    <div class="document-size" *ngIf="message.metadata?.filesize">{{ formatFileSize(message.metadata.filesize) }}</div>
+                    <div class="document-size" *ngIf="message.metadata?.filesize">{{
+                      formatFileSize(message.metadata.filesize) }}</div>
                   </div>
                   <div class="document-actions">
                     <a [href]="message.media_url" target="_blank" class="doc-btn" title="Ver">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
                       </svg>
                     </a>
-                    <a [href]="message.media_url" [download]="message.metadata?.filename" class="doc-btn" title="Descargar">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    <a [href]="message.media_url" [download]="message.metadata?.filename" class="doc-btn"
+                      title="Descargar">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
                     </a>
                   </div>
                 </div>
-                
+
                 <!-- Texto o fallback -->
-                <div *ngIf="!message.media_url || (message.message_type !== 'image' && message.message_type !== 'video' && message.message_type !== 'sticker' && message.message_type !== 'audio' && message.message_type !== 'document')">
+                <div
+                  *ngIf="!message.media_url || (message.message_type !== 'image' && message.message_type !== 'video' && message.message_type !== 'sticker' && message.message_type !== 'audio' && message.message_type !== 'document')">
                   {{ getMessageContent(message) }}
                 </div>
-                
+
                 <!-- Caption debajo de imagen/video/documento -->
-                <div *ngIf="(message.message_type === 'image' || message.message_type === 'video' || message.message_type === 'document') && message.metadata?.caption" class="media-caption">
+                <div
+                  *ngIf="(message.message_type === 'image' || message.message_type === 'video' || message.message_type === 'document') && message.metadata?.caption"
+                  class="media-caption">
                   {{ message.metadata.caption }}
                 </div>
               </div>
-              
+
               <!-- Reacciones -->
               <div *ngIf="message.reactions && message.reactions.length > 0" class="message-reactions">
-                <span *ngFor="let reaction of message.reactions" class="reaction-emoji" [title]="'Reaccionó ' + reaction.created_at">
+                <span *ngFor="let reaction of message.reactions" class="reaction-emoji"
+                  [title]="'Reaccionó ' + reaction.created_at">
                   {{ reaction.emoji }}
                 </span>
               </div>
-              
+
               <div class="message-meta">
                 <span class="message-time">{{ formatTime(message.message_timestamp) }}</span>
                 <span class="message-status" [class]="getStatusClass(message)">
@@ -293,50 +276,48 @@
               <span class="recording-text">Grabando</span>
               <span class="recording-time">{{ formatRecordingTime(recordingSeconds) }}</span>
             </div>
-            <button type="button" class="recording-stop" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">⏹</button>
+            <button type="button" class="recording-stop" (click)="toggleVoiceRecording()"
+              [disabled]="sendingMessage">⏹</button>
           </div>
           <div *ngIf="selectedFile" class="selected-file">
             <div class="selected-file-info">
               <span class="selected-file-name">{{ selectedFile.name }}</span>
               <span class="selected-file-size">{{ formatFileSize(selectedFile.size) }}</span>
             </div>
-            <button type="button" class="remove-file" (click)="removeSelectedFile()" [disabled]="sendingMessage">✗</button>
+            <button type="button" class="remove-file" (click)="removeSelectedFile()"
+              [disabled]="sendingMessage">✗</button>
           </div>
           <div class="input-wrapper">
-            <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage" class="file-input-hidden" />
+            <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage"
+              class="file-input-hidden" />
             <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                  d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
             </button>
             <button type="button" class="voice-button" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">
-              <svg *ngIf="!isRecording" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="22"/>
-                <line x1="8" y1="22" x2="16" y2="22"/>
+              <svg *ngIf="!isRecording" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="8" y1="22" x2="16" y2="22" />
               </svg>
               <svg *ngIf="isRecording" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12" rx="2"/>
+                <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             </button>
-            <textarea
-              [(ngModel)]="newMessageText"
-              (keydown.enter)="onEnterPress($event)"
-              placeholder="Escribe un mensaje..."
-              class="message-input"
-              rows="1"
-              [disabled]="sendingMessage"
-            ></textarea>
-            <button 
-              (click)="sendMessage()" 
+            <textarea [(ngModel)]="newMessageText" (keydown.enter)="onEnterPress($event)"
+              placeholder="Escribe un mensaje..." class="message-input" rows="1" [disabled]="sendingMessage"></textarea>
+            <button (click)="sendMessage()"
               [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage || isRecording"
-              class="send-button"
-              [class.sending]="sendingMessage"
-            >
-              <svg *ngIf="!sendingMessage" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              class="send-button" [class.sending]="sendingMessage">
+              <svg *ngIf="!sendingMessage" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
               <span *ngIf="sendingMessage" class="spinner-small"></span>
             </button>
