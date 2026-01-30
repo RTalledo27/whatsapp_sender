@@ -95,6 +95,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 }
             } else {
                 $this->message->update([
+                    'phone_number_id' => $phoneNumberId,
                     'status' => 'failed',
                     'error_message' => $result['error'] ?? 'Error desconocido',
                 ]);
@@ -115,7 +116,9 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            $phoneNumberId = $this->message->campaign->phone_number_id ?? config('services.whatsapp.phone_number_id');
             $this->message->update([
+                'phone_number_id' => $phoneNumberId,
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
