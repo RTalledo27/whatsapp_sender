@@ -62,6 +62,12 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 Log::info('Using Text Message');
             }
 
+            // Obtener phone_number_id de la campaña o usar el por defecto
+            $phoneNumberId = $campaign->phone_number_id ?? config('services.whatsapp.phone_number_id');
+            
+            // Crear instancia del servicio WhatsApp
+            $whatsAppService = new WhatsAppService($phoneNumberId);
+
             $result = $whatsAppService->sendMessage(
                 $this->message->phone_number,
                 $message,
