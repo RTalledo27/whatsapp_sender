@@ -187,6 +187,59 @@ class WebhookController extends Controller
             'phone' => $phoneNumber,
             'message_id' => $messageId
         ]);
+
+        // ═══════════════════════════════════════════════════════════════
+        // CHATBOT AUTOMÁTICO - SOLO PARA NÚMERO DE LEADS
+        // ═══════════════════════════════════════════════════════════════
+        // SAFEGUARD: Solo activar para phone_number_id de leads
+        if ($phoneNumberId === env('WHATSAPP_LEADS_BOT_ID')) {
+            try {
+                // Obtener el contenido del mensaje (solo texto)
+                $messageContent = '';
+                if ($messageType === 'text' && isset($message['text']['body'])) {
+                    $messageContent = $message['text']['body'];
+                }
+
+                // Si hay contenido, procesar con el bot
+                if (!empty($messageContent)) {
+                    $botResponse = \App\Services\BotService::handleIncomingMessage(
+                        $contact,
+                        $messageContent,
+                        $phoneNumberId
+                    );
+
+                    // Si el bot generó una respuesta, enviarla
+                    if ($botResponse) {
+                        Log::info('Bot generated automatic response', [
+                            'contact_id' => $contact->id,
+                            'phone_number_id' => $phoneNumberId,
+                            'response_length' => strlen($botResponse)
+                        ]);
+
+                        // Encolar el envío del mensaje del bot
+                        \App\Jobs\SendWhatsAppMessageJob::dispatch([
+                            'phone' => $phoneNumber,
+                            'message' => $botResponse,
+                            'phone_number_id' => $phoneNumberId,
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Bot processing error', [
+                    'contact_id' => $contact->id,
+                    'phone_number_id' => $phoneNumberId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        } else {
+            // Números de producción: NO activar bot
+            Log::info('Bot disabled for production number', [
+                'phone_number_id' => $phoneNumberId,
+                'contact_id' => $contact->id
+            ]);
+        }
+        // ═══════════════════════════════════════════════════════════════
     }
     
     /**
