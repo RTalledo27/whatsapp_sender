@@ -8,6 +8,7 @@ import { CampaignPollingService } from '../../services/campaign-polling.service'
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { Subscription } from 'rxjs';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-campaigns',
@@ -368,6 +369,38 @@ import { Subscription } from 'rxjs';
               </div>
               <div class="detail-item">
                 <strong>Fallidos:</strong> {{ selectedCampaign.failed_count }}
+              </div>
+            </div>
+
+            <!-- Botones de descarga de Excel -->
+            <div class="export-actions" *ngIf="selectedCampaign.messages && selectedCampaign.messages.length > 0">
+              <h3>Exportar a Excel</h3>
+              <div class="export-buttons">
+                <button class="btn btn-small btn-export" (click)="downloadExcel('all')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Todos ({{ selectedCampaign.messages.length }})
+                </button>
+                <button class="btn btn-small btn-export-success" 
+                        (click)="downloadExcel('success')"
+                        *ngIf="getSuccessfulMessages().length > 0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Exitosos ({{ getSuccessfulMessages().length }})
+                </button>
+                <button class="btn btn-small btn-export-failed" 
+                        (click)="downloadExcel('failed')"
+                        *ngIf="getFailedMessages().length > 0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Fallidos ({{ getFailedMessages().length }})
+                </button>
               </div>
             </div>
 
@@ -953,6 +986,52 @@ import { Subscription } from 'rxjs';
       opacity: 0.6;
       cursor: not-allowed;
     }
+
+    .export-actions {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: var(--card-bg);
+      border-radius: 6px;
+    }
+
+    .export-actions h3 {
+      margin: 0 0 15px 0;
+      font-size: 1.1em;
+      color: var(--text);
+    }
+
+    .export-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-export {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-export:hover {
+      background: var(--accent-600);
+    }
+
+    .btn-export-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-export-success:hover {
+      background: #059669;
+    }
+
+    .btn-export-failed {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-export-failed:hover {
+      background: #dc2626;
+    }
   `]
 })
 export class CampaignsComponent implements OnInit, OnDestroy {
@@ -1289,5 +1368,107 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     this.showImportContactsModal = false;
     this.selectedContactsFile = null;
     this.importContactsResult = null;
+  }
+
+  /**
+   * Obtener mensajes exitosos (sent, delivered, read)
+   */
+  getSuccessfulMessages(): any[] {
+    if (!this.selectedCampaign || !this.selectedCampaign.messages) return [];
+    const successStatuses = ['sent', 'delivered', 'read'];
+    return this.selectedCampaign.messages.filter(m => successStatuses.includes(m.status));
+  }
+
+  /**
+   * Obtener mensajes fallidos
+   */
+  getFailedMessages(): any[] {
+    if (!this.selectedCampaign || !this.selectedCampaign.messages) return [];
+    return this.selectedCampaign.messages.filter(m => m.status === 'failed');
+  }
+
+  /**
+   * Descargar Excel con filtro
+   * @param filter 'all' | 'success' | 'failed'
+   */
+  downloadExcel(filter: 'all' | 'success' | 'failed') {
+    if (!this.selectedCampaign || !this.selectedCampaign.messages) return;
+
+    let messagesToExport: any[] = [];
+    let fileName = '';
+
+    switch (filter) {
+      case 'all':
+        messagesToExport = this.selectedCampaign.messages;
+        fileName = `Campaña_${this.selectedCampaign.name}_Todos`;
+        break;
+      case 'success':
+        messagesToExport = this.getSuccessfulMessages();
+        fileName = `Campaña_${this.selectedCampaign.name}_Exitosos`;
+        break;
+      case 'failed':
+        messagesToExport = this.getFailedMessages();
+        fileName = `Campaña_${this.selectedCampaign.name}_Fallidos`;
+        break;
+    }
+
+    if (messagesToExport.length === 0) {
+      this.notificationService.show({
+        type: 'warning',
+        title: 'Sin datos',
+        message: 'No hay mensajes para exportar con el filtro seleccionado'
+      });
+      return;
+    }
+
+    // Preparar datos para Excel: Número, Nombre, Correo, Estado
+    const excelData = messagesToExport.map(message => {
+      return {
+        'Número': message.phone_number || '',
+        'Nombre': message.contact?.name || '',
+        'Correo': message.contact?.email || '',
+        'Estado': this.translateStatus(message.status)
+      };
+    });
+
+    // Crear hoja de cálculo
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Ajustar ancho de columnas
+    const columnWidths = [
+      { wch: 20 }, // Número
+      { wch: 25 }, // Nombre
+      { wch: 30 }, // Correo
+      { wch: 15 }  // Estado
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Crear libro de trabajo
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Mensajes');
+
+    // Generar archivo y descargarlo
+    const timestamp = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `${fileName}_${timestamp}.xlsx`);
+
+    this.notificationService.show({
+      type: 'success',
+      title: 'Excel descargado',
+      message: `Se han exportado ${messagesToExport.length} registros`
+    });
+  }
+
+  /**
+   * Traducir estado del mensaje al español
+   */
+  private translateStatus(status: string): string {
+    const translations: { [key: string]: string } = {
+      'pending': 'Pendiente',
+      'sent': 'Enviado',
+      'delivered': 'Entregado',
+      'read': 'Leído',
+      'failed': 'Fallido'
+    };
+    return translations[status] || status;
   }
 }
