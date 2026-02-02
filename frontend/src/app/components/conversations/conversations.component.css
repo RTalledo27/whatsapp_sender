@@ -1294,3 +1294,38 @@
 .message-outbound .reaction-emoji:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+/* Advertencia para admin sin número seleccionado */
+.admin-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 8px;
+  margin: 0.5rem 1rem 0.75rem;
+  color: #e65100;
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-warning svg {
+  flex-shrink: 0;
+}
+
+.admin-warning span {
+  flex: 1;
+}

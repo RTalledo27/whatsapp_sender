@@ -1,10 +1,11 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, HostListener } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { NotificationToastComponent } from './components/notification-toast/notification-toast.component';
 import { ThemeService } from './services/theme.service';
 import { AuthService } from './services/auth.service';
+import { ChannelService, Channel } from './services/channel.service';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +20,22 @@ import { AuthService } from './services/auth.service';
             <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
             <path d="M12 18h.01"/>
           </svg>
-          <h2>WhatsApp</h2>    
+          <div class="channel-selector" [class.open]="isChannelSelectorOpen" (click)="$event.stopPropagation()">
+            <button class="current-channel-btn" (click)="toggleChannelSelector($event)">
+              <span class="channel-label">{{ selectedChannel.name }}</span>
+              <svg class="chevron-icon" [class.rotated]="isChannelSelectorOpen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="channel-dropdown" *ngIf="isChannelSelectorOpen">
+              <button *ngFor="let channel of channels" 
+                   class="channel-option" 
+                   [class.active]="channel.id === selectedChannel.id"
+                   (click)="selectChannel(channel)">
+                {{ channel.name }}
+              </button>
+            </div>
+          </div>
           <button class="collapse-btn" (click)="toggleSidebar($event)" [attr.aria-label]="isCollapsed ? 'Expandir menú' : 'Contraer menú'">
             <svg *ngIf="!isCollapsed" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6"/>
@@ -61,8 +77,9 @@ import { AuthService } from './services/auth.service';
               <span>Campañas</span>
             </a>
           </li>
+
           <li>
-            <a routerLink="/conversations" routerLinkActive="active">
+            <a routerLink="/conversations" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
@@ -70,7 +87,7 @@ import { AuthService } from './services/auth.service';
             </a>
           </li>
           <li>
-            <a routerLink="/notes" routerLinkActive="active">
+            <a routerLink="/notes" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
                <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                  <rect x="4" y="4" width="16" height="16" rx="2"/>
                  <line x1="8" y1="10" x2="16" y2="10"/>
@@ -194,10 +211,100 @@ import { AuthService } from './services/auth.service';
       color: #3b82f6;
     }
 
-    .logo h2 {
-      font-size: 1.3em;
-      color: white;
+    .channel-selector {
+      position: relative;
+      width: 100%;
+      margin-left: 0;
       transition: opacity 0.2s ease-in-out, width 0.2s ease-in-out, margin 0.2s ease-in-out;
+    }
+
+    .current-channel-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.3em;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .current-channel-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .channel-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chevron-icon {
+      opacity: 0.7;
+      transition: transform 0.2s;
+    }
+
+    .chevron-icon.rotated {
+      transform: rotate(180deg);
+    }
+
+    .channel-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 180px;
+      background: #2e2f2f;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      margin-top: 8px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      animation: fadeIn 0.15s ease-out;
+    }
+
+    .channel-option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      color: #d1d5db;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 0.95em;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .channel-option:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+
+    .channel-option.active {
+      background: #3b82f6;
+      color: white;
+    }
+
+    /* Ajustes para cuando el sidebar está colapsado */
+    .sidebar.collapsed .channel-selector {
+      opacity: 0;
+      width: 0;
+      margin: 0;
+      pointer-events: none;
+    }
+
+    /* Logo h2 removed, styles kept for reference or safety if needed, replacing block */
+    .logo h2 {
+      display: none; /* Ensure original h2 styles don't interfere if any remain */
     }
 
     .collapse-btn {
@@ -536,10 +643,47 @@ export class AppComponent implements OnInit {
     private themeService: ThemeService,
     public authService: AuthService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private channelService: ChannelService
   ) {}
 
+  channels: Channel[] = [];
+  selectedChannel: Channel = { id: 'whatsapp', name: 'WhatsApp' };
+  isChannelSelectorOpen = false;
+
+  @HostListener('document:click')
+  closeChannelSelector() {
+    if (this.isChannelSelectorOpen) {
+      this.isChannelSelectorOpen = false;
+    }
+  }
+
+  toggleChannelSelector(event: Event): void {
+    event.stopPropagation();
+    this.isChannelSelectorOpen = !this.isChannelSelectorOpen;
+  }
+
+  selectChannel(channel: Channel): void {
+    this.channelService.setChannel(channel);
+    this.isChannelSelectorOpen = false;
+    console.log('Canal seleccionado:', channel.name);
+  }
+
+  shouldShowConversationsAndNotes(): boolean {
+    return this.selectedChannel.id !== 'email' && this.selectedChannel.id !== 'sms';
+  }
+
   ngOnInit(): void {
+    // Inicializar canales desde el servicio
+    this.channels = this.channelService.getChannels();
+    this.selectedChannel = this.channelService.getSelectedChannel();
+
+    // Suscribirse a cambios de canal
+    this.channelService.selectedChannel$.subscribe(channel => {
+      this.selectedChannel = channel;
+      this.cdr.markForCheck();
+    });
+
     // Cargar tema actual
     this.currentTheme = this.themeService.getCurrentTheme();
     

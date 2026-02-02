@@ -7,6 +7,7 @@ import { TemplateService, WhatsAppTemplate } from '../../services/template.servi
 import { CampaignPollingService } from '../../services/campaign-polling.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
+import { ChannelService } from '../../services/channel.service';
 import { Subscription } from 'rxjs';
 import * as XLSX from 'xlsx';
 
@@ -16,6 +17,7 @@ import * as XLSX from 'xlsx';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="campaigns-page">
+      <ng-container *ngIf="isWhatsAppOrSMS; else emailView">
       <div class="header">
         <div class="header-left">
           <h1>Campañas de Envío</h1>
@@ -435,6 +437,13 @@ import * as XLSX from 'xlsx';
           </div>
         </div>
       </div>
+      </ng-container>
+      
+      <ng-template #emailView>
+        <div class="empty-state">
+          <!-- Vista en blanco para Email por diseño -->
+        </div>
+      </ng-template>
     </div>
   `,
   styles: [`
@@ -1067,31 +1076,49 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     contact_ids: [] as number[]
   };
 
+  // Channel control
+  isWhatsAppOrSMS = true;
+  channelSubscription?: Subscription;
+  // pollingSubscription is already defined above
+
   constructor(
     private campaignService: CampaignService,
     private contactService: ContactService,
     private templateService: TemplateService,
     private pollingService: CampaignPollingService,
     private notificationService: NotificationService,
-    private authService: AuthService
-  ) { }
+    private authService: AuthService,
+    private channelService: ChannelService
+  ) {
+    // campaignForm is initialized inline
+  }
 
-  ngOnInit() {
+  ngOnInit(): void {
+    // Subscribe to channel changes
+    this.channelSubscription = this.channelService.selectedChannel$.subscribe(channel => {
+      this.isWhatsAppOrSMS = channel.id === 'whatsapp' || channel.id === 'sms';
+    });
+
     // Auto-seleccionar número si el usuario no es admin
     const user = this.authService.getCurrentUser();
     if (user && user.role !== 'admin' && user.phone_number_id) {
       this.selectedPhoneNumberId = user.phone_number_id;
     }
+
     this.loadCampaigns();
-    this.loadContacts();
-    this.loadTemplates(this.selectedPhoneNumberId);
     this.loadAvailableNumbers();
+    this.loadContacts();
+    this.loadTemplates(); 
+
     this.startAutoRefresh();
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     if (this.pollingSubscription) {
       this.pollingSubscription.unsubscribe();
+    }
+    if (this.channelSubscription) {
+      this.channelSubscription.unsubscribe();
     }
     // NO detener el polling al salir, las notificaciones deben continuar
     // this.pollingService.stopAllPolling();

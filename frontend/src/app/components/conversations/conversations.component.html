@@ -268,6 +268,16 @@
           </div>
         </div>
 
+        <!-- Advertencia para admin sin número seleccionado -->
+        <div class="admin-warning" *ngIf="isAdminWithoutNumberSelected">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Selecciona un número de WhatsApp para poder enviar mensajes</span>
+        </div>
+
         <!-- Input de mensaje -->
         <div class="message-input-container">
           <div *ngIf="isRecording" class="recording-bar">
@@ -288,16 +298,16 @@
               [disabled]="sendingMessage">✗</button>
           </div>
           <div class="input-wrapper">
-            <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage"
+            <input type="file" #fileInput (change)="onFileSelected($event)" [disabled]="sendingMessage || !canSendMessages"
               class="file-input-hidden" />
-            <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage">
+            <button type="button" class="attach-button" (click)="onAttachClick(fileInput)" [disabled]="sendingMessage || !canSendMessages" [title]="!canSendMessages ? 'Selecciona un número primero' : 'Adjuntar archivo'">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path
                   d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
             </button>
-            <button type="button" class="voice-button" (click)="toggleVoiceRecording()" [disabled]="sendingMessage">
+            <button type="button" class="voice-button" (click)="toggleVoiceRecording()" [disabled]="sendingMessage || !canSendMessages" [title]="!canSendMessages ? 'Selecciona un número primero' : 'Grabar nota de voz'">
               <svg *ngIf="!isRecording" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
@@ -310,10 +320,10 @@
               </svg>
             </button>
             <textarea [(ngModel)]="newMessageText" (keydown.enter)="onEnterPress($event)"
-              placeholder="Escribe un mensaje..." class="message-input" rows="1" [disabled]="sendingMessage"></textarea>
+              placeholder="{{ isAdminWithoutNumberSelected ? 'Selecciona un número para enviar mensajes...' : 'Escribe un mensaje...' }}" class="message-input" rows="1" [disabled]="sendingMessage || !canSendMessages"></textarea>
             <button (click)="sendMessage()"
-              [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage || isRecording"
-              class="send-button" [class.sending]="sendingMessage">
+              [disabled]="(!newMessageText.trim() && !selectedFile) || sendingMessage || isRecording || !canSendMessages"
+              class="send-button" [class.sending]="sendingMessage" [title]="!canSendMessages ? 'Selecciona un número primero' : 'Enviar mensaje'">
               <svg *ngIf="!sendingMessage" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
