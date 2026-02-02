@@ -748,4 +748,19 @@ export class ConversationsComponent implements OnInit, OnDestroy {
 
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
+
+  /**
+   * Verificar si el admin debe seleccionar un número antes de enviar
+   */
+  get isAdminWithoutNumberSelected(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user && user.role === 'admin' && !this.selectedPhoneNumberId;
+  }
+
+  /**
+   * Verificar si se puede enviar mensajes
+   */
+  get canSendMessages(): boolean {
+    return !this.isAdminWithoutNumberSelected;
+  }
 }

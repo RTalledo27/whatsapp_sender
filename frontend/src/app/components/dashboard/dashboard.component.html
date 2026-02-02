@@ -1,0 +1,226 @@
+    <div class="dashboard">
+      <h1>Dashboard - {{ isWhatsAppOrSMS ? 'Envío Masivo' : 'Email Marketing' }}</h1>
+
+      <!-- VISTA WHATSAPP / SMS -->
+      <ng-container *ngIf="isWhatsAppOrSMS">
+        <!-- Cards superiores personalizadas (solo para admins) -->
+        <div class="top-cards" *ngIf="isAdmin()">
+          <div class="top-card" [class.selected]="selectedPhoneNumberId === null" (click)="selectCard(null)">
+            <div class="top-card-title">General</div>
+          </div>
+          <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.customer_service_id" (click)="selectCard(statistics?.overview?.customer_service_id || null)">
+            <div class="top-card-title">Cobranza</div>
+            <div class="top-card-content">
+              <span *ngIf="statistics?.overview?.customer_service_number">{{ statistics?.overview?.customer_service_number }}</span>
+            </div>
+          </div>
+          <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.community_id" (click)="selectCard(statistics?.overview?.community_id || null)">
+            <div class="top-card-title">Atención al Cliente</div>
+            <div class="top-card-content">
+              <span *ngIf="statistics?.overview?.community_number">{{ statistics?.overview?.community_number }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid" *ngIf="statistics">
+          <div class="stat-card">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.overview.total_contacts }}</div>
+              <div class="stat-label">Total Contactos</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <svg class="stat-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.overview.total_campaigns }}</div>
+              <div class="stat-label">Campañas</div>
+            </div>
+          </div>
+
+          <div class="stat-card success">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.overview.messages_sent }}</div>
+              <div class="stat-label">Mensajes Enviados</div>
+            </div>
+          </div>
+
+          <div class="stat-card error">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.overview.messages_failed }}</div>
+              <div class="stat-label">Mensajes Fallidos</div>
+            </div>
+          </div>
+
+          <div class="stat-card warning">
+            <svg class="stat-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.overview.messages_pending }}</div>
+              <div class="stat-label">Mensajes Pendientes</div>
+            </div>
+          </div>
+
+          <div class="stat-card info">
+            <svg class="stat-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ statistics.success_rate }}%</div>
+              <div class="stat-label">Tasa de Éxito</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="recent-section">
+          <h2>Campañas Recientes</h2>
+          <div class="campaigns-list" *ngIf="(statistics?.recent_campaigns?.length ?? 0) > 0">
+            <div class="campaign-item" *ngFor="let campaign of statistics!.recent_campaigns">
+              <div class="campaign-info">
+                <div class="campaign-name">{{ campaign.name }}</div>
+                <div class="campaign-date">{{ campaign.created_at | date:'short' }}</div>
+              </div>
+              <div class="campaign-stats">
+                <span class="badge" [class.badge-success]="campaign.status === 'completed'"
+                      [class.badge-warning]="campaign.status === 'processing'"
+                      [class.badge-error]="campaign.status === 'failed'">
+                  {{ campaign.status }}
+                </span>
+                <span class="badge">{{ campaign.sent_count }}/{{ campaign.total_contacts }} enviados</span>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="!statistics || !statistics.recent_campaigns || statistics.recent_campaigns.length === 0" class="empty-state">
+            No hay campañas recientes
+          </div>
+        </div>
+
+        <div class="messages-chart" *ngIf="(statistics?.messages_by_day?.length ?? 0) > 0">
+          <h2>Mensajes por Día (Últimos 7 días)</h2>
+          <div class="chart-container">
+            <div class="bar-chart">
+              <div class="bar-item" *ngFor="let day of statistics!.messages_by_day">
+                <div class="bar-wrapper">
+                  <div class="bar-stack">
+                    <div class="bar-column">
+                      <span class="bar-value-top" *ngIf="day.sent > 0">{{ day.sent }}</span>
+                      <div class="bar bar-sent" 
+                           [style.height.px]="(day.sent / getMaxMessages()) * 180">
+                      </div>
+                    </div>
+                    <div class="bar-column">
+                      <span class="bar-value-top" *ngIf="day.failed > 0">{{ day.failed }}</span>
+                      <div class="bar bar-failed" 
+                           [style.height.px]="(day.failed / getMaxMessages()) * 180">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="bar-label">{{ day.date | date:'dd/MM' }}</div>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-color bar-sent"></div>
+                <span>Enviados</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color bar-failed"></div>
+                <span>Fallidos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="!isWhatsAppOrSMS">
+        <!-- Cards superiores para Email -->
+        <div class="top-cards" *ngIf="isAdmin()">
+          <div class="top-card" [class.selected]="selectedEmailCategory === null" (click)="selectEmailCard(null)">
+            <div class="top-card-title">General</div>
+          </div>
+          <div class="top-card" [class.selected]="selectedEmailCategory === 'cobranza'" (click)="selectEmailCard('cobranza')">
+            <div class="top-card-title">Cobranza</div>
+            <div class="top-card-content">
+              <span>&#64;notificacion.casabonita.pe</span>
+            </div>
+          </div>
+          <div class="top-card" [class.selected]="selectedEmailCategory === 'atencion'" (click)="selectEmailCard('atencion')">
+            <div class="top-card-title">Atención al Cliente</div>
+            <div class="top-card-content">
+              <span>&#64;mkt.casabonita.com</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+               <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ emailMetrics.sent || '-' }}</div>
+              <div class="stat-label">Emails Enviados</div>
+            </div>
+          </div>
+
+          <div class="stat-card info">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ emailMetrics.openRate || 0 }}%</div>
+              <div class="stat-label">Open Rate ({{ emailMetrics.opened }})</div>
+            </div>
+          </div>
+
+          <div class="stat-card success">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M15 3h6v6"/>
+               <path d="M10 14L21 3"/>
+               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            </svg>
+            <div class="stat-content">
+              <div class="stat-value">{{ emailMetrics.clickRate || 0 }}%</div>
+              <div class="stat-label">Click Rate ({{ emailMetrics.clicked }})</div>
+            </div>
+          </div>
+
+          <div class="stat-card error">
+            <svg class="stat-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <circle cx="12" cy="12" r="10"/>
+               <line x1="15" y1="9" x2="9" y2="15"/>
+               <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <div class="stat-content">
+               <div class="stat-value">{{ emailMetrics.bounced || 0 }}</div>
+               <div class="stat-label">Rebotados</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state">
+          <p>La visualización detallada de campañas de email estará disponible próximamente.</p>
+        </div>
+      </ng-container>
+
+    </div>
