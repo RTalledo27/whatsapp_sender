@@ -69,7 +69,7 @@ class CampaignController extends Controller
     public function details(Campaign $campaign): JsonResponse
     {
         $campaign->load(['messages' => function ($query) {
-            $query->orderBy('created_at', 'desc');
+            $query->with('contact')->orderBy('created_at', 'desc');
         }]);
 
         return response()->json($campaign);
