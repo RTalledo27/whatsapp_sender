@@ -51,5 +51,17 @@ class UserSeeder extends Seeder
                 'phone_number_name' => env('COMUNIDAD_PHONE_NUMBER_NAME'),
             ]
         );
+
+        // Usuario Leads - Bot de ventas (solo número 122)
+        User::firstOrCreate(
+            ['email' => env('LEADS_EMAIL')],
+            [
+                'name' => env('LEADS_NAME'),
+                'password' => Hash::make(env('LEADS_PASSWORD')),
+                'role' => 'user',
+                'phone_number_id' => env('LEADS_PHONE_NUMBER_ID'),
+                'phone_number_name' => env('LEADS_PHONE_NUMBER_NAME'),
+            ]
+        );
     }
 }
