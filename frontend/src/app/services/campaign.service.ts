@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
+import { Contact } from './contact.service';
 
 export interface Message {
   id: number;
@@ -15,6 +16,7 @@ export interface Message {
   error_message?: string;
   sent_at?: string;
   created_at: string;
+  contact?: Contact;
 }
 
 export interface Campaign {
