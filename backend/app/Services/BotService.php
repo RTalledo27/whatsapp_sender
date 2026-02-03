@@ -47,15 +47,25 @@ class BotService
 
         // 2. Obtener o crear conversación
         $conversation = $this->getOrCreateConversation($contact);
+        Log::info("BotService: Conversation retrieved. State: {$conversation->state}, ID: {$conversation->id}");
 
-        // 3. Verificar si el usuario pide hablar con humano explícitamente
+        // 3. Verificar si el usuario pide reiniciar (útil si se atoró)
+        if (strtolower(trim($message->message_content)) === 'hola' || strtolower(trim($message->message_content)) === 'reset') {
+             Log::info("BotService: Resetting conversation by user request.");
+             $this->updateState($conversation, self::STATE_INITIAL, []);
+             $conversation->refresh();
+        }
+
+        // 4. Verificar si el usuario pide hablar con humano explícitamente
         if ($this->isHandoffRequest($message->message_content)) {
+            Log::info("BotService: User requested handoff.");
             $this->handoffToAgent($conversation, "El usuario solicitó hablar con un asesor.");
             return;
         }
 
-        // 4. Si ya está en handoff, el bot no interviene
+        // 5. Si ya está en handoff, el bot no interviene
         if ($conversation->state === self::STATE_HANDOFF) {
+            Log::info("BotService: Ignoring message because conversation is in HANDOFF state.");
             return;
         }
 
