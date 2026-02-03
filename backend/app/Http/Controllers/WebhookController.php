@@ -296,6 +296,37 @@ class WebhookController extends Controller
                 $mediaId = $message['sticker']['id'] ?? null;
                 break;
                 
+            case 'interactive':
+                $interactiveType = $message['interactive']['type'] ?? null;
+                
+                if ($interactiveType === 'button_reply') {
+                    // Usuario presionó un botón
+                    $buttonId = $message['interactive']['button_reply']['id'] ?? '';
+                    $buttonTitle = $message['interactive']['button_reply']['title'] ?? '';
+                    
+                    $content = $buttonId;  // Guardar el ID como contenido principal
+                    $metadata = [
+                        'interactive_type' => 'button_reply',
+                        'button_id' => $buttonId,
+                        'button_title' => $buttonTitle,
+                    ];
+                    
+                } elseif ($interactiveType === 'list_reply') {
+                    // Usuario seleccionó de lista
+                    $listId = $message['interactive']['list_reply']['id'] ?? '';
+                    $listTitle = $message['interactive']['list_reply']['title'] ?? '';
+                    $listDescription = $message['interactive']['list_reply']['description'] ?? '';
+                    
+                    $content = $listId;  // Guardar el ID como contenido principal
+                    $metadata = [
+                        'interactive_type' => 'list_reply',
+                        'list_id' => $listId,
+                        'list_title' => $listTitle,
+                        'list_description' => $listDescription,
+                    ];
+                }
+                break;
+                
             default:
                 $content = '[Mensaje de tipo: ' . $type . ']';
         }
