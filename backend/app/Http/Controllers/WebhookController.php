@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Services\WhatsAppService;
+use App\Services\BotService;
 use App\Helpers\PhoneHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\Log;
 class WebhookController extends Controller
 {
     public function __construct(
-        private WhatsAppService $whatsappService
+        private WhatsAppService $whatsappService,
+        private BotService $botService
     ) {}
     
     /**
@@ -187,6 +189,9 @@ class WebhookController extends Controller
             'phone' => $phoneNumber,
             'message_id' => $messageId
         ]);
+
+        // Invocar al bot si corresponde
+        $this->botService->handleIncomingMessage($contact, $savedMessage);
     }
     
     /**
