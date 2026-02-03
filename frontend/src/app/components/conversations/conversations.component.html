@@ -1,26 +1,54 @@
 <div class="conversations-container">
   <!-- Header con estadísticas -->
   <div class="stats-header">
-    <div class="stat-card" [class.highlight]="selectedStat === 'all'" (click)="onStatClick('all')"
-      style="cursor: pointer;" title="Ver todas las conversaciones">
-      <div class="stat-value">{{ stats.total_conversations }}</div>
-      <div class="stat-label">Todos</div>
-    </div>
-    <div class="stat-card" [class.highlight]="selectedStat === 'unread'" (click)="onStatClick('unread')"
-      style="cursor: pointer;" title="Ver solo mensajes no leídos">
-      <div class="stat-value">{{ stats.unread_messages }}</div>
-      <div class="stat-label">No leídos</div>
-    </div>
-    <div class="stat-card" [class.highlight]="selectedStat === 'messages_today'" (click)="onStatClick('messages_today')"
-      style="cursor: pointer;" title="Ver mensajes de hoy">
-      <div class="stat-value">{{ stats.messages_today }}</div>
-      <div class="stat-label">Mensajes hoy</div>
-    </div>
-    <div class="stat-card" [class.highlight]="selectedStat === 'incoming_today'" (click)="onStatClick('incoming_today')"
-      style="cursor: pointer;" title="Ver mensajes recibidos hoy">
-      <div class="stat-value">{{ stats.incoming_today }}</div>
-      <div class="stat-label">Recibidos hoy</div>
-    </div>
+    <!-- Mostrar filtros del bot cuando es canal del bot -->
+    <ng-container *ngIf="isBotChannel()">
+      <div class="stat-card" [class.highlight]="selectedBotStatus === 'all'" (click)="onStatClick('all')"
+        style="cursor: pointer;" title="Ver todas las conversaciones activas">
+        <div class="stat-value">{{ stats.total_conversations }}</div>
+        <div class="stat-label">Todos</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedBotStatus === 'qualified'" (click)="onStatClick('qualified')"
+        style="cursor: pointer;" title="Ver contactos calificados">
+        <div class="stat-value">{{ stats.qualified || 0 }}</div>
+        <div class="stat-label">Calificados</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedBotStatus === 'not_qualified'" (click)="onStatClick('not_qualified')"
+        style="cursor: pointer;" title="Ver contactos no calificados">
+        <div class="stat-value">{{ stats.not_qualified || 0 }}</div>
+        <div class="stat-label">No Calificados</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedBotStatus === 'inactive'" (click)="onStatClick('inactive')"
+        *ngIf="canViewInactiveTab()"
+        style="cursor: pointer;" title="Ver contactos inactivos (>24h)">
+        <div class="stat-value">{{ stats.inactive || 0 }}</div>
+        <div class="stat-label">No Activos</div>
+      </div>
+    </ng-container>
+
+    <!-- Mostrar filtros normales para otros canales -->
+    <ng-container *ngIf="!isBotChannel()">
+      <div class="stat-card" [class.highlight]="selectedStat === 'all'" (click)="onStatClick('all')"
+        style="cursor: pointer;" title="Ver todas las conversaciones">
+        <div class="stat-value">{{ stats.total_conversations }}</div>
+        <div class="stat-label">Todos</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedStat === 'unread'" (click)="onStatClick('unread')"
+        style="cursor: pointer;" title="Ver solo mensajes no leídos">
+        <div class="stat-value">{{ stats.unread_messages }}</div>
+        <div class="stat-label">No leídos</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedStat === 'messages_today'" (click)="onStatClick('messages_today')"
+        style="cursor: pointer;" title="Ver mensajes de hoy">
+        <div class="stat-value">{{ stats.messages_today }}</div>
+        <div class="stat-label">Mensajes hoy</div>
+      </div>
+      <div class="stat-card" [class.highlight]="selectedStat === 'incoming_today'" (click)="onStatClick('incoming_today')"
+        style="cursor: pointer;" title="Ver mensajes recibidos hoy">
+        <div class="stat-value">{{ stats.incoming_today }}</div>
+        <div class="stat-label">Recibidos hoy</div>
+      </div>
+    </ng-container>
 
     <!-- Selector de número de WhatsApp (solo para admin) -->
     <div class="stat-card phone-selector" *ngIf="availableNumbers.length > 1">
