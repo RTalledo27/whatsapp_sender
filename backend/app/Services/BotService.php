@@ -60,15 +60,22 @@ class BotService
         }
 
         // 5. Procesar según el estado actual
+        // 5. Procesar según el estado actual
+        Log::info("BotService: Processing message for state: {$conversation->state}");
+        
         try {
             if ($conversation->state === self::STATE_INITIAL) {
+                Log::info("BotService: Starting flow");
                 $this->startFlow($conversation);
             } else {
+                Log::info("BotService: Processing step");
                 $this->processStep($conversation, $message);
             }
         } catch (\Exception $e) {
             Log::error('Error in BotService', [
                 'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(), // Trace completo
                 'contact_id' => $contact->id,
                 'conversation_id' => $conversation->id
             ]);
@@ -260,6 +267,7 @@ class BotService
 
         // MODO REAL
         try {
+            Log::info("BotService: Attempting to send real message to {$contact->phone_number}: {$text}");
             $ws = new WhatsAppService($this->botPhoneNumberId);
             $ws->sendMessage($contact->phone_number, $text);
             
