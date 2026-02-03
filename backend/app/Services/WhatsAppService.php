@@ -442,4 +442,216 @@ class WhatsAppService
             ];
         }
     }
+
+    /**
+     * Enviar mensaje con botones de respuesta rápida (máximo 3 botones)
+     * 
+     * @param string $phoneNumber Número del destinatario
+     * @param string $bodyText Texto del mensaje (máx 1024 caracteres)
+     * @param array $buttons Array de botones [['id' => 'btn_yes', 'title' => 'Sí'], ...]
+     * @param string|null $headerText Texto opcional del header
+     * @param string|null $footerText Texto opcional del footer
+     * @return array
+     */
+    public function sendInteractiveButtons(string $phoneNumber, string $bodyText, array $buttons, ?string $headerText = null, ?string $footerText = null): array
+    {
+        try {
+            $phoneNumber = $this->formatPhoneNumber($phoneNumber);
+            $url = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/messages";
+
+            // Validar máximo 3 botones (límite de Meta)
+            if (count($buttons) > 3) {
+                throw new \Exception('WhatsApp permite máximo 3 botones');
+            }
+
+            // Validar que cada botón tenga id y title
+            foreach ($buttons as $button) {
+                if (!isset($button['id']) || !isset($button['title'])) {
+                    throw new \Exception('Cada botón debe tener "id" y "title"');
+                }
+                // Validar longitud del título (máx 20 caracteres)
+                if (strlen($button['title']) > 20) {
+                    throw new \Exception('El título del botón no puede exceder 20 caracteres');
+                }
+            }
+
+            // Formatear botones según API de Meta
+            $formattedButtons = array_map(function($button) {
+                return [
+                    'type' => 'reply',
+                    'reply' => [
+                        'id' => $button['id'],      // Máx 256 caracteres
+                        'title' => $button['title']  // Máx 20 caracteres
+                    ]
+                ];
+            }, $buttons);
+
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $phoneNumber,
+                'type' => 'interactive',
+                'interactive' => [
+                    'type' => 'button',
+                    'body' => [
+                        'text' => $bodyText  // Máx 1024 caracteres
+                    ],
+                    'action' => [
+                        'buttons' => $formattedButtons
+                    ]
+                ]
+            ];
+
+            // Agregar header si se proporciona
+            if ($headerText) {
+                $payload['interactive']['header'] = [
+                    'type' => 'text',
+                    'text' => $headerText  // Máx 60 caracteres
+                ];
+            }
+
+            // Agregar footer si se proporciona
+            if ($footerText) {
+                $payload['interactive']['footer'] = [
+                    'text' => $footerText  // Máx 60 caracteres
+                ];
+            }
+
+            Log::info('Sending Interactive Button Message', [
+                'to' => $phoneNumber,
+                'buttons_count' => count($buttons),
+                'has_header' => !empty($headerText),
+                'has_footer' => !empty($footerText)
+            ]);
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                Log::info('Interactive buttons sent successfully', [
+                    'message_id' => $data['messages'][0]['id'] ?? null
+                ]);
+                return [
+                    'success' => true,
+                    'message_id' => $data['messages'][0]['id'] ?? null,
+                    'data' => $data,
+                ];
+            }
+
+            Log::error('WhatsApp Interactive Buttons Error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $response->json()['error']['message'] ?? 'Error desconocido',
+                'status_code' => $response->status(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Interactive Buttons Exception', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Enviar mensaje con lista de opciones (hasta 10 opciones por sección)
+     * 
+     * @param string $phoneNumber
+     * @param string $bodyText Texto del mensaje
+     * @param string $buttonText Texto del botón que abre la lista (máx 20 caracteres)
+     * @param array $sections Array de secciones con opciones
+     * @param string|null $headerText Texto opcional del header
+     * @param string|null $footerText Texto opcional del footer
+     * @return array
+     */
+    public function sendInteractiveList(string $phoneNumber, string $bodyText, string $buttonText, array $sections, ?string $headerText = null, ?string $footerText = null): array
+    {
+        try {
+            $phoneNumber = $this->formatPhoneNumber($phoneNumber);
+            $url = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/messages";
+
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $phoneNumber,
+                'type' => 'interactive',
+                'interactive' => [
+                    'type' => 'list',
+                    'body' => [
+                        'text' => $bodyText
+                    ],
+                    'action' => [
+                        'button' => $buttonText,  // Máx 20 caracteres
+                        'sections' => $sections
+                    ]
+                ]
+            ];
+
+            // Agregar header si se proporciona
+            if ($headerText) {
+                $payload['interactive']['header'] = [
+                    'type' => 'text',
+                    'text' => $headerText
+                ];
+            }
+
+            // Agregar footer si se proporciona
+            if ($footerText) {
+                $payload['interactive']['footer'] = [
+                    'text' => $footerText
+                ];
+            }
+
+            Log::info('Sending Interactive List Message', [
+                'to' => $phoneNumber,
+                'sections_count' => count($sections)
+            ]);
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'success' => true,
+                    'message_id' => $data['messages'][0]['id'] ?? null,
+                    'data' => $data,
+                ];
+            }
+
+            Log::error('WhatsApp Interactive List Error', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $response->json()['error']['message'] ?? 'Error desconocido',
+                'status_code' => $response->status(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Interactive List Exception', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
 }
