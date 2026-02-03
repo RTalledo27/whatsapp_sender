@@ -27,6 +27,11 @@ class ConversationController extends Controller
         $search = $request->query('search', '');
         $perPage = $request->query('per_page', 20);
         $phoneNumberId = $request->query('phone_number_id');
+        $botStatus = $request->query('bot_status'); // 'all', 'qualified', 'not_qualified', 'inactive'
+        
+        // Detectar si es canal del bot
+        $botPhoneNumberId = '950764051457024';
+        $isBotChannel = $phoneNumberId === $botPhoneNumberId;
         
         $conversations = Contact::select('contacts.*')
             ->join('messages', 'contacts.id', '=', 'messages.contact_id')
@@ -55,7 +60,44 @@ class ConversationController extends Controller
                     $q->where('contacts.name', 'like', "%{$search}%")
                       ->orWhere('contacts.phone_number', 'like', "%{$search}%");
                 });
-            })
+            });
+            
+        // Filtros específicos del bot
+        if ($isBotChannel) {
+            if ($botStatus === 'qualified') {
+                // Solo mostrar los calificados (terminaron el flujo y califican)
+                $conversations->whereHas('botConversations', function($query) use ($botPhoneNumberId) {
+                    $query->where('phone_number_id', $botPhoneNumberId)
+                          ->where('state', 'finished')
+                          ->whereJsonContains('context->qualified', true);
+                });
+            } elseif ($botStatus === 'not_qualified') {
+                // Solo mostrar los no calificados (terminaron el flujo pero no califican)
+                $conversations->whereHas('botConversations', function($query) use ($botPhoneNumberId) {
+                    $query->where('phone_number_id', $botPhoneNumberId)
+                          ->where('state', 'finished')
+                          ->whereJsonContains('context->qualified', false);
+                });
+            } elseif ($botStatus === 'inactive') {
+                // Solo mostrar inactivos (>24h sin interacción y no terminaron)
+                $conversations->whereHas('botConversations', function($query) use ($botPhoneNumberId) {
+                    $query->where('phone_number_id', $botPhoneNumberId)
+                          ->whereNotIn('state', ['finished', 'handoff'])
+                          ->where('last_interaction_at', '<', now()->subHours(24));
+                });
+            } else {
+                // 'all' o sin filtro: ocultar inactivos por defecto
+                $conversations->whereHas('botConversations', function($query) use ($botPhoneNumberId) {
+                    $query->where('phone_number_id', $botPhoneNumberId)
+                          ->where(function($q) {
+                              $q->whereIn('state', ['finished', 'handoff'])
+                                ->orWhere('last_interaction_at', '>=', now()->subHours(24));
+                          });
+                });
+            }
+        }
+            
+        $conversations = $conversations
             ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.email', 
                      'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
             ->orderByRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) DESC')
@@ -124,6 +166,8 @@ class ConversationController extends Controller
     public function stats(Request $request)
     {
         $phoneNumberId = $request->query('phone_number_id');
+        $botPhoneNumberId = '950764051457024';
+        $isBotChannel = $phoneNumberId === $botPhoneNumberId;
 
         $messageQuery = Message::query();
         $contactQuery = Contact::query();
@@ -148,6 +192,24 @@ class ConversationController extends Controller
                 ->whereDate('message_timestamp', today())
                 ->count(),
         ];
+
+        // Agregar stats del bot si es canal del bot
+        if ($isBotChannel) {
+            $stats['qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->where('state', 'finished')
+                ->whereJsonContains('context->qualified', true)
+                ->count();
+            
+            $stats['not_qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->where('state', 'finished')
+                ->whereJsonContains('context->qualified', false)
+                ->count();
+            
+            $stats['inactive'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->whereNotIn('state', ['finished', 'handoff'])
+                ->where('last_interaction_at', '<', now()->subHours(24))
+                ->count();
+        }
         
         return response()->json($stats);
     }
