@@ -170,6 +170,7 @@ class WebhookController extends Controller
         $savedMessage = Message::create([
             'contact_id' => $contact->id,
             'phone_number_id' => $phoneNumberId,
+            'phone_number' => $phoneNumber,
             'campaign_id' => null,
             'message' => null,
             'status' => null,
