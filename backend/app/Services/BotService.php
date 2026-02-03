@@ -40,7 +40,10 @@ class BotService
     public function handleIncomingMessage(Contact $contact, Message $message)
     {
         // 1. Verificar si este mensaje fue recibido por el número del bot
-        if (!$this->botPhoneNumberId || $message->phone_number_id !== $this->botPhoneNumberId) {
+        Log::info("BotService: Checking connection. Message ID: {$message->phone_number_id}, Bot ID: {$this->botPhoneNumberId}");
+        
+        if (!$this->botPhoneNumberId || (string)$message->phone_number_id !== (string)$this->botPhoneNumberId) {
+            Log::info("BotService: Ignoring message. IDs do not match.");
             return;
         }
 
