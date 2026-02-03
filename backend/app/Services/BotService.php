@@ -40,10 +40,8 @@ class BotService
     public function handleIncomingMessage(Contact $contact, Message $message)
     {
         // 1. Verificar si este mensaje fue recibido por el número del bot
-        Log::info("BotService: Checking connection. Message ID: {$message->phone_number_id}, Bot ID: {$this->botPhoneNumberId}");
-        
+        // Comparamos como string para evitar problemas de tipos (int vs string)
         if (!$this->botPhoneNumberId || (string)$message->phone_number_id !== (string)$this->botPhoneNumberId) {
-            Log::info("BotService: Ignoring message. IDs do not match.");
             return;
         }
 
@@ -62,15 +60,22 @@ class BotService
         }
 
         // 5. Procesar según el estado actual
+        // 5. Procesar según el estado actual
+        Log::info("BotService: Processing message for state: {$conversation->state}");
+        
         try {
             if ($conversation->state === self::STATE_INITIAL) {
+                Log::info("BotService: Starting flow");
                 $this->startFlow($conversation);
             } else {
+                Log::info("BotService: Processing step");
                 $this->processStep($conversation, $message);
             }
         } catch (\Exception $e) {
             Log::error('Error in BotService', [
                 'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(), // Trace completo
                 'contact_id' => $contact->id,
                 'conversation_id' => $conversation->id
             ]);
@@ -262,6 +267,7 @@ class BotService
 
         // MODO REAL
         try {
+            Log::info("BotService: Attempting to send real message to {$contact->phone_number}: {$text}");
             $ws = new WhatsAppService($this->botPhoneNumberId);
             $ws->sendMessage($contact->phone_number, $text);
             
