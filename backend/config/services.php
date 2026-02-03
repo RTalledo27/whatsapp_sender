@@ -17,6 +17,8 @@ return [
         'delay_between_messages' => env('WHATSAPP_DELAY_SECONDS', 2),
         'delay_on_error' => env('WHATSAPP_DELAY_ON_ERROR', 5),
         
+        'leads_bot_id' => env('WHATSAPP_LEADS_PHONE_NUMBER_ID'),
+        
         'available_numbers' => [
             [
                 'id' => env('WHATSAPP_PHONE_NUMBER_ID'),
