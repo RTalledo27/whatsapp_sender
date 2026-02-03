@@ -25,10 +25,13 @@ class WhatsAppService
             $this->phoneNumberId = $phoneNumberId;
             $this->accessToken = $accessToken ?? $numberConfig['access_token'] ?? config('services.whatsapp.access_token');
             $this->businessAccountId = $numberConfig['business_account_id'] ?? config('services.whatsapp.business_account_id');
+            
+            Log::info("WhatsAppService: Initialized for ID {$phoneNumberId}. Found config: " . ($numberConfig ? 'YES' : 'NO'));
         } else {
             $this->accessToken = config('services.whatsapp.access_token');
             $this->phoneNumberId = config('services.whatsapp.phone_number_id');
             $this->businessAccountId = config('services.whatsapp.business_account_id');
+            Log::info("WhatsAppService: Initialized with default config.");
         }
     }
     
@@ -36,10 +39,13 @@ class WhatsAppService
     {
         $availableNumbers = config('services.whatsapp.available_numbers', []);
         foreach ($availableNumbers as $number) {
-            if ($number['id'] === $phoneNumberId) {
+            // Comparación no estricta o casteada a string para evitar problemas de tipos
+            if ((string)$number['id'] === (string)$phoneNumberId) {
                 return $number;
             }
         }
+        
+        Log::warning("WhatsAppService: No specific config found for ID {$phoneNumberId}. Available IDs: " . implode(', ', array_column($availableNumbers, 'id')));
         return [];
     }
     
