@@ -3,7 +3,7 @@ import { NotesComponent } from '../notes/notes.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
-import { ConversationService, Conversation, ConversationDetail, Message } from '../../services/conversation.service';
+import { ConversationService, Conversation, ConversationDetail, Message, ConversationStats } from '../../services/conversation.service';
 import { CampaignService, WhatsAppNumber } from '../../services/campaign.service';
 import { AuthService } from '../../services/auth.service';
 import { NotesService } from '../../services/notes.service';
@@ -53,6 +53,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
 
   // Filtro por estadísticas (por defecto 'all' está seleccionado)
   selectedStat = 'all'; // 'all', 'unread', 'messages_today', 'incoming_today'
+  selectedBotStatus = 'all'; // 'all', 'qualified', 'not_qualified', 'inactive'
 
   // Paginación
   currentPage = 1;
@@ -65,7 +66,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   pollingInterval = 5000; // 5 segundos
 
   // Estadísticas
-  stats = {
+  stats: ConversationStats = {
     total_conversations: 0,
     unread_messages: 0,
     messages_today: 0,
@@ -123,14 +124,43 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    * Manejar clic en estadística
    */
   onStatClick(stat: string): void {
-    this.selectedStat = stat;
+    if (this.isBotChannel()) {
+      this.selectedBotStatus = stat;
+    } else {
+      this.selectedStat = stat;
+    }
     this.applyStatFilter();
+  }
+
+  /**
+   * Verificar si el canal seleccionado es el bot
+   */
+  isBotChannel(): boolean {
+    const botPhoneNumberId = '950764051457024';
+    return this.selectedPhoneNumberId === botPhoneNumberId;
+  }
+
+  /**
+   * Verificar si el usuario actual puede ver la pestaña de inactivos
+   */
+  canViewInactiveTab(): boolean {
+    const user = this.authService.getCurrentUser();
+    return this.isBotChannel() && (user?.role === 'admin' || user?.phone_number_id === this.selectedPhoneNumberId);
   }
 
   /**
    * Aplicar filtro basado en estadística seleccionada
    */
   applyStatFilter(): void {
+    // Para el canal del bot, los filtros se manejan en el backend
+    if (this.isBotChannel()) {
+      this.currentPage = 1;
+      this.conversations = [];
+      this.loadConversations();
+      return;
+    }
+    
+    // Para otros canales, filtrado frontend (comportamiento anterior)
     switch (this.selectedStat) {
       case 'all':
         this.filteredConversations = [...this.conversations];
@@ -249,7 +279,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     }
 
     const phoneNumberId = this.selectedPhoneNumberId || null;
-    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId)
+    const botStatus = this.isBotChannel() ? (this.selectedBotStatus || 'all') : null;
+    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId, botStatus)
       .subscribe({
         next: (response) => {
           if (append) {
@@ -263,8 +294,14 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           this.totalPages = response.last_page;
           this.loading = false;
           this.loadingMoreConversations = false;
-          // Aplicar filtro de estadísticas
-          this.applyStatFilter();
+          
+          // Para canal del bot, el filtrado ya se hizo en backend
+          if (this.isBotChannel()) {
+            this.filteredConversations = [...this.conversations];
+          } else {
+            // Para otros canales, aplicar filtro frontend
+            this.applyStatFilter();
+          }
         },
         error: (error) => {
           console.error('Error loading conversations:', error);

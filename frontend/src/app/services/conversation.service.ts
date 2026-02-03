@@ -65,6 +65,9 @@ export interface ConversationStats {
   messages_today: number;
   incoming_today: number;
   outgoing_today: number;
+  qualified?: number;
+  not_qualified?: number;
+  inactive?: number;
 }
 
 @Injectable({
@@ -78,7 +81,7 @@ export class ConversationService {
   /**
    * Obtener lista de conversaciones
    */
-  getConversations(search: string = '', page: number = 1, perPage: number = 20, phoneNumberId: string | null = null): Observable<any> {
+  getConversations(search: string = '', page: number = 1, perPage: number = 20, phoneNumberId: string | null = null, botStatus: string | null = null): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
@@ -89,6 +92,10 @@ export class ConversationService {
     
     if (phoneNumberId) {
       params = params.set('phone_number_id', phoneNumberId);
+    }
+
+    if (botStatus) {
+      params = params.set('bot_status', botStatus);
     }
 
     return this.http.get<any>(this.apiUrl, { params });
