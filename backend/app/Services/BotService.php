@@ -127,12 +127,13 @@ class BotService
         
         $text = "¡Hola! 👋 Gracias por tu interés en el Bono Techo Propio. Soy el asistente virtual de Casa Bonita.\n\n" .
                 "Para saber si calificas, necesito hacerte 3 preguntas rápidas.\n\n" .
-                "1️⃣ ¿Tienes un terreno propio inscrito en Registros Públicos?\n" .
-                "responde con el número de tu opción:\n" .
-                "1. Sí\n" .
-                "2. No";
+                "1️⃣ ¿Tienes un terreno propio inscrito en Registros Públicos?";
 
-        $this->sendMessage($conversation->contact, $text);
+        // Enviar mensaje con botones interactivos
+        $this->sendInteractiveMessage($conversation->contact, $text, [
+            ['id' => 'btn_terrain_yes', 'title' => 'Sí'],
+            ['id' => 'btn_terrain_no', 'title' => 'No']
+        ]);
     }
 
     /**
@@ -146,7 +147,11 @@ class BotService
 
         switch ($conversation->state) {
             case self::STATE_TERRAIN:
-                if ($this->checkOption($content, ['1', 'si', 'sí'], ['2', 'no'])) {
+                // Combinar opciones de texto y button IDs
+                $yesOptions = ['1', 'si', 'sí', 'btn_terrain_yes', 'btn_yes'];
+                $noOptions = ['2', 'no', 'btn_terrain_no', 'btn_no'];
+                
+                if ($this->checkOption($content, $yesOptions, $noOptions)) {
                     $hasTerrain = $this->isAffirmative($content);
                     
                     if (!$hasTerrain) {
@@ -155,7 +160,13 @@ class BotService
                         $context['has_terrain'] = true;
                         $context['retries'] = 0;
                         $this->updateState($conversation, self::STATE_FAMILY, $context);
-                        $this->sendMessage($conversation->contact, "¡Genial! ✅\n\n2️⃣ ¿Tienes carga familiar? (Esposa/o, hijos, hermanos menores o padres dependientes)\n\n1. Sí\n2. No");
+                        
+                        // Enviar siguiente pregunta con botones
+                        $text = "¡Genial! ✅\n\n2️⃣ ¿Tienes carga familiar? (Esposa/o, hijos, hermanos menores o padres dependientes)";
+                        $this->sendInteractiveMessage($conversation->contact, $text, [
+                            ['id' => 'btn_family_yes', 'title' => 'Sí'],
+                            ['id' => 'btn_family_no', 'title' => 'No']
+                        ]);
                     }
                 } else {
                     $this->handleInvalidInput($conversation, $retries);
@@ -163,7 +174,11 @@ class BotService
                 break;
 
             case self::STATE_FAMILY:
-                if ($this->checkOption($content, ['1', 'si', 'sí'], ['2', 'no'])) {
+                // Combinar opciones de texto y button IDs
+                $yesOptions = ['1', 'si', 'sí', 'btn_family_yes', 'btn_yes'];
+                $noOptions = ['2', 'no', 'btn_family_no', 'btn_no'];
+                
+                if ($this->checkOption($content, $yesOptions, $noOptions)) {
                     $hasFamily = $this->isAffirmative($content);
                     
                     if (!$hasFamily) {
@@ -172,7 +187,13 @@ class BotService
                         $context['has_family'] = true;
                         $context['retries'] = 0;
                         $this->updateState($conversation, self::STATE_INCOME, $context);
-                        $this->sendMessage($conversation->contact, "¡Perfecto! Vamos con la última.\n\n3️⃣ ¿El ingreso mensual de tu familia es menor a S/ 3,715?\n\n1. Sí\n2. No");
+                        
+                        // Enviar última pregunta con botones
+                        $text = "¡Perfecto! Vamos con la última.\n\n3️⃣ ¿El ingreso mensual de tu familia es menor a S/ 3,715?";
+                        $this->sendInteractiveMessage($conversation->contact, $text, [
+                            ['id' => 'btn_income_yes', 'title' => 'Sí'],
+                            ['id' => 'btn_income_no', 'title' => 'No']
+                        ]);
                     }
                 } else {
                     $this->handleInvalidInput($conversation, $retries);
@@ -180,7 +201,11 @@ class BotService
                 break;
 
             case self::STATE_INCOME:
-                if ($this->checkOption($content, ['1', 'si', 'sí'], ['2', 'no'])) {
+                // Combinar opciones de texto y button IDs
+                $yesOptions = ['1', 'si', 'sí', 'btn_income_yes', 'btn_yes'];
+                $noOptions = ['2', 'no', 'btn_income_no', 'btn_no'];
+                
+                if ($this->checkOption($content, $yesOptions, $noOptions)) {
                     $lowIncome = $this->isAffirmative($content);
                     
                     if (!$lowIncome) {
@@ -212,7 +237,7 @@ class BotService
         $context['retries'] = $retries;
         $this->updateState($conversation, $conversation->state, $context);
 
-        $this->sendMessage($conversation->contact, "⚠️ No entendí tu respuesta. Por favor, responde solo con el número **1** (Sí) o **2** (No).");
+        $this->sendMessage($conversation->contact, "⚠️ No entendí tu respuesta. Por favor, usa los botones de respuesta o escribe **1** (Sí) o **2** (No).");
     }
 
     /**
@@ -311,6 +336,7 @@ class BotService
 
     /**
      * Verificar si la entrada es una opción válida
+     * Soporta tanto texto ('1', 'si') como button IDs ('btn_yes')
      */
     private function checkOption($input, array $yesOptions, array $noOptions): bool
     {
@@ -320,11 +346,19 @@ class BotService
 
     /**
      * Verificar si es una respuesta afirmativa
+     * Soporta tanto texto ('1', 'si', 'sí') como button IDs ('btn_yes', 'btn_terrain_yes', etc.)
      */
     private function isAffirmative($input): bool
     {
         $input = strtolower(trim($input));
-        return in_array($input, ['1', 'si', 'sí']);
+        
+        // Opciones de texto tradicionales
+        $textOptions = ['1', 'si', 'sí'];
+        
+        // IDs de botones afirmativos
+        $buttonOptions = ['btn_yes', 'btn_si', 'btn_terrain_yes', 'btn_family_yes', 'btn_income_yes'];
+        
+        return in_array($input, $textOptions) || in_array($input, $buttonOptions);
     }
 
     /**
@@ -334,5 +368,90 @@ class BotService
     {
         $input = strtolower(trim($input));
         return in_array($input, ['asesor', 'humano', 'persona', 'ayuda']);
+    }
+
+    /**
+     * Enviar mensaje interactivo con botones
+     * Con fallback automático a texto si falla el envío de botones
+     */
+    private function sendInteractiveMessage(Contact $contact, string $text, array $buttons)
+    {
+        // Modo testing: registrar sin enviar
+        if ($this->botPhoneNumberId && str_starts_with($this->botPhoneNumberId, 'TEST_')) {
+            Log::info("BotService [TEST MODE]: Would send interactive message", [
+                'to' => $contact->phone_number,
+                'text' => $text,
+                'buttons' => $buttons
+            ]);
+            
+            Message::create([
+                'contact_id' => $contact->id,
+                'phone_number_id' => $this->botPhoneNumberId,
+                'phone_number' => $contact->phone_number,
+                'message' => $text,
+                'message_content' => $text,
+                'direction' => 'outbound',
+                'status' => 'sent',
+                'message_timestamp' => now(),
+                'message_type' => 'interactive',
+                'metadata' => ['buttons' => $buttons]
+            ]);
+            return;
+        }
+
+        // Modo real: intentar enviar botones con fallback a texto
+        try {
+            Log::info("BotService: Attempting to send interactive message", [
+                'to' => $contact->phone_number,
+                'buttons_count' => count($buttons)
+            ]);
+            
+            $ws = new WhatsAppService($this->botPhoneNumberId);
+            $result = $ws->sendInteractiveButtons($contact->phone_number, $text, $buttons);
+            
+            if ($result['success']) {
+                Message::create([
+                    'contact_id' => $contact->id,
+                    'phone_number_id' => $this->botPhoneNumberId,
+                    'phone_number' => $contact->phone_number,
+                    'message' => $text,
+                    'message_content' => $text,
+                    'direction' => 'outbound',
+                    'status' => 'sent',
+                    'message_timestamp' => now(),
+                    'message_type' => 'interactive',
+                    'whatsapp_message_id' => $result['message_id'],
+                    'metadata' => ['buttons' => $buttons]
+                ]);
+                Log::info("BotService: Interactive message sent successfully");
+            } else {
+                // Fallback a texto simple
+                Log::warning("BotService: Interactive buttons failed, using text fallback", [
+                    'error' => $result['error']
+                ]);
+                $this->sendTextFallback($contact, $text, $buttons);
+            }
+        } catch (\Exception $e) {
+            Log::error("BotService: Error sending interactive message", [
+                'error' => $e->getMessage()
+            ]);
+            
+            // Fallback a texto simple
+            $this->sendTextFallback($contact, $text, $buttons);
+        }
+    }
+
+    /**
+     * Enviar mensaje de texto simple como fallback cuando los botones fallan
+     */
+    private function sendTextFallback(Contact $contact, string $text, array $buttons)
+    {
+        $textWithOptions = $text . "\n\n" . implode("\n", array_map(
+            fn($btn, $idx) => ($idx + 1) . ". " . $btn['title'],
+            $buttons,
+            array_keys($buttons)
+        ));
+        
+        $this->sendMessage($contact, $textWithOptions);
     }
 }
