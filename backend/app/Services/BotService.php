@@ -17,6 +17,7 @@ class BotService
     const STATE_TERRAIN = 'terrain';
     const STATE_FAMILY = 'family';
     const STATE_INCOME = 'income';
+    const STATE_PREVIOUS_SUPPORT = 'previous_support';
     const STATE_FINISHED = 'finished';
     const STATE_HANDOFF = 'handoff';
 
@@ -126,7 +127,7 @@ class BotService
         $this->updateState($conversation, self::STATE_TERRAIN, ['retries' => 0]);
         
         $text = "¡Hola! 👋 Gracias por tu interés en el Bono Techo Propio. Soy el asistente virtual de Casa Bonita.\n\n" .
-                "Para saber si calificas, necesito hacerte 3 preguntas rápidas.\n\n" .
+                "Para saber si calificas, necesito hacerte 4 preguntas rápidas.\n\n" .
                 "1️⃣ ¿Tienes un terreno propio inscrito en Registros Públicos?";
 
         // Enviar mensaje con botones interactivos
@@ -188,8 +189,8 @@ class BotService
                         $context['retries'] = 0;
                         $this->updateState($conversation, self::STATE_INCOME, $context);
                         
-                        // Enviar última pregunta con botones
-                        $text = "¡Perfecto! Vamos con la última.\n\n3️⃣ ¿El ingreso mensual de tu familia es menor a S/ 3,715?";
+                        // Enviar pregunta de ingresos
+                        $text = "3️⃣ ¿El ingreso mensual de tu familia es menor a S/ 3,715?";
                         $this->sendInteractiveMessage($conversation->contact, $text, [
                             ['id' => 'btn_income_yes', 'title' => 'Sí'],
                             ['id' => 'btn_income_no', 'title' => 'No']
@@ -212,6 +213,35 @@ class BotService
                         $this->finishFlow($conversation, false, "Ingresos superiores al límite");
                     } else {
                         $context['low_income'] = true;
+                        $context['retries'] = 0;
+                        $this->updateState($conversation, self::STATE_PREVIOUS_SUPPORT, $context);
+                        
+                        // Enviar pregunta sobre apoyo habitacional previo
+                        $text = "4️⃣ ¿Ha recibido anteriormente apoyo de un programa habitacional del Estado?";
+                        $this->sendInteractiveMessage($conversation->contact, $text, [
+                            ['id' => 'btn_support_yes', 'title' => 'Sí'],
+                            ['id' => 'btn_support_no', 'title' => 'No']
+                        ]);
+                    }
+                } else {
+                    $this->handleInvalidInput($conversation, $retries);
+                }
+                break;
+
+            case self::STATE_PREVIOUS_SUPPORT:
+                // Combinar opciones de texto y button IDs
+                $yesOptions = ['1', 'si', 'sí', 'btn_support_yes', 'btn_yes'];
+                $noOptions = ['2', 'no', 'btn_support_no', 'btn_no'];
+                
+                if ($this->checkOption($content, $yesOptions, $noOptions)) {
+                    $hasPreviousSupport = $this->isAffirmative($content);
+                    
+                    if ($hasPreviousSupport) {
+                        // Ya recibió apoyo anteriormente - NO califica
+                        $this->finishFlow($conversation, false, "Ya ha recibido apoyo habitacional previo del Estado");
+                    } else {
+                        // No ha recibido apoyo anteriormente - CALIFICA
+                        $context['no_previous_support'] = true;
                         $this->finishFlow($conversation, true, "Apto para Techo Propio");
                     }
                 } else {
@@ -356,7 +386,7 @@ class BotService
         $textOptions = ['1', 'si', 'sí'];
         
         // IDs de botones afirmativos
-        $buttonOptions = ['btn_yes', 'btn_si', 'btn_terrain_yes', 'btn_family_yes', 'btn_income_yes'];
+        $buttonOptions = ['btn_yes', 'btn_si', 'btn_terrain_yes', 'btn_family_yes', 'btn_income_yes', 'btn_support_yes'];
         
         return in_array($input, $textOptions) || in_array($input, $buttonOptions);
     }
