@@ -26,12 +26,10 @@ class WhatsAppService
             $this->accessToken = $accessToken ?? $numberConfig['access_token'] ?? config('services.whatsapp.access_token');
             $this->businessAccountId = $numberConfig['business_account_id'] ?? config('services.whatsapp.business_account_id');
             
-            Log::info("WhatsAppService: Initialized for ID {$phoneNumberId}. Found config: " . ($numberConfig ? 'YES' : 'NO'));
         } else {
             $this->accessToken = config('services.whatsapp.access_token');
             $this->phoneNumberId = config('services.whatsapp.phone_number_id');
             $this->businessAccountId = config('services.whatsapp.business_account_id');
-            Log::info("WhatsAppService: Initialized with default config.");
         }
     }
     
@@ -43,9 +41,7 @@ class WhatsAppService
             if ((string)$number['id'] === (string)$phoneNumberId) {
                 return $number;
             }
-        }
-        
-        Log::warning("WhatsAppService: No specific config found for ID {$phoneNumberId}. Available IDs: " . implode(', ', array_column($availableNumbers, 'id')));
+        }        
         return [];
     }
     
