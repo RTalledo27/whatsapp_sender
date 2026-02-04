@@ -118,9 +118,16 @@ class WebhookController extends Controller
         ]);
         
         // Buscar o crear contacto
+        // Determinar tipo según canal: bot leads o cliente normal
+        $leadsPhoneNumberId = config('services.whatsapp.leads_bot_id');
+        $contactType = ($phoneNumberId === $leadsPhoneNumberId) ? 'lead' : 'client';
+        
         $contact = Contact::firstOrCreate(
             ['phone_number' => $phoneNumber],
-            ['name' => $phoneNumber] // Nombre por defecto, puede actualizarse después
+            [
+                'name' => $phoneNumber, // Nombre por defecto, puede actualizarse después
+                'contact_type' => $contactType
+            ]
         );
         
         // Manejar reacciones de forma especial

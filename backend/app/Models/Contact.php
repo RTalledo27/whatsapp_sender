@@ -14,12 +14,29 @@ class Contact extends Model
         'phone_number',
         'name',
         'email',
+        'contact_type',
         'metadata',
     ];
 
     protected $casts = [
         'metadata' => 'array',
     ];
+
+    /**
+     * Scope para filtrar solo leads
+     */
+    public function scopeLeads($query)
+    {
+        return $query->where('contact_type', 'lead');
+    }
+
+    /**
+     * Scope para filtrar solo clientes
+     */
+    public function scopeClients($query)
+    {
+        return $query->where('contact_type', 'client');
+    }
 
     public function messages(): HasMany
     {

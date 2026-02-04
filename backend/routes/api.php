@@ -51,7 +51,7 @@ Route::middleware('api')->group(function () {
     });
     
     // Contacts
-    Route::prefix('contacts')->group(function () {
+    Route::middleware('auth:api')->prefix('contacts')->group(function () {
         Route::get('/', [ContactController::class, 'index']);
         Route::post('/', [ContactController::class, 'store']);
         Route::put('/{contact}', [ContactController::class, 'update']);
