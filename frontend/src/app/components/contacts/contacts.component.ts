@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ContactService, Contact } from '../../services/contact.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-contacts',
@@ -28,20 +29,32 @@ import { ContactService, Contact } from '../../services/contact.service';
         </div>
       </div>
 
-      <div class="search-bar">
-        <input 
-          type="text" 
-          placeholder="Buscar por teléfono, nombre o email..."
-          [(ngModel)]="searchTerm"
-          (keyup.enter)="search()"
-        />
-        <button class="btn btn-primary" (click)="search()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
-            <circle cx="10" cy="10" r="7"/>
-            <line x1="16" y1="16" x2="22" y2="22"/>
-          </svg>
-          Buscar
-        </button>
+      <div class="filters">
+        <!-- Filtro de tipo solo para admin -->
+        <div class="filter-group" *ngIf="isAdmin()">
+          <label>Tipo de Contacto:</label>
+          <select [(ngModel)]="selectedContactType" (change)="onFilterChange()">
+            <option value="">Todos</option>
+            <option value="lead">Leads</option>
+            <option value="client">Clientes</option>
+          </select>
+        </div>
+
+        <div class="filter-group search-group">
+          <input 
+            type="text" 
+            placeholder="Buscar por teléfono, nombre o email..."
+            [(ngModel)]="searchTerm"
+            (keyup.enter)="search()"
+          />
+          <button class="btn btn-primary" (click)="search()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+              <circle cx="10" cy="10" r="7"/>
+              <line x1="16" y1="16" x2="22" y2="22"/>
+            </svg>
+            Buscar
+          </button>
+        </div>
       </div>
 
       <div class="contacts-table" *ngIf="contacts.length > 0">
@@ -49,6 +62,7 @@ import { ContactService, Contact } from '../../services/contact.service';
           <thead>
             <tr>
               <th>ID</th>
+              <th>Tipo</th>
               <th>Teléfono</th>
               <th>Nombre</th>
               <th>Email</th>
@@ -59,6 +73,11 @@ import { ContactService, Contact } from '../../services/contact.service';
           <tbody>
             <tr *ngFor="let contact of contacts">
               <td>{{ contact.id }}</td>
+              <td>
+                <span class="badge" [class.badge-lead]="contact.contact_type === 'lead'" [class.badge-client]="contact.contact_type === 'client'">
+                  {{ contact.contact_type === 'lead' ? 'Lead' : 'Cliente' }}
+                </span>
+              </td>
               <td>{{ contact.phone_number }}</td>
               <td>{{ contact.name || '-' }}</td>
               <td>{{ contact.email || '-' }}</td>
@@ -95,13 +114,63 @@ import { ContactService, Contact } from '../../services/contact.service';
       </div>
 
       <!-- Modal Importar Excel -->
-      <div class="modal" *ngIf="showImportModal">
-        <div class="modal-content">
+      <div class="modal" *ngIf="showImportModal" (click)="closeImportModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2>Importar Contactos desde Excel</h2>
-            <button class="close-btn" (click)="showImportModal = false">✖</button>
+            <button class="close-btn" (click)="closeImportModal()">✖</button>
           </div>
           <div class="modal-body">
+            <!-- Selector de tipo solo para admin -->
+            <div class="form-group" *ngIf="isAdmin()">
+              <label>Tipo de Contacto a Importar *</label>
+              <div class="type-selector">
+                <div class="type-option" 
+                     [class.selected]="importContactType === 'lead'"
+                     (click)="importContactType = 'lead'">
+                  <div class="radio-circle">
+                    <div class="radio-dot" *ngIf="importContactType === 'lead'"></div>
+                  </div>
+                  <div class="type-content">
+                    <div class="type-icon lead-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                      </svg>
+                    </div>
+                    <div class="type-text">
+                      <h4>Leads</h4>
+                      <p>Contactos del chatbot</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="type-option" 
+                     [class.selected]="importContactType === 'client'"
+                     (click)="importContactType = 'client'">
+                  <div class="radio-circle">
+                    <div class="radio-dot" *ngIf="importContactType === 'client'"></div>
+                  </div>
+                  <div class="type-content">
+                    <div class="type-icon client-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    </div>
+                    <div class="type-text">
+                      <h4>Clientes</h4>
+                      <p>Contactos de otros canales</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div class="file-upload">
               <input 
                 type="file" 
@@ -128,22 +197,78 @@ import { ContactService, Contact } from '../../services/contact.service';
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="showImportModal = false">Cancelar</button>
-            <button class="btn btn-primary" (click)="importExcel()" [disabled]="!selectedFile">
-              Importar
+            <button class="btn btn-secondary" (click)="closeImportModal()" [disabled]="isImporting">Cerrar</button>
+            <button class="btn btn-primary" (click)="importExcel()" [disabled]="!selectedFile || isImporting || importCompleted">
+              <span class="spinner" *ngIf="isImporting"></span>
+              <svg *ngIf="importCompleted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span *ngIf="!isImporting && !importCompleted">Importar</span>
+              <span *ngIf="isImporting">Importando...</span>
+              <span *ngIf="importCompleted">¡Importado!</span>
             </button>
           </div>
         </div>
       </div>
 
       <!-- Modal Agregar/Editar Contacto -->
-      <div class="modal" *ngIf="showAddModal || editingContact">
-        <div class="modal-content">
+      <div class="modal" *ngIf="showAddModal || editingContact" (click)="closeContactModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h2>{{ editingContact ? 'Editar' : 'Agregar' }} Contacto</h2>
             <button class="close-btn" (click)="closeContactModal()">✖</button>
           </div>
           <div class="modal-body">
+
+          <!-- Selector de tipo solo para admin -->
+            <div class="form-group" *ngIf="isAdmin()">
+              <label>Tipo de Contacto *</label>
+              <div class="type-selector">
+                <div class="type-option" 
+                     [class.selected]="contactForm.contact_type === 'lead'"
+                     (click)="contactForm.contact_type = 'lead'">
+                  <div class="radio-circle">
+                    <div class="radio-dot" *ngIf="contactForm.contact_type === 'lead'"></div>
+                  </div>
+                  <div class="type-content">
+                    <div class="type-icon lead-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                      </svg>
+                    </div>
+                    <div class="type-text">
+                      <h4>Lead</h4>
+                      <p>Contacto del chatbot</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="type-option" 
+                     [class.selected]="contactForm.contact_type === 'client'"
+                     (click)="contactForm.contact_type = 'client'">
+                  <div class="radio-circle">
+                    <div class="radio-dot" *ngIf="contactForm.contact_type === 'client'"></div>
+                  </div>
+                  <div class="type-content">
+                    <div class="type-icon client-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    </div>
+                    <div class="type-text">
+                      <h4>Cliente</h4>
+                      <p>Contacto de otros canales</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="form-group">
               <label>Teléfono *</label>
               <input type="text" [(ngModel)]="contactForm.phone_number" placeholder="+1234567890" />
@@ -158,9 +283,15 @@ import { ContactService, Contact } from '../../services/contact.service';
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="closeContactModal()">Cancelar</button>
-            <button class="btn btn-primary" (click)="saveContact()">
-              {{ editingContact ? 'Actualizar' : 'Guardar' }}
+            <button class="btn btn-secondary" (click)="closeContactModal()" [disabled]="isSaving">Cancelar</button>
+            <button class="btn btn-primary" (click)="saveContact()" [disabled]="isSaving || saveCompleted">
+              <span class="spinner" *ngIf="isSaving"></span>
+              <svg *ngIf="saveCompleted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display: inline; margin-right: 8px; vertical-align: middle;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span *ngIf="!isSaving && !saveCompleted">{{ editingContact ? 'Actualizar' : 'Guardar' }}</span>
+              <span *ngIf="isSaving">{{ editingContact ? 'Actualizando...' : 'Guardando...' }}</span>
+              <span *ngIf="saveCompleted">¡{{ editingContact ? 'Actualizado' : 'Guardado' }}!</span>
             </button>
           </div>
         </div>
@@ -188,19 +319,66 @@ import { ContactService, Contact } from '../../services/contact.service';
       gap: 10px;
     }
 
-    .search-bar {
+    .filters {
       display: flex;
-      gap: 10px;
+      gap: 15px;
       margin-bottom: 20px;
+      align-items: flex-end;
     }
 
-    .search-bar input {
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 0.9em;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .filter-group select {
+      padding: 10px 15px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1em;
+      background: var(--search-bg);
+      color: var(--text);
+      min-width: 180px;
+    }
+
+    .search-group {
+      flex: 1;
+      flex-direction: row;
+      gap: 10px;
+    }
+
+    .search-group input {
       flex: 1;
       padding: 10px 15px;
       border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 1em;
       background: var(--search-bg);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+
+    .badge-lead {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .badge-client {
+      background: #f3e5f5;
+      color: #7b1fa2;
     }
 
     .contacts-table {
@@ -380,6 +558,113 @@ import { ContactService, Contact } from '../../services/contact.service';
       font-size: 1em;
     }
 
+    .type-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .type-option {
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: white;
+      position: relative;
+    }
+
+    .type-option:hover {
+      border-color: #d1d5db;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .type-option.selected {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    .type-option.selected .lead-icon {
+      background: #1976d2;
+      color: white;
+    }
+
+    .type-option.selected .client-icon {
+      background: #7b1fa2;
+      color: white;
+    }
+
+    .radio-circle {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #d1d5db;
+      border-radius: 50%;
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+    }
+
+    .type-option.selected .radio-circle {
+      border-color: #3b82f6;
+      background: #3b82f6;
+    }
+
+    .radio-dot {
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+    }
+
+    .type-content {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .type-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+
+    .lead-icon {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .client-icon {
+      background: #f3e5f5;
+      color: #7b1fa2;
+    }
+
+    .type-text {
+      flex: 1;
+      padding-top: 4px;
+    }
+
+    .type-text h4 {
+      margin: 0 0 4px 0;
+      font-size: 1em;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .type-text p {
+      margin: 0;
+      font-size: 0.85em;
+      color: #6b7280;
+    }
+
     .file-upload {
       text-align: center;
       padding: 30px;
@@ -420,6 +705,27 @@ import { ContactService, Contact } from '../../services/contact.service';
       margin-top: 10px;
       padding-left: 20px;
     }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   `]
 })
 export class ContactsComponent implements OnInit {
@@ -427,27 +733,67 @@ export class ContactsComponent implements OnInit {
   currentPage = 1;
   lastPage = 1;
   searchTerm = '';
+  selectedContactType = ''; // 'lead', 'client', o '' (todos)
   
   showImportModal = false;
   showAddModal = false;
   selectedFile: File | null = null;
   importResult: any = null;
+  isImporting = false;
+  isSaving = false;
+  importCompleted = false;
+  saveCompleted = false;
+  importContactType: 'lead' | 'client' = 'client';
 
   editingContact: Contact | null = null;
-  contactForm = {
+  contactForm: any = {
     phone_number: '',
     name: '',
-    email: ''
+    email: '',
+    contact_type: 'client'
   };
 
-  constructor(private contactService: ContactService) {}
+  constructor(
+    private contactService: ContactService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit() {
+    this.loadContacts();
+    this.setDefaultContactType();
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin';
+  }
+
+  isLeadsUser(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.phone_number_id === '950764051457024';
+  }
+
+  setDefaultContactType() {
+    const user = this.authService.getCurrentUser();
+    if (this.isLeadsUser()) {
+      this.contactForm.contact_type = 'lead';
+    } else {
+      this.contactForm.contact_type = 'client';
+    }
+  }
+
+  onFilterChange() {
+    this.currentPage = 1;
     this.loadContacts();
   }
 
   loadContacts() {
-    this.contactService.getContacts(this.currentPage, 50, this.searchTerm).subscribe({
+    this.contactService.getContacts(
+      this.currentPage, 
+      50, 
+      this.searchTerm, 
+      this.selectedContactType || undefined
+    ).subscribe({
       next: (response) => {
         this.contacts = response.data;
         this.currentPage = response.current_page;
@@ -473,19 +819,31 @@ export class ContactsComponent implements OnInit {
   }
 
   importExcel() {
-    if (!this.selectedFile) return;
+    if (!this.selectedFile || this.isImporting) return;
 
-    this.contactService.importExcel(this.selectedFile).subscribe({
+    this.isImporting = true;
+    this.importCompleted = false;
+    this.importResult = null;
+
+    const contactType = this.isAdmin() ? this.importContactType : (this.isLeadsUser() ? 'lead' : 'client');
+
+    this.contactService.importExcel(this.selectedFile, contactType).subscribe({
       next: (result) => {
         this.importResult = result;
         if (result.success) {
-          setTimeout(() => {
-            this.showImportModal = false;
-            this.loadContacts();
-          }, 2000);
+          // Marcar como completado exitosamente
+          this.isImporting = false;
+          this.importCompleted = true;
+          this.loadContacts();
+        } else {
+          // Solo habilitar botón si hay error para reintentar
+          this.isImporting = false;
+          this.importCompleted = false;
         }
       },
       error: (error) => {
+        this.isImporting = false;
+        this.importCompleted = false;
         this.importResult = {
           success: false,
           error: error.error?.message || 'Error al importar archivo'
@@ -499,7 +857,8 @@ export class ContactsComponent implements OnInit {
     this.contactForm = {
       phone_number: contact.phone_number,
       name: contact.name || '',
-      email: contact.email || ''
+      email: contact.email || '',
+      contact_type: contact.contact_type
     };
   }
 
@@ -515,10 +874,15 @@ export class ContactsComponent implements OnInit {
   }
 
   saveContact() {
-    if (!this.contactForm.phone_number) {
-      alert('El teléfono es obligatorio');
+    if (!this.contactForm.phone_number || this.isSaving) {
+      if (!this.contactForm.phone_number) {
+        alert('El teléfono es obligatorio');
+      }
       return;
     }
+
+    this.isSaving = true;
+    this.saveCompleted = false;
 
     const request = this.editingContact
       ? this.contactService.updateContact(this.editingContact.id, this.contactForm)
@@ -526,16 +890,40 @@ export class ContactsComponent implements OnInit {
 
     request.subscribe({
       next: () => {
-        this.closeContactModal();
+        // Marcar como completado exitosamente
+        this.isSaving = false;
+        this.saveCompleted = true;
         this.loadContacts();
       },
-      error: (error) => console.error('Error saving contact:', error)
+      error: (error) => {
+        this.isSaving = false;
+        this.saveCompleted = false;
+        const errorMsg = error.error?.message || 'Error al guardar el contacto';
+        alert(errorMsg);
+        console.error('Error saving contact:', error);
+      }
     });
   }
 
   closeContactModal() {
     this.showAddModal = false;
     this.editingContact = null;
-    this.contactForm = { phone_number: '', name: '', email: '' };
+    this.isSaving = false;
+    this.saveCompleted = false;
+    this.contactForm = { 
+      phone_number: '', 
+      name: '', 
+      email: '',
+      contact_type: this.isLeadsUser() ? 'lead' : 'client'
+    };
+  }
+
+  closeImportModal() {
+    this.showImportModal = false;
+    this.isImporting = false;
+    this.importCompleted = false;
+    this.selectedFile = null;
+    this.importResult = null;
+    this.importContactType = 'client';
   }
 }

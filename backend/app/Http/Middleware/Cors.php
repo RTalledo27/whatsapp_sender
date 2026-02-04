@@ -35,7 +35,7 @@ class Cors
         $origin = $request->header('Origin');
 
         // Para desarrollo, permitir localhost
-        if (str_contains($origin, 'localhost') || str_contains($origin, '127.0.0.1')) {
+        if ($origin && (str_contains($origin, 'localhost') || str_contains($origin, '127.0.0.1'))) {
             return $next($request)
                 ->header('Access-Control-Allow-Origin', $origin)
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -43,7 +43,7 @@ class Cors
                 ->header('Access-Control-Allow-Credentials', 'true');
         }
 
-        if (in_array($origin, $allowedOrigins)) {
+        if ($origin && in_array($origin, $allowedOrigins)) {
             return $next($request)
                 ->header('Access-Control-Allow-Origin', $origin)
                 ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')

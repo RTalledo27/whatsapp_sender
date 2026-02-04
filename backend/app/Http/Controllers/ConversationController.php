@@ -99,7 +99,7 @@ class ConversationController extends Controller
             
         $conversations = $conversations
             ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.email', 
-                     'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
+                     'contacts.contact_type', 'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
             ->orderByRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) DESC')
             ->paginate($perPage);
         
