@@ -8,6 +8,7 @@ export interface Contact {
   phone_number: string;
   name?: string;
   email?: string;
+  contact_type: 'lead' | 'client';
   created_at: string;
 }
 
@@ -27,13 +28,17 @@ export class ContactService {
 
   constructor(private http: HttpClient) {}
 
-  getContacts(page: number = 1, perPage: number = 50, search: string = ''): Observable<PaginatedResponse<Contact>> {
+  getContacts(page: number = 1, perPage: number = 50, search: string = '', contactType?: string): Observable<PaginatedResponse<Contact>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
     
     if (search) {
       params = params.set('search', search);
+    }
+
+    if (contactType) {
+      params = params.set('contact_type', contactType);
     }
 
     return this.http.get<PaginatedResponse<Contact>>(this.apiUrl, { params });
@@ -51,9 +56,12 @@ export class ContactService {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
-  importExcel(file: File): Observable<any> {
+  importExcel(file: File, contactType?: string): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
+    if (contactType) {
+      formData.append('contact_type', contactType);
+    }
     return this.http.post(`${this.apiUrl}/import-excel`, formData);
   }
 

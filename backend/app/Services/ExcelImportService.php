@@ -12,7 +12,7 @@ class ExcelImportService
     /**
      * Importar contactos desde un archivo Excel
      */
-    public function importContacts(string $filePath): array
+    public function importContacts(string $filePath, string $contactType = 'client'): array
     {
         try {
             $spreadsheet = IOFactory::load($filePath);
@@ -44,9 +44,21 @@ class ExcelImportService
                         continue;
                     }
 
+                    // Verificar si el contacto ya existe
+                    $existingContact = Contact::where('phone_number', $phoneNumber)->first();
+                    
+                    // Regla: No permitir cambiar de 'client' a 'lead'
+                    if ($existingContact && $existingContact->contact_type === 'client' && $contactType === 'lead') {
+                        $failed++;
+                        $errors[] = "Fila " . ($index + 1) . ": No se puede cambiar un cliente a lead (" . $phoneNumber . ")";
+                        continue;
+                    }
+
                     // Solo actualizar campos que tienen datos en el Excel
                     // Si están vacíos, mantener los valores existentes
-                    $updateData = [];
+                    $updateData = [
+                        'contact_type' => $contactType // Asignar tipo según usuario
+                    ];
                     
                     if (!empty($row[1])) {
                         $updateData['name'] = $row[1];

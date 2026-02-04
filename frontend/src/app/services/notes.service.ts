@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth.service';
 
 export interface Note {
   id?: number;
@@ -20,24 +19,17 @@ export interface Note {
 export class NotesService {
   private apiUrl = `${environment.apiUrl}/notes`;
 
-  constructor(private http: HttpClient, private authService: AuthService) {}
-
-  private getAuthHeaders(): HttpHeaders {
-    const token = this.authService.getToken();
-    return new HttpHeaders({
-      'Authorization': token ? `Bearer ${token}` : ''
-    });
-  }
+  constructor(private http: HttpClient) {}
 
   getNotes(): Observable<Note[]> {
-    return this.http.get<Note[]>(this.apiUrl, { headers: this.getAuthHeaders() });
+    return this.http.get<Note[]>(this.apiUrl);
   }
 
   getNote(id: number): Observable<Note> {
-    return this.http.get<Note>(`${this.apiUrl}/${id}`, { headers: this.getAuthHeaders() });
+    return this.http.get<Note>(`${this.apiUrl}/${id}`);
   }
 
   addNote(note: Partial<Note>): Observable<Note> {
-    return this.http.post<Note>(this.apiUrl, note, { headers: this.getAuthHeaders() });
+    return this.http.post<Note>(this.apiUrl, note);
   }
 }
