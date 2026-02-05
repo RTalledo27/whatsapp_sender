@@ -64,6 +64,7 @@ Route::middleware('api')->group(function () {
     // Campaigns
     Route::prefix('campaigns')->group(function () {
         Route::get('/available-numbers', [CampaignController::class, 'getAvailableNumbers']);
+        Route::post('/upload-media', [CampaignController::class, 'uploadMedia']);
         Route::get('/', [CampaignController::class, 'index']);
         Route::post('/', [CampaignController::class, 'store']);
         Route::get('/{campaign}', [CampaignController::class, 'show']); // Solo estado para polling
