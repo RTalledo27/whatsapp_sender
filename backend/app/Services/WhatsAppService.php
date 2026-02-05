@@ -93,6 +93,33 @@ class WhatsAppService
                     ];
                 }
 
+                // Si se proporciona image_link o image_media_id, agregar componente header de imagen
+                if (isset($templateData['image_link']) && !empty($templateData['image_link'])) {
+                    $components[] = [
+                        'type' => 'header',
+                        'parameters' => [
+                            [
+                                'type' => 'image',
+                                'image' => [
+                                    'link' => $templateData['image_link']
+                                ]
+                            ]
+                        ]
+                    ];
+                } elseif (isset($templateData['image_media_id']) && !empty($templateData['image_media_id'])) {
+                    $components[] = [
+                        'type' => 'header',
+                        'parameters' => [
+                            [
+                                'type' => 'image',
+                                'image' => [
+                                    'id' => $templateData['image_media_id']
+                                ]
+                            ]
+                        ]
+                    ];
+                }
+
                 // Si se proporcionan components directamente, usarlos
                 if (isset($templateData['components']) && is_array($templateData['components']) && !empty($templateData['components'])) {
                     $components = array_merge($components, $templateData['components']);

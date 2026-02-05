@@ -18,6 +18,8 @@ class Campaign extends Model
         'template_name',
         'template_parameters',
         'video_link',
+        'image_link',
+        'image_media_id',
         'status',
         'total_contacts',
         'sent_count',

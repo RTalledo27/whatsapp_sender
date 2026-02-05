@@ -1,0 +1,478 @@
+<div class="campaigns-page">
+  <ng-container *ngIf="isWhatsAppOrSMS; else emailView">
+  <div class="header">
+    <div class="header-left">
+      <h1>Campañas de Envío</h1>
+      <div class="phone-selector" *ngIf="availableNumbers.length > 1">
+        <label for="phone-filter">Filtrar por número:</label>
+        <select id="phone-filter" [(ngModel)]="selectedPhoneNumberId" (change)="onPhoneNumberFilterChange()">
+          <option value="">Todos los números</option>
+          <option *ngFor="let number of availableNumbers" [value]="number.id">
+            {{ number.name }} - {{ number.phone }}
+          </option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" (click)="showCreateModal = true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nueva Campaña
+    </button>
+  </div>
+
+  <div class="campaigns-list" *ngIf="campaigns.length > 0">
+    <div class="campaign-card" *ngFor="let campaign of campaigns">
+      <div class="campaign-header">
+        <div>
+          <h3>{{ campaign.name }}</h3>
+          <p class="campaign-date">{{ campaign.created_at | date:'medium' }}</p>
+        </div>
+        <span class="badge" 
+              [class.badge-success]="campaign.status === 'completed'"
+              [class.badge-warning]="campaign.status === 'processing'"
+              [class.badge-info]="campaign.status === 'pending'"
+              [class.badge-error]="campaign.status === 'failed'">
+          {{ campaign.status }}
+        </span>
+      </div>
+      
+      <div class="campaign-message">
+        <strong>Mensaje:</strong> {{ campaign.message }}
+      </div>
+
+      <!-- Barra de progreso para campañas en proceso -->
+      <div class="campaign-progress" *ngIf="campaign.status === 'processing'">
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" 
+               [style.width.%]="getProgress(campaign)">
+          </div>
+        </div>
+        <span class="progress-text">{{ getProgress(campaign) }}% completado</span>
+      </div>
+
+      <div class="campaign-stats">
+        <div class="stat">
+          <span class="stat-value">{{ campaign.total_contacts }}</span>
+          <span class="stat-label">Total</span>
+        </div>
+        <div class="stat success">
+          <span class="stat-value">{{ campaign.sent_count }}</span>
+          <span class="stat-label">Enviados</span>
+        </div>
+        <div class="stat error">
+          <span class="stat-value">{{ campaign.failed_count }}</span>
+          <span class="stat-label">Fallidos</span>
+        </div>
+        <div class="stat warning">
+          <span class="stat-value">{{ campaign.pending_count }}</span>
+          <span class="stat-label">Pendientes</span>
+        </div>
+      </div>
+
+      <div class="campaign-actions">
+        <button class="btn btn-small" (click)="viewDetails(campaign)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+            <path d="M3 3h7v7H3z"/>
+            <path d="M14 3h7v7h-7z"/>
+            <path d="M14 14h7v7h-7z"/>
+            <path d="M3 14h7v7H3z"/>
+          </svg>
+          Ver Detalles
+        </button>
+        <button class="btn btn-small" 
+                *ngIf="campaign.failed_count > 0"
+                (click)="retryFailed(campaign)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2-8.83"/>
+          </svg>
+          Reintentar Fallidos
+        </button>
+        <button class="btn btn-small btn-danger" (click)="deleteCampaign(campaign)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="campaigns.length === 0" class="empty-state">
+    <p>No hay campañas creadas. Crea tu primera campaña de envío.</p>
+  </div>
+
+  <!-- Modal Nueva Campaña -->
+  <div class="modal" *ngIf="showCreateModal">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h2>Nueva Campaña de Envío</h2>
+        <button class="close-btn" (click)="closeCreateModal()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nombre de la Campaña *</label>
+          <input type="text" [(ngModel)]="campaignForm.name" 
+                 placeholder="Ej: Promoción Navidad 2024" />
+        </div>
+
+        <div class="form-group">
+          <label>Número de WhatsApp *</label>
+          <select [(ngModel)]="campaignForm.phone_number_id" 
+                  (change)="onPhoneNumberSelected($event)"
+                  class="form-select">
+            <option value="">-- Selecciona un número --</option>
+            <option *ngFor="let number of availableNumbers" [value]="number.id">
+              {{ number.name }} - {{ number.phone }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="useTemplate" />
+            Usar Template de WhatsApp (Recomendado para nuevos contactos)
+          </label>
+        </div>
+
+        <!-- Sección de Template -->
+        <div *ngIf="useTemplate">
+          <div class="form-group">
+            <label>Seleccionar Template *</label>
+            <select [(ngModel)]="campaignForm.template_name" 
+                    (change)="onTemplateSelected($event)"
+                    class="form-select">
+              <option value="">-- Selecciona un template --</option>
+              <option *ngFor="let template of templates" [value]="template.name">
+                {{ template.name }} ({{ template.language }})
+              </option>
+            </select>
+          </div>
+
+          <div class="template-preview" *ngIf="selectedTemplate">
+            <h4>Vista Previa del Template</h4>
+            <div class="template-body">
+              {{ getTemplateBodyText() }}
+            </div>
+          </div>
+
+          <div *ngIf="templateParameters.length > 0">
+            <h4>Parámetros del Template</h4>
+            <div class="form-group" *ngFor="let param of templateParameters; let i = index">
+              <label>Parámetro {{i + 1}} *</label>
+              <input type="text" 
+                     [(ngModel)]="campaignForm.template_parameters[i]"
+                     [placeholder]="'Valor para {{' + (i+1) + '}}'"/>
+            </div>
+          </div>
+
+          <div *ngIf="hasVideoHeader" class="form-group video-input-group">
+            <label>Enlace del Video (Header) *</label>
+            <div class="input-with-icon">
+              <input type="url" 
+                     [(ngModel)]="campaignForm.video_link"
+                     placeholder="https://ejemplo.com/video.mp4"
+                     class="form-control" />
+            </div>
+            <small class="hint">El template requiere un video en la cabecera. Ingresa una URL pública MP4 válida.</small>
+          </div>
+
+          <div *ngIf="hasImageHeader" class="form-group image-input-group">
+            <label>Configuración de Imagen (Header) *</label>
+            
+            <div class="image-options">
+              <label class="radio-option">
+                <input type="radio" 
+                       name="imageInputType" 
+                       value="link" 
+                       [checked]="imageInputType === 'link'"
+                       (change)="onImageInputTypeChange('link')" />
+                <span>Usar URL de imagen</span>
+              </label>
+              
+              <label class="radio-option">
+                <input type="radio" 
+                       name="imageInputType" 
+                       value="file" 
+                       [checked]="imageInputType === 'file'"
+                       (change)="onImageInputTypeChange('file')" />
+                <span>Subir archivo local</span>
+              </label>
+            </div>
+
+            <div *ngIf="imageInputType === 'link'" class="image-link-input">
+              <input type="url" 
+                     [(ngModel)]="campaignForm.image_link"
+                     placeholder="https://ejemplo.com/imagen.jpg"
+                     class="form-control" />
+              <small class="hint">Ingresa una URL pública de imagen (JPEG o PNG).</small>
+            </div>
+
+            <div *ngIf="imageInputType === 'file'" class="image-file-input">
+              <input type="file" 
+                     accept="image/jpeg,image/jpg,image/png"
+                     (change)="onImageFileSelected($event)"
+                     [disabled]="isUploadingImage"
+                     class="form-control" />
+              <small class="hint">Selecciona una imagen JPEG o PNG (máx. 5MB).</small>
+              
+              <div *ngIf="isUploadingImage" class="uploading-indicator">
+                <span class="spinner"></span> Subiendo imagen a WhatsApp...
+              </div>
+              
+              <div *ngIf="!isUploadingImage && campaignForm.image_media_id" class="upload-success">
+                ✓ Imagen cargada correctamente (ID: {{ campaignForm.image_media_id.substring(0, 20) }}...)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección de Mensaje de Texto -->
+        <div *ngIf="!useTemplate">
+          <div class="form-group">
+            <label>Mensaje *</label>
+            <textarea [(ngModel)]="campaignForm.message" 
+                      rows="4"
+                      placeholder="Escribe el mensaje que se enviará a todos los contactos..."></textarea>
+            <small>{{ campaignForm.message.length }} caracteres</small>
+          </div>
+          <div class="alert alert-warning">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3.05h16.94a2 2 0 0 0 1.71-3.05L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Los mensajes de texto solo funcionan con números que ya han conversado contigo en las últimas 24 horas.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Seleccionar Contactos *</label>
+          <div class="contacts-selection">
+            <div class="search-box">
+              <input type="text" 
+                     [(ngModel)]="contactSearch"
+                     (keyup)="searchContacts()"
+                     placeholder="Buscar contactos..." />
+            </div>
+            <div class="contacts-list">
+              <div class="contact-item" *ngFor="let contact of availableContacts">
+                <label>
+                  <input type="checkbox" 
+                         [checked]="isContactSelected(contact.id)"
+                         (change)="toggleContact(contact.id)" />
+                  <span>{{ contact.phone_number }}</span>
+                  <span class="contact-name" *ngIf="contact.name">- {{ contact.name }}</span>
+                </label>
+              </div>
+            </div>
+            <div class="selection-summary">
+              <strong>{{ campaignForm.contact_ids.length }}</strong> contactos seleccionados
+              <button class="btn-link" (click)="selectAll()">Seleccionar todos</button>
+              <button class="btn-link" (click)="deselectAll()">Deseleccionar todos</button>
+              <button class="btn-link" (click)="showImportContactsModal = true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                Importar desde Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="isCreatingCampaign">Cancelar</button>
+        <button class="btn btn-primary" 
+                (click)="createCampaign()"
+                [disabled]="!canCreateCampaign() || isCreatingCampaign">
+          <svg *ngIf="!isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
+            <polygon points="2 21 23 12 2 3 2 10 19 12 2 14 2 21"/>
+          </svg>
+          <svg *ngIf="isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle; animation: spin 1s linear infinite;">
+            <circle cx="12" cy="12" r="10" opacity="0.25"/>
+            <path d="M12 2 A10 10 0 0 1 22 12" opacity="0.75"/>
+          </svg>
+          {{ isCreatingCampaign ? 'Enviando...' : 'Crear y Enviar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Importar Contactos desde Excel -->
+  <div class="modal" *ngIf="showImportContactsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Importar Contactos desde Excel</h2>
+        <button class="close-btn" (click)="closeImportContactsModal()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="file-upload">
+          <input 
+            type="file" 
+            (change)="onContactsFileSelected($event)"
+            accept=".xlsx,.xls,.csv"
+            #contactsFileInput
+          />
+          <p class="hint">Selecciona un archivo Excel con los teléfonos de los contactos que deseas agregar a la campaña.</p>
+          <p class="hint">Formato esperado: Teléfono | Nombre | Email</p>
+        </div>
+        <div *ngIf="importContactsResult" class="import-result">
+          <div class="alert" [class.alert-success]="importContactsResult.success" 
+               [class.alert-error]="!importContactsResult.success">
+            <strong *ngIf="importContactsResult.success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Importación exitosa:
+            </strong>
+            <strong *ngIf="!importContactsResult.success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Error en importación:
+            </strong>
+            <p *ngIf="importContactsResult.success">
+              {{ importContactsResult.found }} contactos encontrados de {{ importContactsResult.total_in_excel }} en el Excel
+              <span *ngIf="importContactsResult.not_found > 0">
+                <br>{{ importContactsResult.not_found }} números no están registrados en tus contactos
+              </span>
+            </p>
+            <p *ngIf="!importContactsResult.success">{{ importContactsResult.error }}</p>
+            <ul *ngIf="importContactsResult.not_found_numbers && importContactsResult.not_found_numbers.length > 0">
+              <li *ngFor="let phone of importContactsResult.not_found_numbers.slice(0, 10)">{{ phone }}</li>
+              <li *ngIf="importContactsResult.not_found_numbers.length > 10">
+                ... y {{ importContactsResult.not_found_numbers.length - 10 }} más
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeImportContactsModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="importContactsFromExcel()" [disabled]="!selectedContactsFile">
+          Importar y Seleccionar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalles -->
+  <div class="modal" *ngIf="selectedCampaign">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h2>Detalles de Campaña: {{ selectedCampaign.name }}</h2>
+        <button class="close-btn" (click)="selectedCampaign = null">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="details-grid">
+          <div class="detail-item">
+            <strong>Estado:</strong>
+            <span class="badge" 
+                  [class.badge-success]="selectedCampaign.status === 'completed'"
+                  [class.badge-warning]="selectedCampaign.status === 'processing'">
+              {{ selectedCampaign.status }}
+            </span>
+          </div>
+          <div class="detail-item">
+            <strong>Total Contactos:</strong> {{ selectedCampaign.total_contacts }}
+          </div>
+          <div class="detail-item">
+            <strong>Enviados:</strong> {{ selectedCampaign.sent_count }}
+          </div>
+          <div class="detail-item">
+            <strong>Fallidos:</strong> {{ selectedCampaign.failed_count }}
+          </div>
+        </div>
+
+        <!-- Botones de descarga de Excel -->
+        <div class="export-actions" *ngIf="selectedCampaign.messages && selectedCampaign.messages.length > 0">
+          <h3>Exportar a Excel</h3>
+          <div class="export-buttons">
+            <button class="btn btn-small btn-export" (click)="downloadExcel('all')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Todos ({{ selectedCampaign.messages.length }})
+            </button>
+            <button class="btn btn-small btn-export-success" 
+                    (click)="downloadExcel('success')"
+                    *ngIf="getSuccessfulMessages().length > 0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Exitosos ({{ getSuccessfulMessages().length }})
+            </button>
+            <button class="btn btn-small btn-export-failed" 
+                    (click)="downloadExcel('failed')"
+                    *ngIf="getFailedMessages().length > 0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Fallidos ({{ getFailedMessages().length }})
+            </button>
+          </div>
+        </div>
+
+        <div class="messages-table" *ngIf="selectedCampaign.messages">
+          <h3>Mensajes ({{ selectedCampaign.messages.length }})</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Teléfono</th>
+                <th>Estado</th>
+                <th>Enviado</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let message of selectedCampaign.messages">
+                <td>{{ message.phone_number }}</td>
+                <td>
+                  <span class="badge badge-small"
+                        [class.badge-success]="message.status === 'sent'"
+                        [class.badge-error]="message.status === 'failed'"
+                        [class.badge-warning]="message.status === 'pending'">
+                    {{ message.status }}
+                  </span>
+                </td>
+                <td>{{ message.sent_at | date:'short' }}</td>
+                <td>{{ message.error_message || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  </ng-container>
+  
+  <ng-template #emailView>
+    <div class="empty-state">
+      <!-- Vista en blanco para Email por diseño -->
+    </div>
+  </ng-template>
+</div>

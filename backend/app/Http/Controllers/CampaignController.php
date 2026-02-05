@@ -93,6 +93,8 @@ class CampaignController extends Controller
             $rules['template_name'] = 'required|string';
             $rules['template_parameters'] = 'nullable|array';
             $rules['video_link'] = 'nullable|url';
+            $rules['image_link'] = 'nullable|url';
+            $rules['image_media_id'] = 'nullable|string';
         } 
         // Si NO usa template, el mensaje es requerido
         else {
@@ -120,6 +122,8 @@ class CampaignController extends Controller
                 'template_name' => $request->template_name,
                 'template_parameters' => $request->template_parameters,
                 'video_link' => $request->video_link,
+                'image_link' => $request->image_link,
+                'image_media_id' => $request->image_media_id,
                 'status' => 'pending',
                 'total_contacts' => count($request->contact_ids),
                 'pending_count' => count($request->contact_ids),
@@ -201,6 +205,47 @@ class CampaignController extends Controller
         }
 
         return response()->json($stats);
+    }
+
+    /**
+     * Subir imagen a WhatsApp Cloud API y obtener media_id
+     */
+    public function uploadMedia(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|image|mimes:jpeg,png,jpg|max:5120', // 5MB max
+            'phone_number_id' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $whatsAppService = new WhatsAppService($request->phone_number_id);
+            $result = $whatsAppService->uploadMedia($request->file('file'));
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'media_id' => $result['media_id'],
+                    'message' => 'Imagen subida exitosamente',
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Error al subir imagen',
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al subir imagen: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
