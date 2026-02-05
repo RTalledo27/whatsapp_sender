@@ -15,1033 +15,8 @@ import * as XLSX from 'xlsx';
   selector: 'app-campaigns',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <div class="campaigns-page">
-      <ng-container *ngIf="isWhatsAppOrSMS; else emailView">
-      <div class="header">
-        <div class="header-left">
-          <h1>Campañas de Envío</h1>
-          <div class="phone-selector" *ngIf="availableNumbers.length > 1">
-            <label for="phone-filter">Filtrar por número:</label>
-            <select id="phone-filter" [(ngModel)]="selectedPhoneNumberId" (change)="onPhoneNumberFilterChange()">
-              <option value="">Todos los números</option>
-              <option *ngFor="let number of availableNumbers" [value]="number.id">
-                {{ number.name }} - {{ number.phone }}
-              </option>
-            </select>
-          </div>
-        </div>
-        <button class="btn btn-primary" (click)="showCreateModal = true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Nueva Campaña
-        </button>
-      </div>
-
-      <div class="campaigns-list" *ngIf="campaigns.length > 0">
-        <div class="campaign-card" *ngFor="let campaign of campaigns">
-          <div class="campaign-header">
-            <div>
-              <h3>{{ campaign.name }}</h3>
-              <p class="campaign-date">{{ campaign.created_at | date:'medium' }}</p>
-            </div>
-            <span class="badge" 
-                  [class.badge-success]="campaign.status === 'completed'"
-                  [class.badge-warning]="campaign.status === 'processing'"
-                  [class.badge-info]="campaign.status === 'pending'"
-                  [class.badge-error]="campaign.status === 'failed'">
-              {{ campaign.status }}
-            </span>
-          </div>
-          
-          <div class="campaign-message">
-            <strong>Mensaje:</strong> {{ campaign.message }}
-          </div>
-
-          <!-- Barra de progreso para campañas en proceso -->
-          <div class="campaign-progress" *ngIf="campaign.status === 'processing'">
-            <div class="progress-bar-container">
-              <div class="progress-bar-fill" 
-                   [style.width.%]="getProgress(campaign)">
-              </div>
-            </div>
-            <span class="progress-text">{{ getProgress(campaign) }}% completado</span>
-          </div>
-
-          <div class="campaign-stats">
-            <div class="stat">
-              <span class="stat-value">{{ campaign.total_contacts }}</span>
-              <span class="stat-label">Total</span>
-            </div>
-            <div class="stat success">
-              <span class="stat-value">{{ campaign.sent_count }}</span>
-              <span class="stat-label">Enviados</span>
-            </div>
-            <div class="stat error">
-              <span class="stat-value">{{ campaign.failed_count }}</span>
-              <span class="stat-label">Fallidos</span>
-            </div>
-            <div class="stat warning">
-              <span class="stat-value">{{ campaign.pending_count }}</span>
-              <span class="stat-label">Pendientes</span>
-            </div>
-          </div>
-
-          <div class="campaign-actions">
-            <button class="btn btn-small" (click)="viewDetails(campaign)">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                <path d="M3 3h7v7H3z"/>
-                <path d="M14 3h7v7h-7z"/>
-                <path d="M14 14h7v7h-7z"/>
-                <path d="M3 14h7v7H3z"/>
-              </svg>
-              Ver Detalles
-            </button>
-            <button class="btn btn-small" 
-                    *ngIf="campaign.failed_count > 0"
-                    (click)="retryFailed(campaign)">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                <polyline points="23 4 23 10 17 10"/>
-                <path d="M20.49 15a9 9 0 1 1-2-8.83"/>
-              </svg>
-              Reintentar Fallidos
-            </button>
-            <button class="btn btn-small btn-danger" (click)="deleteCampaign(campaign)">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                <line x1="10" y1="11" x2="10" y2="17"/>
-                <line x1="14" y1="11" x2="14" y2="17"/>
-              </svg>
-              Eliminar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div *ngIf="campaigns.length === 0" class="empty-state">
-        <p>No hay campañas creadas. Crea tu primera campaña de envío.</p>
-      </div>
-
-      <!-- Modal Nueva Campaña -->
-      <div class="modal" *ngIf="showCreateModal">
-        <div class="modal-content large">
-          <div class="modal-header">
-            <h2>Nueva Campaña de Envío</h2>
-            <button class="close-btn" (click)="closeCreateModal()">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Nombre de la Campaña *</label>
-              <input type="text" [(ngModel)]="campaignForm.name" 
-                     placeholder="Ej: Promoción Navidad 2024" />
-            </div>
-
-            <div class="form-group">
-              <label>Número de WhatsApp *</label>
-              <select [(ngModel)]="campaignForm.phone_number_id" 
-                      (change)="onPhoneNumberSelected($event)"
-                      class="form-select">
-                <option value="">-- Selecciona un número --</option>
-                <option *ngFor="let number of availableNumbers" [value]="number.id">
-                  {{ number.name }} - {{ number.phone }}
-                </option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="useTemplate" />
-                Usar Template de WhatsApp (Recomendado para nuevos contactos)
-              </label>
-            </div>
-
-            <!-- Sección de Template -->
-            <div *ngIf="useTemplate">
-              <div class="form-group">
-                <label>Seleccionar Template *</label>
-                <select [(ngModel)]="campaignForm.template_name" 
-                        (change)="onTemplateSelected($event)"
-                        class="form-select">
-                  <option value="">-- Selecciona un template --</option>
-                  <option *ngFor="let template of templates" [value]="template.name">
-                    {{ template.name }} ({{ template.language }})
-                  </option>
-                </select>
-              </div>
-
-              <div class="template-preview" *ngIf="selectedTemplate">
-                <h4>Vista Previa del Template</h4>
-                <div class="template-body">
-                  {{ getTemplateBodyText() }}
-                </div>
-              </div>
-
-              <div *ngIf="templateParameters.length > 0">
-                <h4>Parámetros del Template</h4>
-                <div class="form-group" *ngFor="let param of templateParameters; let i = index">
-                  <label>Parámetro {{i + 1}} *</label>
-                  <input type="text" 
-                         [(ngModel)]="campaignForm.template_parameters[i]"
-                         [placeholder]="'Valor para {{' + (i+1) + '}}'"/>
-                </div>
-              </div>
-
-              <div *ngIf="hasVideoHeader" class="form-group video-input-group">
-                <label>Enlace del Video (Header) *</label>
-                <div class="input-with-icon">
-                  <input type="url" 
-                         [(ngModel)]="campaignForm.video_link"
-                         placeholder="https://ejemplo.com/video.mp4"
-                         class="form-control" />
-                </div>
-                <small class="hint">El template requiere un video en la cabecera. Ingresa una URL pública MP4 válida.</small>
-              </div>
-            </div>
-
-            <!-- Sección de Mensaje de Texto -->
-            <div *ngIf="!useTemplate">
-              <div class="form-group">
-                <label>Mensaje *</label>
-                <textarea [(ngModel)]="campaignForm.message" 
-                          rows="4"
-                          placeholder="Escribe el mensaje que se enviará a todos los contactos..."></textarea>
-                <small>{{ campaignForm.message.length }} caracteres</small>
-              </div>
-              <div class="alert alert-warning">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3.05h16.94a2 2 0 0 0 1.71-3.05L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                Los mensajes de texto solo funcionan con números que ya han conversado contigo en las últimas 24 horas.
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Seleccionar Contactos *</label>
-              <div class="contacts-selection">
-                <div class="search-box">
-                  <input type="text" 
-                         [(ngModel)]="contactSearch"
-                         (keyup)="searchContacts()"
-                         placeholder="Buscar contactos..." />
-                </div>
-                <div class="contacts-list">
-                  <div class="contact-item" *ngFor="let contact of availableContacts">
-                    <label>
-                      <input type="checkbox" 
-                             [checked]="isContactSelected(contact.id)"
-                             (change)="toggleContact(contact.id)" />
-                      <span>{{ contact.phone_number }}</span>
-                      <span class="contact-name" *ngIf="contact.name">- {{ contact.name }}</span>
-                    </label>
-                  </div>
-                </div>
-                <div class="selection-summary">
-                  <strong>{{ campaignForm.contact_ids.length }}</strong> contactos seleccionados
-                  <button class="btn-link" (click)="selectAll()">Seleccionar todos</button>
-                  <button class="btn-link" (click)="deselectAll()">Deseleccionar todos</button>
-                  <button class="btn-link" (click)="showImportContactsModal = true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    Importar desde Excel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="closeCreateModal()" [disabled]="isCreatingCampaign">Cancelar</button>
-            <button class="btn btn-primary" 
-                    (click)="createCampaign()"
-                    [disabled]="!canCreateCampaign() || isCreatingCampaign">
-              <svg *ngIf="!isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle;">
-                <polygon points="2 21 23 12 2 3 2 10 19 12 2 14 2 21"/>
-              </svg>
-              <svg *ngIf="isCreatingCampaign" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 8px; vertical-align: middle; animation: spin 1s linear infinite;">
-                <circle cx="12" cy="12" r="10" opacity="0.25"/>
-                <path d="M12 2 A10 10 0 0 1 22 12" opacity="0.75"/>
-              </svg>
-              {{ isCreatingCampaign ? 'Enviando...' : 'Crear y Enviar' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal Importar Contactos desde Excel -->
-      <div class="modal" *ngIf="showImportContactsModal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2>Importar Contactos desde Excel</h2>
-            <button class="close-btn" (click)="closeImportContactsModal()">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="file-upload">
-              <input 
-                type="file" 
-                (change)="onContactsFileSelected($event)"
-                accept=".xlsx,.xls,.csv"
-                #contactsFileInput
-              />
-              <p class="hint">Selecciona un archivo Excel con los teléfonos de los contactos que deseas agregar a la campaña.</p>
-              <p class="hint">Formato esperado: Teléfono | Nombre | Email</p>
-            </div>
-            <div *ngIf="importContactsResult" class="import-result">
-              <div class="alert" [class.alert-success]="importContactsResult.success" 
-                   [class.alert-error]="!importContactsResult.success">
-                <strong *ngIf="importContactsResult.success">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  Importación exitosa:
-                </strong>
-                <strong *ngIf="!importContactsResult.success">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                  Error en importación:
-                </strong>
-                <p *ngIf="importContactsResult.success">
-                  {{ importContactsResult.found }} contactos encontrados de {{ importContactsResult.total_in_excel }} en el Excel
-                  <span *ngIf="importContactsResult.not_found > 0">
-                    <br>{{ importContactsResult.not_found }} números no están registrados en tus contactos
-                  </span>
-                </p>
-                <p *ngIf="!importContactsResult.success">{{ importContactsResult.error }}</p>
-                <ul *ngIf="importContactsResult.not_found_numbers && importContactsResult.not_found_numbers.length > 0">
-                  <li *ngFor="let phone of importContactsResult.not_found_numbers.slice(0, 10)">{{ phone }}</li>
-                  <li *ngIf="importContactsResult.not_found_numbers.length > 10">
-                    ... y {{ importContactsResult.not_found_numbers.length - 10 }} más
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" (click)="closeImportContactsModal()">Cancelar</button>
-            <button class="btn btn-primary" (click)="importContactsFromExcel()" [disabled]="!selectedContactsFile">
-              Importar y Seleccionar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal Detalles -->
-      <div class="modal" *ngIf="selectedCampaign">
-        <div class="modal-content large">
-          <div class="modal-header">
-            <h2>Detalles de Campaña: {{ selectedCampaign.name }}</h2>
-            <button class="close-btn" (click)="selectedCampaign = null">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="details-grid">
-              <div class="detail-item">
-                <strong>Estado:</strong>
-                <span class="badge" 
-                      [class.badge-success]="selectedCampaign.status === 'completed'"
-                      [class.badge-warning]="selectedCampaign.status === 'processing'">
-                  {{ selectedCampaign.status }}
-                </span>
-              </div>
-              <div class="detail-item">
-                <strong>Total Contactos:</strong> {{ selectedCampaign.total_contacts }}
-              </div>
-              <div class="detail-item">
-                <strong>Enviados:</strong> {{ selectedCampaign.sent_count }}
-              </div>
-              <div class="detail-item">
-                <strong>Fallidos:</strong> {{ selectedCampaign.failed_count }}
-              </div>
-            </div>
-
-            <!-- Botones de descarga de Excel -->
-            <div class="export-actions" *ngIf="selectedCampaign.messages && selectedCampaign.messages.length > 0">
-              <h3>Exportar a Excel</h3>
-              <div class="export-buttons">
-                <button class="btn btn-small btn-export" (click)="downloadExcel('all')">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Todos ({{ selectedCampaign.messages.length }})
-                </button>
-                <button class="btn btn-small btn-export-success" 
-                        (click)="downloadExcel('success')"
-                        *ngIf="getSuccessfulMessages().length > 0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  Exitosos ({{ getSuccessfulMessages().length }})
-                </button>
-                <button class="btn btn-small btn-export-failed" 
-                        (click)="downloadExcel('failed')"
-                        *ngIf="getFailedMessages().length > 0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; margin-right: 6px; vertical-align: middle;">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                  Fallidos ({{ getFailedMessages().length }})
-                </button>
-              </div>
-            </div>
-
-            <div class="messages-table" *ngIf="selectedCampaign.messages">
-              <h3>Mensajes ({{ selectedCampaign.messages.length }})</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Teléfono</th>
-                    <th>Estado</th>
-                    <th>Enviado</th>
-                    <th>Error</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let message of selectedCampaign.messages">
-                    <td>{{ message.phone_number }}</td>
-                    <td>
-                      <span class="badge badge-small"
-                            [class.badge-success]="message.status === 'sent'"
-                            [class.badge-error]="message.status === 'failed'"
-                            [class.badge-warning]="message.status === 'pending'">
-                        {{ message.status }}
-                      </span>
-                    </td>
-                    <td>{{ message.sent_at | date:'short' }}</td>
-                    <td>{{ message.error_message || '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-      </ng-container>
-      
-      <ng-template #emailView>
-        <div class="empty-state">
-          <!-- Vista en blanco para Email por diseño -->
-        </div>
-      </ng-template>
-    </div>
-  `,
-  styles: [`
-    .campaigns-page {
-      padding: 20px;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-      flex-wrap: wrap;
-      gap: 20px;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    h1{
-      color: var(--text);
-    }
-
-    .phone-selector {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .phone-selector label {
-      font-weight: 500;
-      color: var(--muted);
-      white-space: nowrap;
-      font-size: 0.9em;
-    }
-
-    .phone-selector select {
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background-color: var(--panel-bg);
-      color: var(--muted);
-      font-size: 0.9em;
-      cursor: pointer;
-      min-width: 200px;
-      transition: all 0.2s;
-    }
-
-    .phone-selector select:hover {
-      border-color: var(--accent-600);
-    }
-
-    .phone-selector select:focus {
-      outline: none;
-      border-color: var(--accent-600);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.06);
-    }
-
-    .campaigns-list {
-      display: grid;
-      gap: 20px;
-    }
-
-    .campaign-card {
-      background: var(--panel-bg);
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-    }
-
-    .campaign-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 15px;
-    }
-
-    .campaign-header h3 {
-      margin: 0 0 5px 0;
-      color: var(--text);
-    }
-
-    .campaign-date {
-      color: var(--muted-2);
-      font-size: 0.9em;
-      margin: 0;
-    }
-
-    .campaign-message {
-      padding: 15px;
-      background: var(--card-bg);
-      border-radius: 6px;
-      margin-bottom: 15px;
-      color: var(--muted);
-    }
-
-    .campaign-progress {
-      margin-bottom: 15px;
-    }
-
-    .progress-bar-container {
-      height: 24px;
-      background: var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--success), var(--primary));
-      transition: width 0.5s ease;
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
-    }
-
-    .progress-text {
-      display: block;
-      text-align: center;
-      margin-top: 5px;
-      font-size: 0.85em;
-      color: var(--muted-2);
-      font-weight: 600;
-    }
-
-    .campaign-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-
-    .stat {
-      text-align: center;
-      padding: 15px;
-      background: var(--card-bg);
-      border-radius: 6px;
-    }
-
-    .stat.success { border-left: 4px solid var(--success); }
-    .stat.error { border-left: 4px solid var(--danger); }
-    .stat.warning { border-left: 4px solid var(--warning); }
-
-    .stat-value {
-      display: block;
-      font-size: 1.8em;
-      font-weight: bold;
-      color: var(--text);
-    }
-
-    .stat-label {
-      display: block;
-      font-size: 0.9em;
-      color: var(--muted-2);
-      margin-top: 5px;
-    }
-
-    .campaign-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 1em;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-600);
-    }
-
-    .btn-secondary {
-      background: var(--muted-2);
-      color: white;
-    }
-
-    .btn-small {
-      padding: 8px 16px;
-      font-size: 0.9em;
-      background: var(--border);
-      color: var(--muted);
-    }
-
-    .btn-small:hover {
-      background: rgba(0,0,0,0.04);
-    }
-
-    .btn-danger {
-      background: var(--danger-bg);
-      color: var(--danger);
-    }
-
-    .btn-danger:hover {
-      background: #fca5a5;
-    }
-
-    .badge {
-      padding: 6px 12px;
-      border-radius: 12px;
-      font-size: 0.85em;
-      font-weight: 600;
-    }
-
-    .badge-success {
-      background: var(--success-bg);
-      color: var(--success);
-    }
-
-    .badge-warning {
-      background: var(--warning-bg);
-      color: var(--warning);
-    }
-
-    .badge-info {
-      background: var(--info-bg);
-      color: var(--accent);
-    }
-
-    .badge-error {
-      background: var(--danger-bg);
-      color: var(--danger);
-    }
-
-    .badge-small {
-      padding: 4px 8px;
-      font-size: 0.75em;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--muted-2);
-      background: var(--panel-bg);
-      border-radius: 8px;
-    }
-
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .modal-content {
-      background: var(--panel-bg);
-      border-radius: 8px;
-      width: 90%;
-      max-width: 600px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-content.large {
-      max-width: 800px;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text);
-    }
-
-    .modal-header h2 {
-      margin: 0;
-      font-size: 1.5em;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 1.5em;
-      cursor: pointer;
-      color: var(--muted-2);
-    }
-
-    .modal-body {
-      padding: 20px;
-      color : var(--text-dash);
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      padding: 20px;
-      border-top: 1px solid var(--border);
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: var(--muted);
-    }
-
-    .form-group input,
-    .form-group textarea,
-    .form-group select,
-    .form-select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 1em;
-      font-family: inherit;
-      background: var(--panel-bg);
-      color: var(--text);
-    }
-
-    .form-group small {
-      color: var(--muted-2);
-      font-size: 0.85em;
-    }
-
-    .video-input-group {
-      background: var(--card-bg);
-      padding: 15px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-    }
-    
-    .input-with-icon input {
-      width: 100%;
-    }
-
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-    }
-
-    .checkbox-label input[type="checkbox"] {
-      width: auto;
-    }
-
-    .template-preview {
-      margin: 20px 0;
-      padding: 15px;
-      background: var(--success-bg);
-      border: 1px solid rgba(134,239,172,0.6);
-      border-radius: 6px;
-    }
-
-    .template-preview h4 {
-      margin: 0 0 10px 0;
-      color: var(--success);
-      font-size: 1em;
-    }
-
-    .template-body {
-      background: var(--panel-bg);
-      padding: 15px;
-      border-radius: 6px;
-      white-space: pre-wrap;
-      font-family: monospace;
-      color: var(--muted);
-    }
-
-    .alert {
-      padding: 12px 15px;
-      border-radius: 6px;
-      margin: 15px 0;
-    }
-
-    .alert-warning {
-      background: var(--warning-bg);
-      border: 1px solid var(--warning);
-      color: var(--warning);
-    }
-
-    .alert-success {
-      background: var(--success-bg);
-      border: 1px solid rgba(134,239,172,0.6);
-      color: var(--success);
-    }
-
-    .alert-error {
-      background: var(--danger-bg);
-      border: 1px solid #fca5a5;
-      color: var(--danger);
-    }
-
-    .file-upload {
-      text-align: center;
-      padding: 30px;
-      border: 2px dashed var(--border);
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 15px;
-      background: transparent;
-    }
-
-    .file-upload:hover {
-      border-color: var(--accent);
-      background: var(--card-bg);
-    }
-
-    .hint {
-      margin-top: 10px;
-      font-size: 0.9em;
-      color: var(--muted-2);
-    }
-
-    .import-result {
-      margin-top: 20px;
-    }
-
-    .import-result ul {
-      margin-top: 10px;
-      padding-left: 20px;
-      font-size: 0.9em;
-    }
-
-    .contacts-selection {
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-    }
-
-    .search-box input {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-bottom: 1px solid var(--border);
-      background: transparent;
-      color: var(--text);
-    }
-
-    .contacts-list {
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .contact-item {
-      padding: 10px 15px;
-      border-bottom: 1px solid var(--bg);
-    }
-
-    .contact-item:hover {
-      background: var(--card-bg);
-    }
-
-    .contact-item label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-    }
-
-    .contact-name {
-      color: var(--muted-2);
-      font-size: 0.9em;
-    }
-
-    .selection-summary {
-      padding: 15px;
-      background: var(--card-bg);
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-
-    .btn-link {
-      background: none;
-      border: none;
-      color: var(--accent);
-      cursor: pointer;
-      text-decoration: underline;
-      font-size: 0.9em;
-    }
-
-    .details-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-      margin-bottom: 20px;
-  
-    }
-
-    .detail-item {
-      padding: 15px;
-      background: var(--card-bg);
-      border-radius: 6px;
-    }
-
-    .messages-table {
-      margin-top: 20px;
-    }
-
-    .messages-table h3 {
-      margin-bottom: 15px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th {
-      background: var(--card-bg);
-      padding: 10px;
-      text-align: left;
-      font-weight: 600;
-      border-bottom: 2px solid var(--border);
-    }
-
-    td {
-      padding: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .export-actions {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: var(--card-bg);
-      border-radius: 6px;
-    }
-
-    .export-actions h3 {
-      margin: 0 0 15px 0;
-      font-size: 1.1em;
-      color: var(--text);
-    }
-
-    .export-buttons {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn-export {
-      background: var(--accent);
-      color: white;
-    }
-
-    .btn-export:hover {
-      background: var(--accent-600);
-    }
-
-    .btn-export-success {
-      background: var(--success);
-      color: white;
-    }
-
-    .btn-export-success:hover {
-      background: #059669;
-    }
-
-    .btn-export-failed {
-      background: var(--danger);
-      color: white;
-    }
-
-    .btn-export-failed:hover {
-      background: #dc2626;
-    }
-  `]
+  templateUrl: './campaigns.component.html',
+  styleUrls: ['./campaigns.component.css']
 })
 export class CampaignsComponent implements OnInit, OnDestroy {
   campaigns: Campaign[] = [];
@@ -1052,6 +27,10 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   selectedTemplate: WhatsAppTemplate | null = null;
   templateParameters: string[] = [];
   hasVideoHeader = false;
+  hasImageHeader = false;
+  imageInputType: 'link' | 'file' = 'link';
+  selectedImageFile: File | null = null;
+  isUploadingImage = false;
 
   showCreateModal = false;
   contactSearch = '';
@@ -1073,6 +52,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     template_name: '',
     template_parameters: [] as string[],
     video_link: '',
+    image_link: '',
+    image_media_id: '',
     contact_ids: [] as number[]
   };
 
@@ -1212,6 +193,15 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       if (!this.hasVideoHeader) {
         this.campaignForm.video_link = '';
       }
+
+      // Chequear si tiene header de imagen
+      this.hasImageHeader = header?.format === 'IMAGE';
+      if (!this.hasImageHeader) {
+        this.campaignForm.image_link = '';
+        this.campaignForm.image_media_id = '';
+        this.selectedImageFile = null;
+        this.imageInputType = 'link';
+      }
     }
   }
 
@@ -1252,12 +242,20 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
   canCreateCampaign(): boolean {
     if (this.useTemplate) {
-      return !!(this.campaignForm.name &&
+      const baseValid = !!(this.campaignForm.name &&
         this.campaignForm.phone_number_id &&
         this.campaignForm.template_name &&
         this.campaignForm.contact_ids.length > 0 &&
-        this.campaignForm.template_parameters.every(p => p.trim() !== '') &&
-        (!this.hasVideoHeader || (this.hasVideoHeader && !!this.campaignForm.video_link)));
+        this.campaignForm.template_parameters.every(p => p.trim() !== ''));
+      
+      const videoValid = !this.hasVideoHeader || (this.hasVideoHeader && !!this.campaignForm.video_link);
+      
+      const imageValid = !this.hasImageHeader || (this.hasImageHeader && (
+        (this.imageInputType === 'link' && !!this.campaignForm.image_link) ||
+        (this.imageInputType === 'file' && !!this.campaignForm.image_media_id)
+      ));
+      
+      return baseValid && videoValid && imageValid;
     } else {
       return !!(this.campaignForm.name &&
         this.campaignForm.phone_number_id &&
@@ -1311,6 +309,8 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       template_name: '',
       template_parameters: [],
       video_link: '',
+      image_link: '',
+      image_media_id: '',
       contact_ids: []
     };
     this.contactSearch = '';
@@ -1318,6 +318,9 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     this.selectedTemplate = null;
     this.templateParameters = [];
     this.hasVideoHeader = false;
+    this.hasImageHeader = false;
+    this.selectedImageFile = null;
+    this.imageInputType = 'link';
   }
 
   viewDetails(campaign: Campaign) {
@@ -1497,5 +500,73 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       'failed': 'Fallido'
     };
     return translations[status] || status;
+  }
+
+  onImageInputTypeChange(type: 'link' | 'file') {
+    this.imageInputType = type;
+    // Limpiar datos del tipo anterior
+    if (type === 'link') {
+      this.selectedImageFile = null;
+      this.campaignForm.image_media_id = '';
+    } else {
+      this.campaignForm.image_link = '';
+    }
+  }
+
+  onImageFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.match(/image\/(jpeg|jpg|png)/)) {
+        this.notificationService.show({
+          type: 'error',
+          title: 'Archivo inválido',
+          message: 'Solo se permiten imágenes JPEG o PNG'
+        });
+        event.target.value = '';
+        return;
+      }
+
+      // Validar tamaño (5MB máx)
+      if (file.size > 5 * 1024 * 1024) {
+        this.notificationService.show({
+          type: 'error',
+          title: 'Archivo muy grande',
+          message: 'La imagen no debe superar 5MB'
+        });
+        event.target.value = '';
+        return;
+      }
+
+      this.selectedImageFile = file;
+      this.uploadImageFile();
+    }
+  }
+
+  uploadImageFile() {
+    if (!this.selectedImageFile || !this.campaignForm.phone_number_id) return;
+
+    this.isUploadingImage = true;
+
+    this.campaignService.uploadMedia(this.selectedImageFile, this.campaignForm.phone_number_id).subscribe({
+      next: (response) => {
+        this.isUploadingImage = false;
+        this.campaignForm.image_media_id = response.media_id;
+        this.notificationService.show({
+          type: 'success',
+          title: 'Imagen subida',
+          message: 'La imagen se subió correctamente a WhatsApp'
+        });
+      },
+      error: (error) => {
+        this.isUploadingImage = false;
+        this.selectedImageFile = null;
+        this.notificationService.show({
+          type: 'error',
+          title: 'Error al subir imagen',
+          message: error.error?.message || 'No se pudo subir la imagen'
+        });
+      }
+    });
   }
 }

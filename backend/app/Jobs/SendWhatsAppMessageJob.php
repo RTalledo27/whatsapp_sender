@@ -55,6 +55,13 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 if ($campaign->video_link && !empty($campaign->video_link)) {
                     $templateData['video_link'] = $campaign->video_link;
                 }
+
+                // Agregar image_link o image_media_id si existen
+                if ($campaign->image_link && !empty($campaign->image_link)) {
+                    $templateData['image_link'] = $campaign->image_link;
+                } elseif ($campaign->image_media_id && !empty($campaign->image_media_id)) {
+                    $templateData['image_media_id'] = $campaign->image_media_id;
+                }
                 
                 Log::info('Using WhatsApp Template', ['template_name' => $templateData['name']]);
             } else {

@@ -36,6 +36,8 @@ export interface Campaign {
   template_name?: string;
   template_parameters?: string[];
   video_link?: string;
+  image_link?: string;
+  image_media_id?: string;
   messages?: Message[];
 }
 
@@ -130,5 +132,13 @@ export class CampaignService {
 
   retryFailed(id: number): Observable<any> {
     return this.http.post(`${this.apiUrl}/${id}/retry-failed`, {});
+  }
+
+  uploadMedia(file: File, phoneNumberId: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('phone_number_id', phoneNumberId);
+
+    return this.http.post(`${this.apiUrl}/upload-media`, formData);
   }
 }
