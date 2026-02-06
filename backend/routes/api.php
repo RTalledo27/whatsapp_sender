@@ -9,6 +9,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ChatbotConfigController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -91,6 +92,18 @@ Route::middleware('api')->group(function () {
     // Templates
     Route::get('/templates', [TemplateController::class, 'index']);
     Route::get('/account-info', [TemplateController::class, 'getAccountInfo']);
+
+    // Chatbot Configuration
+    Route::prefix('chatbot')->group(function () {
+        Route::get('/flows', [ChatbotConfigController::class, 'getFlows']);
+        Route::post('/flows', [ChatbotConfigController::class, 'createFlow']);
+        Route::get('/flows/{id}', [ChatbotConfigController::class, 'getFlow']);
+        Route::put('/flows/{id}', [ChatbotConfigController::class, 'updateFlow']);
+        Route::delete('/flows/{id}', [ChatbotConfigController::class, 'deleteFlow']);
+        Route::post('/flows/{id}/steps', [ChatbotConfigController::class, 'addStep']);
+        Route::put('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'updateStep']);
+        Route::delete('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'deleteStep']);
+    });
 
     // Test endpoints (remover en producción)
     Route::post('/test/template', [TestController::class, 'testTemplate']);
