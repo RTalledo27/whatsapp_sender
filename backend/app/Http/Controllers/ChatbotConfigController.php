@@ -70,11 +70,14 @@ class ChatbotConfigController extends Controller
     }
 
     /**
-     * Guardar flujos en el archivo JSON
+     * Guardar flujos en el archivo JSON y limpiar caché
      */
     private function saveFlows($flows)
     {
         Storage::put($this->storageFile, json_encode($flows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        
+        // Limpiar caché para que BotService recargue
+        cache()->forget('chatbot_flows');
     }
 
     /**

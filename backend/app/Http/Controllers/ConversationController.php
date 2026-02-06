@@ -33,26 +33,33 @@ class ConversationController extends Controller
         $botPhoneNumberId = '950764051457024';
         $isBotChannel = $phoneNumberId === $botPhoneNumberId;
         
-        $conversations = Contact::select('contacts.*')
+        // Query optimizado con índices y límites
+        $conversations = Contact::select(
+                'contacts.id',
+                'contacts.name', 
+                'contacts.phone_number',
+                'contacts.contact_type',
+                'contacts.created_at'
+            )
             ->join('messages', 'contacts.id', '=', 'messages.contact_id')
             ->when($phoneNumberId, function($query, $phoneNumberId) {
                 return $query->where('messages.phone_number_id', $phoneNumberId);
             })
-            ->selectRaw('COUNT(messages.id) as total_messages')
-            ->selectRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) as last_message_at')
+            ->selectRaw('COUNT(DISTINCT messages.id) as total_messages')
+            ->selectRaw('MAX(COALESCE(messages.message_timestamp, messages.created_at)) as last_message_at')
             ->selectRaw('SUM(CASE WHEN messages.direction = "inbound" AND messages.read_at IS NULL THEN 1 ELSE 0 END) as unread_count')
             ->selectRaw('(
                 SELECT COALESCE(message_content, message) 
                 FROM messages m2 
                 WHERE m2.contact_id = contacts.id' . ($phoneNumberId ? ' AND m2.phone_number_id = "' . $phoneNumberId . '"' : '') . ' 
-                ORDER BY COALESCE(m2.message_timestamp, m2.created_at) DESC 
+                ORDER BY m2.message_timestamp DESC, m2.created_at DESC
                 LIMIT 1
             ) as last_message')
             ->selectRaw('(
                 SELECT direction 
                 FROM messages m3 
                 WHERE m3.contact_id = contacts.id' . ($phoneNumberId ? ' AND m3.phone_number_id = "' . $phoneNumberId . '"' : '') . ' 
-                ORDER BY COALESCE(m3.message_timestamp, m3.created_at) DESC 
+                ORDER BY m3.message_timestamp DESC, m3.created_at DESC
                 LIMIT 1
             ) as last_message_direction')
             ->when($search, function ($query, $search) {
@@ -98,9 +105,8 @@ class ConversationController extends Controller
         }
             
         $conversations = $conversations
-            ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.email', 
-                     'contacts.contact_type', 'contacts.metadata', 'contacts.created_at', 'contacts.updated_at')
-            ->orderByRaw('COALESCE(MAX(messages.message_timestamp), MAX(messages.created_at)) DESC')
+            ->groupBy('contacts.id', 'contacts.name', 'contacts.phone_number', 'contacts.contact_type', 'contacts.created_at')
+            ->orderByRaw('MAX(COALESCE(messages.message_timestamp, messages.created_at)) DESC')
             ->paginate($perPage);
         
         return response()->json($conversations);

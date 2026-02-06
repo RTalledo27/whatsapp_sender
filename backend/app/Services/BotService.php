@@ -26,20 +26,23 @@ class BotService
     }
 
     /**
-     * Cargar flujos desde el archivo JSON
+     * Cargar flujos desde el archivo JSON con caché
      */
     private function loadFlows()
     {
         try {
-            $path = storage_path('app/chatbot/flows.json');
-            if (file_exists($path)) {
-                $content = file_get_contents($path);
-                $this->flows = json_decode($content, true);
-                Log::info('Chatbot flows loaded', ['flows_count' => count($this->flows)]);
-            } else {
-                $this->flows = [];
+            // Intentar obtener del caché primero
+            $this->flows = cache()->remember('chatbot_flows', 3600, function () {
+                $path = storage_path('app/chatbot/flows.json');
+                if (file_exists($path)) {
+                    $content = file_get_contents($path);
+                    $flows = json_decode($content, true);
+                    Log::info('Chatbot flows loaded from file', ['flows_count' => count($flows)]);
+                    return $flows;
+                }
                 Log::warning('Chatbot flows file not found');
-            }
+                return [];
+            });
         } catch (\Exception $e) {
             Log::error('Error loading chatbot flows', ['error' => $e->getMessage()]);
             $this->flows = [];
