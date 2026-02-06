@@ -6,6 +6,7 @@ import { ConversationsComponent } from './components/conversations/conversations
 import { UsersComponent } from './components/users/users.component';
 import { NotesComponent } from './components/notes/notes.component';
 import { LoginComponent } from './components/login/login.component';
+import { ChatbotConfigComponent } from './components/chatbot-config/chatbot-config.component';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'contacts', component: ContactsComponent, canActivate: [authGuard] },
   { path: 'campaigns', component: CampaignsComponent, canActivate: [authGuard] },
   { path: 'conversations', component: ConversationsComponent, canActivate: [authGuard] },
+  { path: 'chatbot-config', component: ChatbotConfigComponent, canActivate: [authGuard] },
   { path: 'users', component: UsersComponent, canActivate: [authGuard] },
   { path: 'notes', component: NotesComponent, canActivate: [authGuard] },
 ];

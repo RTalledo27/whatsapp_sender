@@ -87,6 +87,18 @@ import { ChannelService, Channel } from './services/channel.service';
             </a>
           </li>
           <li>
+            <a routerLink="/chatbot-config" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                <circle cx="8.5" cy="16" r="1"/>
+                <circle cx="15.5" cy="16" r="1"/>
+                <path d="M9 16h6"/>
+              </svg>
+              <span>Chatbot</span>
+            </a>
+          </li>
+          <li>
             <a routerLink="/notes" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
                <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                  <rect x="4" y="4" width="16" height="16" rx="2"/>
@@ -350,6 +362,26 @@ import { ChannelService, Channel } from './services/channel.service';
       list-style: none;
       padding: 20px 0;
       margin: 0;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    
+    .nav-menu::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .nav-menu::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .nav-menu::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+    }
+    
+    .nav-menu::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.3);
     }
 
     .nav-menu li {

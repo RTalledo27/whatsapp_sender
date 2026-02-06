@@ -1,0 +1,326 @@
+<div class="chatbot-config-container">
+  <div class="header">
+    <div class="title-section">
+      <svg class="header-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        <circle cx="8.5" cy="16" r="1"/>
+        <circle cx="15.5" cy="16" r="1"/>
+        <path d="M9 16h6"/>
+      </svg>
+      <div>
+        <h1>Configuración del Chatbot</h1>
+        <p class="subtitle">Gestiona los flujos conversacionales del bot con diagramas interactivos</p>
+      </div>
+    </div>
+    <button class="btn-primary" (click)="createFlow()" *ngIf="!isEditingFlow">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nuevo Flujo
+    </button>
+  </div>
+
+  <!-- Modal para crear nuevo flujo -->
+  <div class="modal-overlay" *ngIf="isEditingFlow" (click)="cancelNewFlow()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h3>Crear Nuevo Flujo</h3>
+      <div class="form-group">
+        <label>Nombre del Flujo:</label>
+        <input type="text" [(ngModel)]="newFlowName" placeholder="Ej: Bono Techo Propio" class="form-control">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="cancelNewFlow()">Cancelar</button>
+        <button class="btn-primary" (click)="saveNewFlow()">Crear Flujo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-layout" [class.edit-mode]="isEditMode">
+    <!-- Sidebar: Lista de flujos -->
+    <aside class="flows-sidebar" *ngIf="!isEditMode">
+      <h3>Flujos</h3>
+      <div class="flows-list">
+        <div 
+          *ngFor="let flow of flows" 
+          class="flow-item" 
+          [class.active]="selectedFlow?.id === flow.id"
+          (click)="selectFlow(flow)">
+          <div class="flow-info">
+            <div class="flow-name">{{ flow.name }}</div>
+            <div class="flow-meta">{{ flow.steps.length }} preguntas</div>
+          </div>
+          <button class="btn-icon-delete" (click)="deleteFlow(flow); $event.stopPropagation()" title="Eliminar flujo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+        <div *ngIf="flows.length === 0" class="empty-state">
+          <p>No hay flujos configurados</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div *ngIf="!selectedFlow" class="empty-state-main">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <circle cx="8.5" cy="16" r="1"/>
+          <circle cx="15.5" cy="16" r="1"/>
+          <path d="M9 16h6"/>
+        </svg>
+        <h3>Selecciona o crea un flujo</h3>
+        <p>Configura las conversaciones del chatbot</p>
+      </div>
+
+      <div *ngIf="selectedFlow" class="flow-container">
+        <!-- Vista de Diagrama (cuando NO está en modo edición) -->
+        <div class="mermaid-panel" *ngIf="!isEditMode">
+          <div class="panel-header">
+            <div class="header-left">
+              <h3>{{ selectedFlow.name }}</h3>
+              <span class="badge">{{ selectedFlow.steps.length }} preguntas</span>
+            </div>
+            <button class="btn-edit-toggle" (click)="toggleEditMode()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar Flujo
+            </button>
+          </div>
+          
+          <div class="mermaid-container-wrapper">
+            <!-- Controles de zoom -->
+            <div class="zoom-controls" *ngIf="selectedFlow.steps.length > 0">
+              <button class="zoom-btn" (click)="zoomIn()" title="Acercar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="11" y1="8" x2="11" y2="14"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </button>
+              <button class="zoom-btn" (click)="zoomOut()" title="Alejar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </button>
+              <button class="zoom-btn" (click)="resetZoom()" title="Restablecer">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                  <path d="M3 21v-5h5"/>
+                </svg>
+              </button>
+              <div class="zoom-level">{{ zoomLevel }}%</div>
+            </div>
+            
+            <div *ngIf="selectedFlow.steps.length === 0" class="empty-diagram">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p>No hay preguntas en este flujo</p>
+              <p class="hint">Haz clic en "Editar Flujo" para agregar preguntas</p>
+            </div>
+            <div 
+              #mermaidContainer 
+              class="mermaid-diagram" 
+              *ngIf="selectedFlow.steps.length > 0"
+              (mousedown)="startPan($event)"
+              (mousemove)="onPan($event)"
+              (mouseup)="endPan()"
+              (mouseleave)="endPan()"
+              (wheel)="onWheel($event)"
+              [style.cursor]="isPanning ? 'grabbing' : 'grab'"></div>
+          </div>
+        </div>
+
+        <!-- Vista de Edición (cuando está en modo edición) -->
+        <div class="edit-panel" *ngIf="isEditMode">
+          <div class="edit-header">
+            <div class="header-left">
+              <h3>{{ selectedFlow.name }}</h3>
+              <span class="badge">{{ selectedFlow.steps.length }} preguntas</span>
+            </div>
+            <div class="header-actions">
+              <button class="btn-primary" (click)="isAddingNewQuestion = true; selectedStep = null">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Nueva Pregunta
+              </button>
+              <button class="btn-back-diagram" (click)="toggleEditMode()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                <span>Volver al Diagrama</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista de preguntas y editor -->
+          <div class="edit-content" [class.editing]="selectedStep || isAddingNewQuestion">
+            <!-- Lista de preguntas -->
+            <div class="questions-container">
+          <div class="questions-list">
+            <div 
+              *ngFor="let step of selectedFlow.steps; let i = index" 
+              class="question-card"
+              [class.active]="selectedStep?.state === step.state"
+              (click)="selectStep(step)">
+              <div class="question-number">{{ i + 1 }}</div>
+              <div class="question-content">
+                <div class="question-text">{{ step.question }}</div>
+                <div class="question-buttons">
+                  <span *ngFor="let btn of step.buttons" class="button-badge">{{ btn.title }}</span>
+                </div>
+              </div>
+              <button class="btn-icon-delete" (click)="deleteStep(step); $event.stopPropagation()" title="Eliminar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+            </div>
+
+            <!-- Panel de edición -->
+          <div class="editor-panel" *ngIf="selectedStep || isAddingNewQuestion">
+          <!-- Editor de pregunta existente -->
+          <div *ngIf="selectedStep" class="editor-content">
+            <div class="editor-header">
+              <h4>Editar Pregunta</h4>
+              <button 
+                *ngIf="!isEditingStep" 
+                class="btn-primary-sm" 
+                (click)="editStep()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Editar
+              </button>
+            </div>
+
+            <div class="form-section">
+              <label>Pregunta:</label>
+              <textarea 
+                [(ngModel)]="selectedStep.question" 
+                [disabled]="!isEditingStep"
+                class="form-control"
+                rows="3"></textarea>
+            </div>
+
+            <div class="form-section">
+              <label>Botones:</label>
+              <div class="buttons-editor">
+                <div *ngFor="let btn of selectedStep.buttons; let i = index" class="button-row">
+                  <input 
+                    type="text" 
+                    [(ngModel)]="btn.title" 
+                    [disabled]="!isEditingStep"
+                    class="form-control"
+                    placeholder="Título">
+                  <select 
+                    [(ngModel)]="btn.nextState" 
+                    [disabled]="!isEditingStep"
+                    class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    <option value="finished">✅ Calificado</option>
+                    <option value="handoff">👤 Humano</option>
+                    <option *ngFor="let s of selectedFlow.steps" [value]="s.state">
+                      {{ getStepLabel(s.state) }}
+                    </option>
+                  </select>
+                  <button 
+                    *ngIf="isEditingStep" 
+                    class="btn-icon-delete" 
+                    (click)="removeButton(i)"
+                    [disabled]="selectedStep.buttons.length <= 1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <button 
+                  *ngIf="isEditingStep" 
+                  class="btn-add" 
+                  (click)="addButton()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Agregar Botón
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="isEditingStep" class="editor-actions">
+              <button class="btn-secondary" (click)="cancelEditStep()">Cancelar</button>
+              <button class="btn-primary" (click)="saveStep()">Guardar</button>
+            </div>
+          </div>
+
+          <!-- Formulario nueva pregunta -->
+          <div *ngIf="isAddingNewQuestion" class="editor-content">
+            <div class="editor-header">
+              <h4>Nueva Pregunta</h4>
+            </div>
+
+            <div class="form-section">
+              <label>Pregunta:</label>
+              <textarea 
+                [(ngModel)]="newQuestion.question" 
+                class="form-control"
+                rows="3"></textarea>
+            </div>
+
+            <div class="form-section">
+              <label>Botones:</label>
+              <div class="buttons-editor">
+                <div *ngFor="let btn of newQuestion.buttons; let i = index" class="button-row">
+                  <input 
+                    type="text" 
+                    [(ngModel)]="btn.title" 
+                    class="form-control"
+                    placeholder="Título">
+                  <select 
+                    [(ngModel)]="btn.nextState" 
+                    class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    <option value="finished">✅ Calificado</option>
+                    <option value="handoff">👤 Humano</option>
+                    <option *ngFor="let s of selectedFlow.steps" [value]="s.state">
+                      {{ getStepLabel(s.state) }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="editor-actions">
+              <button class="btn-secondary" (click)="isAddingNewQuestion = false; resetNewQuestion()">Cancelar</button>
+              <button class="btn-primary" (click)="addQuestion()">Agregar</button>
+            </div>
+          </div>
+          </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

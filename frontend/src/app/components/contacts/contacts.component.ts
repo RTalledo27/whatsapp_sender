@@ -361,6 +361,7 @@ import { AuthService } from '../../services/auth.service';
       border-radius: 6px;
       font-size: 1em;
       background: var(--search-bg);
+      color: var(--text);
     }
 
     .badge {

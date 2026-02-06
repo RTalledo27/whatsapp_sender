@@ -11,13 +11,10 @@ class BotService
 {
     private WhatsAppService $whatsappService;
     private $botPhoneNumberId;
+    private $flows = null;
 
     // Estados posibles del bot
     const STATE_INITIAL = 'initial';
-    const STATE_TERRAIN = 'terrain';
-    const STATE_FAMILY = 'family';
-    const STATE_INCOME = 'income';
-    const STATE_PREVIOUS_SUPPORT = 'previous_support';
     const STATE_FINISHED = 'finished';
     const STATE_HANDOFF = 'handoff';
 
@@ -25,6 +22,39 @@ class BotService
     {
         $this->whatsappService = $whatsappService;
         $this->botPhoneNumberId = config('services.whatsapp.leads_bot_id');
+        $this->loadFlows();
+    }
+
+    /**
+     * Cargar flujos desde el archivo JSON
+     */
+    private function loadFlows()
+    {
+        try {
+            $path = storage_path('app/chatbot/flows.json');
+            if (file_exists($path)) {
+                $content = file_get_contents($path);
+                $this->flows = json_decode($content, true);
+                Log::info('Chatbot flows loaded', ['flows_count' => count($this->flows)]);
+            } else {
+                $this->flows = [];
+                Log::warning('Chatbot flows file not found');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error loading chatbot flows', ['error' => $e->getMessage()]);
+            $this->flows = [];
+        }
+    }
+
+    /**
+     * Obtener el flujo activo (el primero por ahora)
+     */
+    private function getActiveFlow()
+    {
+        if (empty($this->flows)) {
+            return null;
+        }
+        return $this->flows[0] ?? null;
     }
 
     /**
@@ -124,17 +154,18 @@ class BotService
      */
     private function startFlow(BotConversation $conversation)
     {
-        $this->updateState($conversation, self::STATE_TERRAIN, ['retries' => 0]);
+        $flow = $this->getActiveFlow();
         
-        $text = "¡Hola! 👋 Gracias por tu interés en el Bono Techo Propio. Soy el asistente virtual de Casa Bonita.\n\n" .
-                "Para saber si calificas, necesito hacerte 4 preguntas rápidas.\n\n" .
-                "1️⃣ ¿Tienes un terreno propio inscrito en Registros Públicos?";
+        if (!$flow || empty($flow['steps'])) {
+            $this->sendMessage($conversation->contact, "Lo siento, el servicio no está disponible en este momento.");
+            return;
+        }
 
-        // Enviar mensaje con botones interactivos
-        $this->sendInteractiveMessage($conversation->contact, $text, [
-            ['id' => 'btn_terrain_yes', 'title' => 'Sí'],
-            ['id' => 'btn_terrain_no', 'title' => 'No']
-        ]);
+        $firstStep = $flow['steps'][0];
+        $this->updateState($conversation, $firstStep['state'], ['retries' => 0]);
+        
+        // Enviar mensaje con botones del primer paso
+        $this->sendInteractiveMessage($conversation->contact, $firstStep['question'], $firstStep['buttons']);
     }
 
     /**
@@ -146,108 +177,75 @@ class BotService
         $context = $conversation->context ?? [];
         $retries = $context['retries'] ?? 0;
 
-        switch ($conversation->state) {
-            case self::STATE_TERRAIN:
-                // Combinar opciones de texto y button IDs
-                $yesOptions = ['1', 'si', 'sí', 'btn_terrain_yes', 'btn_yes'];
-                $noOptions = ['2', 'no', 'btn_terrain_no', 'btn_no'];
-                
-                if ($this->checkOption($content, $yesOptions, $noOptions)) {
-                    $hasTerrain = $this->isAffirmative($content);
-                    
-                    if (!$hasTerrain) {
-                        $this->finishFlow($conversation, false, "Sin terreno propio");
-                    } else {
-                        $context['has_terrain'] = true;
-                        $context['retries'] = 0;
-                        $this->updateState($conversation, self::STATE_FAMILY, $context);
-                        
-                        // Enviar siguiente pregunta con botones
-                        $text = "¡Genial! ✅\n\n2️⃣ ¿Tienes carga familiar? (Esposa/o, hijos, hermanos menores o padres dependientes)";
-                        $this->sendInteractiveMessage($conversation->contact, $text, [
-                            ['id' => 'btn_family_yes', 'title' => 'Sí'],
-                            ['id' => 'btn_family_no', 'title' => 'No']
-                        ]);
-                    }
-                } else {
-                    $this->handleInvalidInput($conversation, $retries);
-                }
-                break;
+        $flow = $this->getActiveFlow();
+        if (!$flow) {
+            $this->sendMessage($conversation->contact, "Error: Configuración no disponible.");
+            return;
+        }
 
-            case self::STATE_FAMILY:
-                // Combinar opciones de texto y button IDs
-                $yesOptions = ['1', 'si', 'sí', 'btn_family_yes', 'btn_yes'];
-                $noOptions = ['2', 'no', 'btn_family_no', 'btn_no'];
-                
-                if ($this->checkOption($content, $yesOptions, $noOptions)) {
-                    $hasFamily = $this->isAffirmative($content);
-                    
-                    if (!$hasFamily) {
-                        $this->finishFlow($conversation, false, "Sin carga familiar");
-                    } else {
-                        $context['has_family'] = true;
-                        $context['retries'] = 0;
-                        $this->updateState($conversation, self::STATE_INCOME, $context);
-                        
-                        // Enviar pregunta de ingresos
-                        $text = "3️⃣ ¿El ingreso mensual de tu familia es menor a S/ 3,715?";
-                        $this->sendInteractiveMessage($conversation->contact, $text, [
-                            ['id' => 'btn_income_yes', 'title' => 'Sí'],
-                            ['id' => 'btn_income_no', 'title' => 'No']
-                        ]);
-                    }
-                } else {
-                    $this->handleInvalidInput($conversation, $retries);
-                }
+        // Buscar el paso actual
+        $currentStep = null;
+        foreach ($flow['steps'] as $step) {
+            if ($step['state'] === $conversation->state) {
+                $currentStep = $step;
                 break;
+            }
+        }
 
-            case self::STATE_INCOME:
-                // Combinar opciones de texto y button IDs
-                $yesOptions = ['1', 'si', 'sí', 'btn_income_yes', 'btn_yes'];
-                $noOptions = ['2', 'no', 'btn_income_no', 'btn_no'];
-                
-                if ($this->checkOption($content, $yesOptions, $noOptions)) {
-                    $lowIncome = $this->isAffirmative($content);
-                    
-                    if (!$lowIncome) {
-                        $this->finishFlow($conversation, false, "Ingresos superiores al límite");
-                    } else {
-                        $context['low_income'] = true;
-                        $context['retries'] = 0;
-                        $this->updateState($conversation, self::STATE_PREVIOUS_SUPPORT, $context);
-                        
-                        // Enviar pregunta sobre apoyo habitacional previo
-                        $text = "4️⃣ ¿Ha recibido anteriormente apoyo de un programa habitacional del Estado?";
-                        $this->sendInteractiveMessage($conversation->contact, $text, [
-                            ['id' => 'btn_support_yes', 'title' => 'Sí'],
-                            ['id' => 'btn_support_no', 'title' => 'No']
-                        ]);
-                    }
-                } else {
-                    $this->handleInvalidInput($conversation, $retries);
-                }
-                break;
+        if (!$currentStep) {
+            Log::error('Step not found', ['state' => $conversation->state]);
+            $this->sendMessage($conversation->contact, "Error: Paso no encontrado.");
+            return;
+        }
 
-            case self::STATE_PREVIOUS_SUPPORT:
-                // Combinar opciones de texto y button IDs
-                $yesOptions = ['1', 'si', 'sí', 'btn_support_yes', 'btn_yes'];
-                $noOptions = ['2', 'no', 'btn_support_no', 'btn_no'];
-                
-                if ($this->checkOption($content, $yesOptions, $noOptions)) {
-                    $hasPreviousSupport = $this->isAffirmative($content);
-                    
-                    if ($hasPreviousSupport) {
-                        // Ya recibió apoyo anteriormente - NO califica
-                        $this->finishFlow($conversation, false, "Ya ha recibido apoyo habitacional previo del Estado");
-                    } else {
-                        // No ha recibido apoyo anteriormente - CALIFICA
-                        $context['no_previous_support'] = true;
-                        $this->finishFlow($conversation, true, "Apto para Techo Propio");
-                    }
-                } else {
-                    $this->handleInvalidInput($conversation, $retries);
-                }
+        // Buscar qué botón seleccionó el usuario
+        $selectedButton = null;
+        foreach ($currentStep['buttons'] as $button) {
+            // Comparar con el título del botón o el ID
+            if (strcasecmp($content, $button['title']) === 0 || 
+                strcasecmp($content, $button['id']) === 0) {
+                $selectedButton = $button;
                 break;
+            }
+        }
+
+        if (!$selectedButton) {
+            // Respuesta inválida
+            $this->handleInvalidInput($conversation, $retries);
+            return;
+        }
+
+        // Procesar según el siguiente estado
+        $nextState = $selectedButton['nextState'];
+        
+        if ($nextState === 'finished') {
+            // Usuario califica
+            $this->finishFlow($conversation, true, "Califica para el bono");
+        } elseif ($nextState === 'handoff') {
+            // Transferir a humano
+            $this->handoffToAgent($conversation, "Usuario solicitó hablar con un asesor");
+        } else {
+            // Buscar el siguiente paso
+            $nextStep = null;
+            foreach ($flow['steps'] as $step) {
+                if ($step['state'] === $nextState) {
+                    $nextStep = $step;
+                    break;
+                }
+            }
+
+            if ($nextStep) {
+                // Guardar respuesta actual en contexto
+                $context['retries'] = 0;
+                $context['responses'][$conversation->state] = $selectedButton['title'];
+                $this->updateState($conversation, $nextState, $context);
+                
+                // Enviar siguiente pregunta
+                $this->sendInteractiveMessage($conversation->contact, $nextStep['question'], $nextStep['buttons']);
+            } else {
+                Log::error('Next step not found', ['nextState' => $nextState]);
+                $this->sendMessage($conversation->contact, "Error: Siguiente paso no encontrado.");
+            }
         }
     }
 
@@ -362,33 +360,6 @@ class BotService
         $conversation->context = array_merge($currentContext, $context);
         $conversation->last_interaction_at = now();
         $conversation->save();
-    }
-
-    /**
-     * Verificar si la entrada es una opción válida
-     * Soporta tanto texto ('1', 'si') como button IDs ('btn_yes')
-     */
-    private function checkOption($input, array $yesOptions, array $noOptions): bool
-    {
-        $input = strtolower(trim($input));
-        return in_array($input, $yesOptions) || in_array($input, $noOptions);
-    }
-
-    /**
-     * Verificar si es una respuesta afirmativa
-     * Soporta tanto texto ('1', 'si', 'sí') como button IDs ('btn_yes', 'btn_terrain_yes', etc.)
-     */
-    private function isAffirmative($input): bool
-    {
-        $input = strtolower(trim($input));
-        
-        // Opciones de texto tradicionales
-        $textOptions = ['1', 'si', 'sí'];
-        
-        // IDs de botones afirmativos
-        $buttonOptions = ['btn_yes', 'btn_si', 'btn_terrain_yes', 'btn_family_yes', 'btn_income_yes', 'btn_support_yes'];
-        
-        return in_array($input, $textOptions) || in_array($input, $buttonOptions);
     }
 
     /**
