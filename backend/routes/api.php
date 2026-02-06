@@ -103,6 +103,7 @@ Route::middleware('api')->group(function () {
         Route::post('/flows/{id}/steps', [ChatbotConfigController::class, 'addStep']);
         Route::put('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'updateStep']);
         Route::delete('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'deleteStep']);
+        Route::get('/debug', [ChatbotConfigController::class, 'debug']); // Diagnóstico
     });
 
     // Test endpoints (remover en producción)

@@ -189,15 +189,36 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
     this.chatbotService.updateStep(this.selectedFlow.id, this.selectedStep).subscribe({
       next: (updatedStep: BotStep) => {
-        if (this.selectedFlow) {
-          const index = this.selectedFlow.steps.findIndex((s: BotStep) => s.state === updatedStep.state);
-          if (index !== -1) {
-            this.selectedFlow.steps[index] = updatedStep;
+        // Recargar el flow completo desde el servidor para asegurar sincronización
+        this.chatbotService.getFlow(this.selectedFlow!.id).subscribe({
+          next: (freshFlow: BotFlow) => {
+            // Actualizar el flow en el array
+            const flowIndex = this.flows.findIndex((f: BotFlow) => f.id === freshFlow.id);
+            if (flowIndex !== -1) {
+              this.flows[flowIndex] = freshFlow;
+            }
+            // Actualizar el flow seleccionado
+            this.selectedFlow = freshFlow;
+            // Actualizar el step seleccionado con la versión fresca
+            this.selectedStep = freshFlow.steps.find((s: BotStep) => s.state === updatedStep.state) || null;
+            this.isEditingStep = false;
+            this.generateMermaidDiagram();
+            alert('Pregunta actualizada correctamente');
+          },
+          error: (error: any) => {
+            console.error('Error al recargar flow:', error);
+            // Fallback: actualizar localmente
+            if (this.selectedFlow) {
+              const index = this.selectedFlow.steps.findIndex((s: BotStep) => s.state === updatedStep.state);
+              if (index !== -1) {
+                this.selectedFlow.steps[index] = updatedStep;
+              }
+            }
+            this.isEditingStep = false;
+            this.generateMermaidDiagram();
+            alert('Pregunta actualizada correctamente');
           }
-        }
-        this.isEditingStep = false;
-        this.generateMermaidDiagram();
-        alert('Pregunta actualizada correctamente');
+        });
       },
       error: (error: any) => {
         console.error('Error al guardar pregunta:', error);
