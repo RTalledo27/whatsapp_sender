@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class ChatbotConfigController extends Controller
 {
@@ -74,10 +76,56 @@ class ChatbotConfigController extends Controller
      */
     private function saveFlows($flows)
     {
-        Storage::put($this->storageFile, json_encode($flows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        
-        // Limpiar caché para que BotService recargue
-        cache()->forget('chatbot_flows');
+        try {
+            $path = storage_path('app/chatbot/flows.json');
+            
+            // Verificar que el directorio existe
+            $dir = dirname($path);
+            if (!file_exists($dir)) {
+                mkdir($dir, 0755, true);
+                Log::info('Created chatbot directory', ['dir' => $dir]);
+            }
+            
+            // Intentar guardar
+            $result = Storage::put($this->storageFile, json_encode($flows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            
+            if ($result) {
+                // Verificar que el archivo se guardó correctamente
+                clearstatcache(true, $path);
+                $fileSize = file_exists($path) ? filesize($path) : 0;
+                
+                Log::info('Chatbot flows saved successfully', [
+                    'path' => $path,
+                    'flows_count' => count($flows),
+                    'file_size' => $fileSize,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]);
+            } else {
+                Log::error('Failed to save chatbot flows', ['path' => $path]);
+            }
+            
+            // Limpiar caché usando ambos métodos para asegurar
+            Cache::forget('chatbot_flows');
+            cache()->forget('chatbot_flows');
+            
+            // También limpiar el cache de archivos por si acaso
+            if (config('cache.default') === 'file') {
+                $cacheFile = storage_path('framework/cache/data') . '/' . sha1('chatbot_flows');
+                if (file_exists($cacheFile)) {
+                    @unlink($cacheFile);
+                    Log::info('Deleted cache file', ['file' => $cacheFile]);
+                }
+            }
+            
+            Log::info('Chatbot cache cleared successfully');
+            
+        } catch (\Exception $e) {
+            Log::error('Exception saving chatbot flows', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -311,5 +359,44 @@ class ChatbotConfigController extends Controller
         $this->saveFlows($flows);
 
         return response()->json(['message' => 'Paso eliminado correctamente']);
+    }
+
+    /**
+     * GET /api/chatbot/debug
+     * Endpoint de diagnóstico para verificar estado del sistema
+     */
+    public function debug()
+    {
+        $path = storage_path('app/chatbot/flows.json');
+        $dir = dirname($path);
+        
+        $debug = [
+            'file_path' => $path,
+            'file_exists' => file_exists($path),
+            'file_readable' => is_readable($path),
+            'file_writable' => is_writable($path),
+            'dir_exists' => file_exists($dir),
+            'dir_writable' => is_writable($dir),
+            'file_size' => file_exists($path) ? filesize($path) : 0,
+            'file_modified' => file_exists($path) ? date('Y-m-d H:i:s', filemtime($path)) : null,
+            'cache_exists' => cache()->has('chatbot_flows'),
+            'flows_count' => 0,
+            'first_question' => null,
+        ];
+        
+        if (file_exists($path)) {
+            try {
+                $content = file_get_contents($path);
+                $flows = json_decode($content, true);
+                $debug['flows_count'] = count($flows);
+                if (!empty($flows[0]['steps'][0]['question'])) {
+                    $debug['first_question'] = substr($flows[0]['steps'][0]['question'], 0, 100);
+                }
+            } catch (\Exception $e) {
+                $debug['error'] = $e->getMessage();
+            }
+        }
+        
+        return response()->json($debug);
     }
 }
