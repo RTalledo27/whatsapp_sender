@@ -60,10 +60,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   totalPages = 1;
   loadingMoreConversations = false;
 
-  // Polling para nuevos mensajes
+  // Polling para nuevos mensajes (reducido a 15s para mejor rendimiento)
   private pollingSubscription?: Subscription;
   private navigationSubscription?: Subscription;
-  pollingInterval = 5000; // 5 segundos
+  pollingInterval = 15000; // 15 segundos (optimizado desde 5s)
 
   // Estadísticas
   stats: ConversationStats = {
@@ -149,14 +149,32 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Aplicar filtro basado en estadística seleccionada
+   * Aplicar filtro basado en estadística seleccionada - optimizado
    */
   applyStatFilter(): void {
     // Para el canal del bot, los filtros se manejan en el backend
     if (this.isBotChannel()) {
       this.currentPage = 1;
       this.conversations = [];
-      this.loadConversations();
+      this.loading = true;
+      
+      const phoneNumberId = this.selectedPhoneNumberId || null;
+      const botStatus = this.selectedBotStatus || 'all';
+      
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus)
+        .subscribe({
+          next: (response) => {
+            this.conversations = response.data;
+            this.currentPage = response.current_page;
+            this.totalPages = response.last_page;
+            this.loading = false;
+            this.filteredConversations = this.conversations;
+          },
+          error: (error) => {
+            console.error('Error cargando conversaciones:', error);
+            this.loading = false;
+          }
+        });
       return;
     }
     
@@ -258,14 +276,34 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cambiar número seleccionado
+   * Cambiar número seleccionado - optimizado
    */
   onPhoneNumberChange(): void {
     this.currentPage = 1;
     this.conversations = [];
     this.selectedConversation = null;
-    this.loadConversations();
-    this.loadStats();
+    this.loading = true;
+    
+    // Cargar conversaciones y stats en paralelo
+    const phoneNumberId = this.selectedPhoneNumberId || null;
+    const botStatus = this.isBotChannel() ? (this.selectedBotStatus || 'all') : null;
+    
+    Promise.all([
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus).toPromise(),
+      this.conversationService.getStats(this.selectedPhoneNumberId || undefined).toPromise()
+    ]).then(([conversationsResponse, stats]) => {
+      this.conversations = conversationsResponse.data;
+      this.currentPage = conversationsResponse.current_page;
+      this.totalPages = conversationsResponse.last_page;
+      if (stats) {
+        this.stats = stats;
+      }
+      this.loading = false;
+      this.applyStatFilter();
+    }).catch(error => {
+      console.error('Error cargando datos:', error);
+      this.loading = false;
+    });
   }
 
   /**
