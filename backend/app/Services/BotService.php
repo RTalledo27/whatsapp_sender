@@ -213,7 +213,7 @@ class BotService
         // Procesar según el siguiente estado
         $nextState = $selectedButton['nextState'];
         
-        if ($nextState === 'finished') {
+        if ($nextState === 'finished' || $nextState === 'nofinished') {
             // Verificar si el usuario califica basado en sus respuestas
             $qualified = $this->checkIfQualified($conversation, $selectedButton['title']);
             $reason = $qualified ? "Cumple todos los requisitos" : "No cumple uno o más requisitos";
