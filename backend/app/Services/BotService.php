@@ -308,8 +308,8 @@ class BotService
                    "Un asesor revisará tus datos y te contactará pronto para gestionar tu bono. ¡Estate atento!";
         } else {
             $msg = "Gracias por completar las preguntas. 😊\n\n" .
-                   "Hemos registrado tus respuestas. Un **asesor humano revisará tu caso completo** y te contactará pronto para evaluar tus opciones de financiamiento. 🏠\n\n" .
-                   "¡Estate atento a tu WhatsApp!";
+                   "Según tus respuestas, lamentablemente **NO CALIFICAS** para el Bono Techo Propio en este momento.\n\n" .
+                   "Te invitamos a trabajar en cumplir los requisitos necesarios. Si necesitas orientación, nuestros asesores están disponibles para ayudarte. 🏠";
         }
 
         $this->sendMessage($conversation->contact, $msg);
