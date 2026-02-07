@@ -127,7 +127,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
     // Nodos especiales
     diagram += '    Finished([✅ Calificado]):::successNode\n';
-    diagram += '    Handoff([👤 Humano]):::handoffNode\n';
+    diagram += '    noFinished([❌ No califica]):::noFinishedNode\n';
 
     // Conectar inicio con primera pregunta
     if (this.selectedFlow.steps.length > 0) {
@@ -145,8 +145,8 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
           
           if (btn.nextState === 'finished') {
             nextNodeId = 'Finished';
-          } else if (btn.nextState === 'handoff') {
-            nextNodeId = 'Handoff';
+          } else if (btn.nextState === 'nofinished') {
+            nextNodeId = 'noFinished';
           }
           
           const btnTitle = btn.title.substring(0, 20);
@@ -159,7 +159,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     diagram += '    classDef startNode fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff\n';
     diagram += '    classDef questionNode fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff\n';
     diagram += '    classDef successNode fill:#22c55e,stroke:#16a34a,stroke-width:2px,color:#fff\n';
-    diagram += '    classDef handoffNode fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff\n';
+    diagram += '    classDef noFinishedNode fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff\n';
 
     this.mermaidDiagram = diagram;
     

@@ -240,7 +240,7 @@
                     class="form-control">
                     <option value="">-- Seleccionar --</option>
                     <option value="finished">✅ Calificado</option>
-                    <option value="handoff">👤 Humano</option>
+                    <option value="nofinished">❌ No califica</option>
                     <option *ngFor="let s of selectedFlow.steps" [value]="s.state">
                       {{ getStepLabel(s.state) }}
                     </option>
