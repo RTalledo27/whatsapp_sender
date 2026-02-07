@@ -27,7 +27,7 @@ class ChatbotConfigController extends Controller
                         'question' => '¿Tienes un terreno propio o de un familiar directo?',
                         'buttons' => [
                             ['id' => 'btn_1', 'title' => 'Sí', 'nextState' => 'family'],
-                            ['id' => 'btn_2', 'title' => 'No', 'nextState' => 'handoff']
+                            ['id' => 'btn_2', 'title' => 'No', 'nextState' => 'finished']
                         ],
                         'order' => 1
                     ],
@@ -36,7 +36,7 @@ class ChatbotConfigController extends Controller
                         'question' => '¿Tienes carga familiar? (esposa/hijos)',
                         'buttons' => [
                             ['id' => 'btn_3', 'title' => 'Sí', 'nextState' => 'income'],
-                            ['id' => 'btn_4', 'title' => 'No', 'nextState' => 'income']
+                            ['id' => 'btn_4', 'title' => 'No', 'nextState' => 'finished']
                         ],
                         'order' => 2
                     ],
@@ -45,7 +45,7 @@ class ChatbotConfigController extends Controller
                         'question' => '¿Tus ingresos mensuales son menores a S/. 3,000?',
                         'buttons' => [
                             ['id' => 'btn_5', 'title' => 'Sí', 'nextState' => 'previous_support'],
-                            ['id' => 'btn_6', 'title' => 'No', 'nextState' => 'handoff']
+                            ['id' => 'btn_6', 'title' => 'No', 'nextState' => 'finished']
                         ],
                         'order' => 3
                     ],
@@ -53,7 +53,7 @@ class ChatbotConfigController extends Controller
                         'state' => 'previous_support',
                         'question' => '¿Has recibido anteriormente algún bono del Estado?',
                         'buttons' => [
-                            ['id' => 'btn_7', 'title' => 'Sí', 'nextState' => 'handoff'],
+                            ['id' => 'btn_7', 'title' => 'Sí', 'nextState' => 'finished'],
                             ['id' => 'btn_8', 'title' => 'No', 'nextState' => 'finished']
                         ],
                         'order' => 4

@@ -90,20 +90,12 @@ class BotService
              $conversation->refresh();
         }
 
-        // 4. Verificar si el usuario pide hablar con humano explícitamente
-        if ($this->isHandoffRequest($message->message_content)) {
-            Log::info("BotService: User requested handoff.");
-            $this->handoffToAgent($conversation, "El usuario solicitó hablar con un asesor.");
-            return;
-        }
-
-        // 5. Si ya está en handoff, el bot no interviene
+        // 4. Si ya está en estado handoff (legacy), el bot no interviene
         if ($conversation->state === self::STATE_HANDOFF) {
-            Log::info("BotService: Ignoring message because conversation is in HANDOFF state.");
+            Log::info("BotService: Ignoring message because conversation is in HANDOFF state (legacy).");
             return;
         }
 
-        // 5. Procesar según el estado actual
         // 5. Procesar según el estado actual
         Log::info("BotService: Processing message for state: {$conversation->state}");
         
@@ -222,11 +214,10 @@ class BotService
         $nextState = $selectedButton['nextState'];
         
         if ($nextState === 'finished') {
-            // Usuario califica
-            $this->finishFlow($conversation, true, "Califica para el bono");
-        } elseif ($nextState === 'handoff') {
-            // Transferir a humano
-            $this->handoffToAgent($conversation, "Usuario solicitó hablar con un asesor");
+            // Verificar si el usuario califica basado en sus respuestas
+            $qualified = $this->checkIfQualified($conversation, $selectedButton['title']);
+            $reason = $qualified ? "Cumple todos los requisitos" : "No cumple uno o más requisitos";
+            $this->finishFlow($conversation, $qualified, $reason);
         } else {
             // Buscar el siguiente paso
             $nextStep = null;
@@ -260,7 +251,15 @@ class BotService
         $retries++;
         
         if ($retries >= 2) {
-            $this->handoffToAgent($conversation, "Usuario superó intentos fallidos en paso {$conversation->state}");
+            // Reiniciar la conversación después de 3 intentos fallidos
+            Log::info("BotService: Resetting conversation due to too many invalid attempts", ['state' => $conversation->state]);
+            $this->updateState($conversation, self::STATE_INITIAL, []);
+            $this->sendMessage(
+                $conversation->contact, 
+                "⚠️ Parece que hay confusión. He reiniciado la conversación para que puedas empezar de nuevo.\n\n" .
+                "Por favor, usa los botones de **Sí** o **No** para responder las preguntas correctamente.\n\n" .
+                "Escribe **hola** para comenzar. 👋"
+            );
             return;
         }
 
@@ -269,6 +268,28 @@ class BotService
         $this->updateState($conversation, $conversation->state, $context);
 
         $this->sendMessage($conversation->contact, "⚠️ No entendí tu respuesta. Por favor, usa los botones de respuesta o escribe **1** (Sí) o **2** (No).");
+    }
+
+    /**
+     * Verificar si el usuario califica basado en sus respuestas
+     */
+    private function checkIfQualified(BotConversation $conversation, string $lastResponse): bool
+    {
+        $context = $conversation->context ?? [];
+        $responses = $context['responses'] ?? [];
+        $currentState = $conversation->state;
+        
+        // Agregar la respuesta actual
+        $responses[$currentState] = $lastResponse;
+        
+        // Para calificar, todas las respuestas deben ser positivas:
+        // terrain: Sí, family: Sí, income: Sí, previous_support: No
+        $terrainOk = !isset($responses['terrain']) || $responses['terrain'] === 'Sí';
+        $familyOk = !isset($responses['family']) || $responses['family'] === 'Sí';
+        $incomeOk = !isset($responses['income']) || $responses['income'] === 'Sí';
+        $supportOk = !isset($responses['previous_support']) || $responses['previous_support'] === 'No';
+        
+        return $terrainOk && $familyOk && $incomeOk && $supportOk;
     }
 
     /**
@@ -286,24 +307,12 @@ class BotService
             $msg = "🎉 ¡Felicidades! Según tus respuestas, **SÍ CALIFICAS** para el Bono Techo Propio. 🏠💰\n\n" .
                    "Un asesor revisará tus datos y te contactará pronto para gestionar tu bono. ¡Estate atento!";
         } else {
-            $msg = "Gracias por tus respuestas. Según los requisitos actuales, parece que no calificas para este bono específico ($reason). 😕\n\n" .
-                   "Pero no te preocupes, un asesor verificará si hay otras opciones para ti.";
+            $msg = "Gracias por completar las preguntas. 😊\n\n" .
+                   "Hemos registrado tus respuestas. Un **asesor humano revisará tu caso completo** y te contactará pronto para evaluar tus opciones de financiamiento. 🏠\n\n" .
+                   "¡Estate atento a tu WhatsApp!";
         }
 
         $this->sendMessage($conversation->contact, $msg);
-    }
-
-    /**
-     * Transferir a agente humano
-     */
-    private function handoffToAgent(BotConversation $conversation, string $reason)
-    {
-        $context = $conversation->context ?? [];
-        $context['handoff_reason'] = $reason;
-        
-        $this->updateState($conversation, self::STATE_HANDOFF, $context);
-        
-        $this->sendMessage($conversation->contact, "Entiendo que puedas tener dudas. Procederé a cerrar esta sesión automática. Un asesor te contactará pronto. 👋");
     }
 
     // ==================== HELPERS ====================
@@ -363,15 +372,6 @@ class BotService
         $conversation->context = array_merge($currentContext, $context);
         $conversation->last_interaction_at = now();
         $conversation->save();
-    }
-
-    /**
-     * Detectar si el usuario pide hablar con un asesor
-     */
-    private function isHandoffRequest($input): bool
-    {
-        $input = strtolower(trim($input));
-        return in_array($input, ['asesor', 'humano', 'persona', 'ayuda']);
     }
 
     /**
