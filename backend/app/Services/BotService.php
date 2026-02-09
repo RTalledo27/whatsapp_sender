@@ -282,12 +282,15 @@ class BotService
         // Agregar la respuesta actual
         $responses[$currentState] = $lastResponse;
         
-        // Para calificar, todas las respuestas deben ser positivas:
-        // terrain: Sí, family: Sí, income: Sí, previous_support: No
-        $terrainOk = !isset($responses['terrain']) || $responses['terrain'] === 'Sí';
-        $familyOk = !isset($responses['family']) || $responses['family'] === 'Sí';
-        $incomeOk = !isset($responses['income']) || $responses['income'] === 'Sí';
-        $supportOk = !isset($responses['previous_support']) || $responses['previous_support'] === 'No';
+        // Para calificar para el Bono Techo Propio:
+        // terrain: No (NO debe tener terreno propio)
+        // family: Sí (debe tener carga familiar)
+        // income: Sí (ingreso familiar menor a S/3,715)
+        // previous_support: No (no debe haber recibido apoyo previo del Estado)
+        $terrainOk = isset($responses['terrain']) && $responses['terrain'] === 'No';
+        $familyOk = isset($responses['family']) && $responses['family'] === 'Sí';
+        $incomeOk = isset($responses['income']) && $responses['income'] === 'Sí';
+        $supportOk = isset($responses['previous_support']) && $responses['previous_support'] === 'No';
         
         return $terrainOk && $familyOk && $incomeOk && $supportOk;
     }
