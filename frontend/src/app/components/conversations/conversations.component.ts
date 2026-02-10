@@ -403,7 +403,11 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     const botStatus = this.isBotChannel() ? (this.selectedBotStatus || 'all') : null;
     const showInactive = !this.isBotChannel() ? this.showInactiveClients : false;
     
-    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId, botStatus, showInactive)
+    // Para filtros frontend (unread, messages_today, incoming_today), necesitamos cargar sin filtro de tiempo
+    const needsNoTimeFilter = !this.isBotChannel() && !this.showInactiveClients && 
+                               (this.selectedStat === 'unread' || this.selectedStat === 'messages_today' || this.selectedStat === 'incoming_today');
+    
+    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId, botStatus, showInactive, needsNoTimeFilter)
       .subscribe({
         next: (response) => {
           if (append) {
@@ -422,8 +426,8 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           if (this.isBotChannel() || this.showInactiveClients || this.selectedStat === 'all') {
             this.filteredConversations = [...this.conversations];
           } else {
-            // Para filtros frontend (unread, messages_today, incoming_today)
-            this.applyStatFilter();
+            // Para filtros frontend (unread, messages_today, incoming_today), aplicar filtro sobre los datos cargados
+            this.applyFrontendFilter();
           }
         },
         error: (error) => {
@@ -512,10 +516,14 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (stats) => {
           const hadNewMessages = stats.unread_messages > this.stats.unread_messages;
+          const activeChanged = (stats.active_conversations || 0) !== (this.stats.active_conversations || 0);
+          const inactiveChanged = (stats.inactive_conversations || 0) !== (this.stats.inactive_conversations || 0);
+          
+          const previousStats = { ...this.stats };
           this.stats = stats;
 
-          // Si hay nuevos mensajes no leídos, recargar conversaciones (lista)
-          if (hadNewMessages) {
+          // Si hay cambios relevantes, recargar conversaciones
+          if (hadNewMessages || activeChanged || inactiveChanged) {
             this.loadConversations();
 
             // Si la conversación seleccionada tiene nuevos mensajes, recargarla
