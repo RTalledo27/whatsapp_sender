@@ -512,10 +512,14 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (stats) => {
           const hadNewMessages = stats.unread_messages > this.stats.unread_messages;
+          const activeChanged = (stats.active_conversations || 0) !== (this.stats.active_conversations || 0);
+          const inactiveChanged = (stats.inactive_conversations || 0) !== (this.stats.inactive_conversations || 0);
+          
+          const previousStats = { ...this.stats };
           this.stats = stats;
 
-          // Si hay nuevos mensajes no leídos, recargar conversaciones (lista)
-          if (hadNewMessages) {
+          // Si hay cambios relevantes, recargar conversaciones
+          if (hadNewMessages || activeChanged || inactiveChanged) {
             this.loadConversations();
 
             // Si la conversación seleccionada tiene nuevos mensajes, recargarla
