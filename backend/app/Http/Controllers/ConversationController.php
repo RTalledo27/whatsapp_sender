@@ -28,6 +28,8 @@ class ConversationController extends Controller
         $perPage = $request->query('per_page', 20);
         $phoneNumberId = $request->query('phone_number_id');
         $botStatus = $request->query('bot_status'); // 'all', 'qualified', 'not_qualified', 'inactive'
+        $showInactive = $request->query('show_inactive', 'false'); // 'true' para mostrar inactivos, 'false' para ocultarlos
+        $noTimeFilter = $request->query('no_time_filter', 'false'); // 'true' para deshabilitar filtro de 24h (usado en filtros frontend)
         
         // Detectar si es canal del bot
         $botPhoneNumberId = '950764051457024';
@@ -62,6 +64,12 @@ class ConversationController extends Controller
                 ORDER BY m3.message_timestamp DESC, m3.created_at DESC
                 LIMIT 1
             ) as last_message_direction')
+            ->selectRaw('(
+                SELECT MAX(message_timestamp) 
+                FROM messages m4 
+                WHERE m4.contact_id = contacts.id 
+                AND m4.direction = "inbound"' . ($phoneNumberId ? ' AND m4.phone_number_id = "' . $phoneNumberId . '"' : '') . '
+            ) as last_inbound_at')
             ->when($search, function ($query, $search) {
                 return $query->where(function ($q) use ($search) {
                     $q->where('contacts.name', 'like', "%{$search}%")
@@ -101,6 +109,18 @@ class ConversationController extends Controller
                                 ->orWhere('last_interaction_at', '>=', now()->subHours(24));
                           });
                 });
+            }
+        } else {
+            // Para canales NO-BOT: filtrar por estado de actividad
+            if ($noTimeFilter === 'true') {
+                // No aplicar filtro de tiempo: cargar todas las conversaciones (para filtros frontend como messages_today, unread, etc.)
+                // No hacer nada, mostrar todo
+            } elseif ($showInactive === 'true') {
+                // Mostrar SOLO inactivos: sin respuesta en más de 24h O nunca respondieron
+                $conversations->havingRaw('(last_inbound_at IS NULL OR last_inbound_at < ?)', [now()->subHours(24)]);
+            } else {
+                // Por defecto: ocultar inactivos, mostrar solo activos (respondieron en últimas 24h)
+                $conversations->havingRaw('(last_inbound_at IS NOT NULL AND last_inbound_at >= ?)', [now()->subHours(24)]);
             }
         }
             
@@ -214,6 +234,44 @@ class ConversationController extends Controller
             $stats['inactive'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
                 ->whereNotIn('state', ['finished', 'handoff'])
                 ->where('last_interaction_at', '<', now()->subHours(24))
+                ->count();
+        } else {
+            // Stats para canales NO-BOT
+            // Contar activos: respondieron en las últimas 24h
+            $baseQuery = Contact::whereHas('messages', function($q) use ($phoneNumberId) {
+                if ($phoneNumberId) {
+                    $q->where('phone_number_id', $phoneNumberId);
+                }
+            });
+            
+            $stats['active_conversations'] = (clone $baseQuery)
+                ->whereHas('messages', function($q) use ($phoneNumberId) {
+                    $q->where('direction', 'inbound')
+                      ->where('message_timestamp', '>=', now()->subHours(24));
+                    if ($phoneNumberId) {
+                        $q->where('phone_number_id', $phoneNumberId);
+                    }
+                })
+                ->count();
+            
+            // Contar inactivos: sin respuesta en más de 24h o nunca respondieron
+            $stats['inactive_conversations'] = (clone $baseQuery)
+                ->where(function($query) use ($phoneNumberId) {
+                    // Sin mensajes inbound O último inbound hace más de 24h
+                    $query->whereDoesntHave('messages', function($q) use ($phoneNumberId) {
+                        $q->where('direction', 'inbound');
+                        if ($phoneNumberId) {
+                            $q->where('phone_number_id', $phoneNumberId);
+                        }
+                    })
+                    ->orWhereHas('messages', function($q) use ($phoneNumberId) {
+                        $q->where('direction', 'inbound')
+                          ->where('message_timestamp', '<', now()->subHours(24));
+                        if ($phoneNumberId) {
+                            $q->where('phone_number_id', $phoneNumberId);
+                        }
+                    });
+                })
                 ->count();
         }
         

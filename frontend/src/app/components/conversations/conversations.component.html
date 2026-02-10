@@ -28,25 +28,30 @@
 
     <!-- Mostrar filtros normales para otros canales -->
     <ng-container *ngIf="!isBotChannel()">
-      <div class="stat-card" [class.highlight]="selectedStat === 'all'" (click)="onStatClick('all')"
-        style="cursor: pointer;" title="Ver todas las conversaciones">
-        <div class="stat-value">{{ stats.total_conversations }}</div>
-        <div class="stat-label">Todos</div>
+      <div class="stat-card" [class.highlight]="!showInactiveClients && selectedStat === 'all'" (click)="onStatClick('active')"
+        style="cursor: pointer;" title="Ver conversaciones activas (respondieron en últimas 24h)">
+        <div class="stat-value">{{ stats.active_conversations || 0 }}</div>
+        <div class="stat-label">Activos</div>
       </div>
-      <div class="stat-card" [class.highlight]="selectedStat === 'unread'" (click)="onStatClick('unread')"
+      <div class="stat-card" [class.highlight]="selectedStat === 'unread' && !showInactiveClients" (click)="onStatClick('unread')"
         style="cursor: pointer;" title="Ver solo mensajes no leídos">
         <div class="stat-value">{{ stats.unread_messages }}</div>
         <div class="stat-label">No leídos</div>
       </div>
-      <div class="stat-card" [class.highlight]="selectedStat === 'messages_today'" (click)="onStatClick('messages_today')"
+      <div class="stat-card" [class.highlight]="selectedStat === 'messages_today' && !showInactiveClients" (click)="onStatClick('messages_today')"
         style="cursor: pointer;" title="Ver mensajes de hoy">
         <div class="stat-value">{{ stats.messages_today }}</div>
         <div class="stat-label">Mensajes hoy</div>
       </div>
-      <div class="stat-card" [class.highlight]="selectedStat === 'incoming_today'" (click)="onStatClick('incoming_today')"
+      <div class="stat-card" [class.highlight]="selectedStat === 'incoming_today' && !showInactiveClients" (click)="onStatClick('incoming_today')"
         style="cursor: pointer;" title="Ver mensajes recibidos hoy">
         <div class="stat-value">{{ stats.incoming_today }}</div>
         <div class="stat-label">Recibidos hoy</div>
+      </div>
+      <div class="stat-card" [class.highlight]="showInactiveClients" (click)="onStatClick('inactive')"
+        style="cursor: pointer;" title="Ver conversaciones deshabilitadas (>24h sin respuesta)">
+        <div class="stat-value">{{ stats.inactive_conversations || 0 }}</div>
+        <div class="stat-label">Deshabilitados</div>
       </div>
     </ng-container>
 
