@@ -54,6 +54,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   // Filtro por estadísticas (por defecto 'all' está seleccionado)
   selectedStat = 'all'; // 'all', 'unread', 'messages_today', 'incoming_today'
   selectedBotStatus = 'all'; // 'all', 'qualified', 'not_qualified', 'inactive'
+  showInactiveClients = false; // Para canales no-bot: mostrar deshabilitados
 
   // Paginación
   currentPage = 1;
@@ -127,7 +128,17 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     if (this.isBotChannel()) {
       this.selectedBotStatus = stat;
     } else {
-      this.selectedStat = stat;
+      // Para canales no-bot
+      if (stat === 'inactive') {
+        this.showInactiveClients = true;
+        this.selectedStat = 'all'; // Resetear selectedStat
+      } else if (stat === 'active') {
+        this.showInactiveClients = false;
+        this.selectedStat = 'all'; // Resetear selectedStat
+      } else {
+        this.showInactiveClients = false; // Resetear showInactive
+        this.selectedStat = stat;
+      }
     }
     this.applyStatFilter();
   }
@@ -161,7 +172,7 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       const phoneNumberId = this.selectedPhoneNumberId || null;
       const botStatus = this.selectedBotStatus || 'all';
       
-      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus)
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus, false)
         .subscribe({
           next: (response) => {
             this.conversations = response.data;
@@ -178,7 +189,78 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       return;
     }
     
-    // Para otros canales, filtrado frontend (comportamiento anterior)
+    // Para canales no-bot: si showInactiveClients está activo, cargar inactivos desde backend
+    if (this.showInactiveClients) {
+      this.currentPage = 1;
+      this.conversations = [];
+      this.loading = true;
+      
+      const phoneNumberId = this.selectedPhoneNumberId || null;
+      
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, null, true)
+        .subscribe({
+          next: (response) => {
+            this.conversations = response.data;
+            this.currentPage = response.current_page;
+            this.totalPages = response.last_page;
+            this.loading = false;
+            this.filteredConversations = this.conversations;
+          },
+          error: (error) => {
+            console.error('Error cargando conversaciones:', error);
+            this.loading = false;
+          }
+        });
+      return;
+    }
+    
+    // Para canales no-bot: si es 'all', cargar activos; si es otro filtro, cargar activos y filtrar en frontend
+    if (this.selectedStat === 'all' || this.selectedStat === 'unread' || 
+        this.selectedStat === 'messages_today' || this.selectedStat === 'incoming_today') {
+      
+      // Cargar conversaciones desde backend
+      this.currentPage = 1;
+      this.conversations = [];
+      this.loading = true;
+      
+      const phoneNumberId = this.selectedPhoneNumberId || null;
+      
+      // Si es 'all', aplicar filtro de 24h; si es otro filtro, traer todo sin filtro de tiempo
+      const noTimeFilter = this.selectedStat !== 'all';
+      
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, null, false, noTimeFilter)
+        .subscribe({
+          next: (response) => {
+            this.conversations = response.data;
+            this.currentPage = response.current_page;
+            this.totalPages = response.last_page;
+            this.loading = false;
+            
+            // Si es 'all', mostrar todo
+            if (this.selectedStat === 'all') {
+              this.filteredConversations = this.conversations;
+              return;
+            }
+            
+            // Para otros filtros, aplicar filtrado frontend
+            this.applyFrontendFilter();
+          },
+          error: (error) => {
+            console.error('Error cargando conversaciones:', error);
+            this.loading = false;
+          }
+        });
+      return;
+    }
+    
+    // Fallback para filtros desconocidos
+    this.applyFrontendFilter();
+  }
+  
+  /**
+   * Aplicar filtros en el frontend sobre las conversaciones ya cargadas
+   */
+  private applyFrontendFilter(): void {
     switch (this.selectedStat) {
       case 'all':
         this.filteredConversations = [...this.conversations];
@@ -283,13 +365,14 @@ export class ConversationsComponent implements OnInit, OnDestroy {
     this.conversations = [];
     this.selectedConversation = null;
     this.loading = true;
+    this.showInactiveClients = false; // Resetear al cambiar de número
     
     // Cargar conversaciones y stats en paralelo
     const phoneNumberId = this.selectedPhoneNumberId || null;
     const botStatus = this.isBotChannel() ? (this.selectedBotStatus || 'all') : null;
     
     Promise.all([
-      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus).toPromise(),
+      this.conversationService.getConversations('', 1, 50, phoneNumberId, botStatus, false).toPromise(),
       this.conversationService.getStats(this.selectedPhoneNumberId || undefined).toPromise()
     ]).then(([conversationsResponse, stats]) => {
       this.conversations = conversationsResponse.data;
@@ -318,7 +401,9 @@ export class ConversationsComponent implements OnInit, OnDestroy {
 
     const phoneNumberId = this.selectedPhoneNumberId || null;
     const botStatus = this.isBotChannel() ? (this.selectedBotStatus || 'all') : null;
-    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId, botStatus)
+    const showInactive = !this.isBotChannel() ? this.showInactiveClients : false;
+    
+    this.conversationService.getConversations(this.searchTerm, this.currentPage, 50, phoneNumberId, botStatus, showInactive)
       .subscribe({
         next: (response) => {
           if (append) {
@@ -333,11 +418,11 @@ export class ConversationsComponent implements OnInit, OnDestroy {
           this.loading = false;
           this.loadingMoreConversations = false;
           
-          // Para canal del bot, el filtrado ya se hizo en backend
-          if (this.isBotChannel()) {
+          // Si es bot o si showInactiveClients está activo o selectedStat es 'all', usar data del backend
+          if (this.isBotChannel() || this.showInactiveClients || this.selectedStat === 'all') {
             this.filteredConversations = [...this.conversations];
           } else {
-            // Para otros canales, aplicar filtro frontend
+            // Para filtros frontend (unread, messages_today, incoming_today)
             this.applyStatFilter();
           }
         },

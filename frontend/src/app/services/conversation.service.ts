@@ -68,6 +68,8 @@ export interface ConversationStats {
   qualified?: number;
   not_qualified?: number;
   inactive?: number;
+  active_conversations?: number;
+  inactive_conversations?: number;
 }
 
 @Injectable({
@@ -81,7 +83,7 @@ export class ConversationService {
   /**
    * Obtener lista de conversaciones
    */
-  getConversations(search: string = '', page: number = 1, perPage: number = 20, phoneNumberId: string | null = null, botStatus: string | null = null): Observable<any> {
+  getConversations(search: string = '', page: number = 1, perPage: number = 20, phoneNumberId: string | null = null, botStatus: string | null = null, showInactive: boolean = false, noTimeFilter: boolean = false): Observable<any> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('per_page', perPage.toString());
@@ -96,6 +98,16 @@ export class ConversationService {
 
     if (botStatus) {
       params = params.set('bot_status', botStatus);
+    }
+
+    // Para canales no-bot, agregar parámetro show_inactive
+    if (showInactive) {
+      params = params.set('show_inactive', 'true');
+    }
+
+    // Para filtros frontend (messages_today, unread, etc.), deshabilitar filtro de tiempo
+    if (noTimeFilter) {
+      params = params.set('no_time_filter', 'true');
     }
 
     return this.http.get<any>(this.apiUrl, { params });
