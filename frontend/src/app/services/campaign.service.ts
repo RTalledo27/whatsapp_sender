@@ -30,8 +30,6 @@ export interface Campaign {
   sent_count: number;
   failed_count: number;
   pending_count: number;
-  read_count: number;
-  replied_count: number;
   started_at?: string;
   completed_at?: string;
   created_at: string;

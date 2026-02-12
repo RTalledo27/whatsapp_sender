@@ -198,45 +198,8 @@ class WebhookController extends Controller
             'message_id' => $messageId
         ]);
 
-        // Detectar si es una respuesta a una campaña
-        $this->trackCampaignReply($contact);
-
         // Invocar al bot si corresponde
         $this->botService->handleIncomingMessage($contact, $savedMessage);
-    }
-    
-    /**
-     * Detectar y registrar respuesta a campaña
-     */
-    private function trackCampaignReply(Contact $contact): void
-    {
-        // Buscar última campaña enviada a este contacto
-        $lastOutboundMessage = Message::where('contact_id', $contact->id)
-            ->where('direction', 'outbound')
-            ->whereNotNull('campaign_id')
-            ->orderBy('created_at', 'desc')
-            ->first();
-
-        if (!$lastOutboundMessage || !$lastOutboundMessage->campaign_id) {
-            return;
-        }
-
-        // Contar cuántos mensajes inbound ha enviado este contacto después de recibir la campaña
-        // Solo queremos incrementar replied_count la primera vez
-        $previousRepliesCount = Message::where('contact_id', $contact->id)
-            ->where('direction', 'inbound')
-            ->where('created_at', '>', $lastOutboundMessage->created_at)
-            ->count();
-
-        // Solo incrementar si este es el PRIMER mensaje de respuesta (count será 1 porque acabamos de guardar el mensaje actual)
-        if ($previousRepliesCount === 1) {
-            Campaign::where('id', $lastOutboundMessage->campaign_id)->increment('replied_count');
-            
-            Log::info('Campaign reply tracked', [
-                'campaign_id' => $lastOutboundMessage->campaign_id,
-                'contact_id' => $contact->id
-            ]);
-        }
     }
     
     /**
@@ -416,22 +379,8 @@ class WebhookController extends Controller
                 break;
                 
             case 'read':
-                // Solo incrementar si el mensaje NO estaba leído antes
-                $wasRead = ($message->status === 'read');
-                
                 $message->status = 'read';
                 $message->read_at = $timestamp ? date('Y-m-d H:i:s', $timestamp) : now();
-                
-                // Incrementar contador solo si es la primera vez que se marca como leído
-                if (!$wasRead && $message->campaign_id) {
-                    Campaign::where('id', $message->campaign_id)->increment('read_count');
-                    
-                    Log::info('Campaign read_count incremented', [
-                        'campaign_id' => $message->campaign_id,
-                        'message_id' => $messageId,
-                        'contact_id' => $message->contact_id
-                    ]);
-                }
                 break;
                 
             case 'failed':
