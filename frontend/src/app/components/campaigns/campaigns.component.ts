@@ -569,4 +569,19 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+  getReadRate(campaign: Campaign): number {
+    if (campaign.sent_count === 0) return 0;
+    return Math.round(((campaign.read_count || 0) / campaign.sent_count) * 100);
+  }
+
+  getReplyRate(campaign: Campaign): number {
+    if (campaign.sent_count === 0) return 0;
+    return Math.round(((campaign.replied_count || 0) / campaign.sent_count) * 100);
+  }
+
+  getNotOpenedCount(campaign: Campaign): number {
+    // Entregados pero no leídos = sent - read
+    return campaign.sent_count - (campaign.read_count || 0);
+  }
 }

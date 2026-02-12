@@ -25,6 +25,8 @@ class Campaign extends Model
         'sent_count',
         'failed_count',
         'pending_count',
+        'read_count',
+        'replied_count',
         'started_at',
         'completed_at',
     ];
@@ -54,6 +56,29 @@ class Campaign extends Model
         $this->sent_count = $this->messages()->whereIn('status', $sentStatuses)->count();
         $this->failed_count = $this->messages()->where('status', 'failed')->count();
         $this->pending_count = $this->messages()->where('status', 'pending')->count();
+        $this->read_count = $this->messages()->where('status', 'read')->count();
         $this->save();
+    }
+
+    /**
+     * Calcular porcentaje de éxito (mensajes leídos)
+     */
+    public function getSuccessRateAttribute(): float
+    {
+        if ($this->sent_count === 0) {
+            return 0;
+        }
+        return round(($this->read_count / $this->sent_count) * 100, 2);
+    }
+
+    /**
+     * Calcular porcentaje de respuesta
+     */
+    public function getReplyRateAttribute(): float
+    {
+        if ($this->sent_count === 0) {
+            return 0;
+        }
+        return round(($this->replied_count / $this->sent_count) * 100, 2);
     }
 }
