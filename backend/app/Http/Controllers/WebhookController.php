@@ -198,8 +198,44 @@ class WebhookController extends Controller
             'message_id' => $messageId
         ]);
 
+        // Detectar si es una respuesta a una campaña
+        $this->trackCampaignReply($contact);
+
         // Invocar al bot si corresponde
         $this->botService->handleIncomingMessage($contact, $savedMessage);
+    }
+    
+    /**
+     * Detectar y registrar respuesta a campaña
+     */
+    private function trackCampaignReply(Contact $contact): void
+    {
+        // Buscar última campaña enviada a este contacto
+        $lastOutboundMessage = Message::where('contact_id', $contact->id)
+            ->where('direction', 'outbound')
+            ->whereNotNull('campaign_id')
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$lastOutboundMessage || !$lastOutboundMessage->campaign_id) {
+            return;
+        }
+
+        // Verificar si ya había respondido antes a esta campaña
+        $alreadyReplied = Message::where('contact_id', $contact->id)
+            ->where('direction', 'inbound')
+            ->where('created_at', '>', $lastOutboundMessage->created_at)
+            ->exists();
+
+        // Solo incrementar si es la primera respuesta después del mensaje de campaña
+        if (!$alreadyReplied) {
+            Campaign::where('id', $lastOutboundMessage->campaign_id)->increment('replied_count');
+            
+            Log::info('Campaign reply tracked', [
+                'campaign_id' => $lastOutboundMessage->campaign_id,
+                'contact_id' => $contact->id
+            ]);
+        }
     }
     
     /**
@@ -381,6 +417,11 @@ class WebhookController extends Controller
             case 'read':
                 $message->status = 'read';
                 $message->read_at = $timestamp ? date('Y-m-d H:i:s', $timestamp) : now();
+                
+                // Incrementar contador de leídos en la campaña
+                if ($message->campaign_id) {
+                    Campaign::where('id', $message->campaign_id)->increment('read_count');
+                }
                 break;
                 
             case 'failed':

@@ -61,6 +61,7 @@
           <span class="stat-value">{{ campaign.sent_count }}</span>
           <span class="stat-label">Enviados</span>
         </div>
+
         <div class="stat error">
           <span class="stat-value">{{ campaign.failed_count }}</span>
           <span class="stat-label">Fallidos</span>
@@ -70,6 +71,8 @@
           <span class="stat-label">Pendientes</span>
         </div>
       </div>
+
+
 
       <div class="campaign-actions">
         <button class="btn btn-small" (click)="viewDetails(campaign)">
@@ -402,6 +405,37 @@
           </div>
           <div class="detail-item">
             <strong>Fallidos:</strong> {{ selectedCampaign.failed_count }}
+          </div>
+          <div class="detail-item">
+            <strong>Leídos:</strong> {{ selectedCampaign.read_count || 0 }}
+          </div>
+          <div class="detail-item">
+            <strong>Respondieron:</strong> {{ selectedCampaign.replied_count || 0 }}
+          </div>
+        </div>
+
+        <!-- Métricas de Éxito -->
+        <div class="success-metrics" *ngIf="selectedCampaign.status === 'completed' || selectedCampaign.status === 'processing'">
+          <h3>Métricas de Engagement</h3>
+          <div class="metric-row">
+            <div class="metric-label">
+              <strong>Tasa de Lectura:</strong> 
+              <span class="metric-value success">{{ getReadRate(selectedCampaign) }}%</span>
+            </div>
+            <div class="metric-bar">
+              <div class="metric-fill success" 
+                   [style.width.%]="getReadRate(selectedCampaign)"></div>
+            </div>
+          </div>
+          <div class="metric-row">
+            <div class="metric-label">
+              <strong>Tasa de Respuesta:</strong> 
+              <span class="metric-value primary">{{ getReplyRate(selectedCampaign) }}%</span>
+            </div>
+            <div class="metric-bar">
+              <div class="metric-fill primary" 
+                   [style.width.%]="getReplyRate(selectedCampaign)"></div>
+            </div>
           </div>
         </div>
 
