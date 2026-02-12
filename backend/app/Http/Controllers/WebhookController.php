@@ -221,14 +221,15 @@ class WebhookController extends Controller
             return;
         }
 
-        // Verificar si ya había respondido antes a esta campaña
-        $alreadyReplied = Message::where('contact_id', $contact->id)
+        // Contar cuántos mensajes inbound ha enviado este contacto después de recibir la campaña
+        // Solo queremos incrementar replied_count la primera vez
+        $previousRepliesCount = Message::where('contact_id', $contact->id)
             ->where('direction', 'inbound')
             ->where('created_at', '>', $lastOutboundMessage->created_at)
-            ->exists();
+            ->count();
 
-        // Solo incrementar si es la primera respuesta después del mensaje de campaña
-        if (!$alreadyReplied) {
+        // Solo incrementar si este es el PRIMER mensaje de respuesta (count será 1 porque acabamos de guardar el mensaje actual)
+        if ($previousRepliesCount === 1) {
             Campaign::where('id', $lastOutboundMessage->campaign_id)->increment('replied_count');
             
             Log::info('Campaign reply tracked', [
@@ -415,12 +416,21 @@ class WebhookController extends Controller
                 break;
                 
             case 'read':
+                // Solo incrementar si el mensaje NO estaba leído antes
+                $wasRead = ($message->status === 'read');
+                
                 $message->status = 'read';
                 $message->read_at = $timestamp ? date('Y-m-d H:i:s', $timestamp) : now();
                 
-                // Incrementar contador de leídos en la campaña
-                if ($message->campaign_id) {
+                // Incrementar contador solo si es la primera vez que se marca como leído
+                if (!$wasRead && $message->campaign_id) {
                     Campaign::where('id', $message->campaign_id)->increment('read_count');
+                    
+                    Log::info('Campaign read_count incremented', [
+                        'campaign_id' => $message->campaign_id,
+                        'message_id' => $messageId,
+                        'contact_id' => $message->contact_id
+                    ]);
                 }
                 break;
                 
