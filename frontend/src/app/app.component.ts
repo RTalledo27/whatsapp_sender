@@ -89,11 +89,13 @@ import { ChannelService, Channel } from './services/channel.service';
           <li>
             <a routerLink="/chatbot-config" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                <circle cx="8.5" cy="16" r="1"/>
-                <circle cx="15.5" cy="16" r="1"/>
+                <rect x="4" y="8" width="16" height="12" rx="2"/>
+                <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <circle cx="9" cy="13" r="1" fill="currentColor"/>
+                <circle cx="15" cy="13" r="1" fill="currentColor"/>
                 <path d="M9 16h6"/>
+                <line x1="12" y1="2" x2="12" y2="4"/>
+                <circle cx="12" cy="2" r="1" fill="currentColor"/>
               </svg>
               <span>Chatbot</span>
             </a>
