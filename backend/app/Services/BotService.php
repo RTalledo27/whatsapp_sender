@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class BotService
 {
     private WhatsAppService $whatsappService;
+    private LogicWareService $logicwareService;
     private $botPhoneNumberId;
     private $flows = null;
 
@@ -18,9 +19,10 @@ class BotService
     const STATE_FINISHED = 'finished';
     const STATE_HANDOFF = 'handoff';
 
-    public function __construct(WhatsAppService $whatsappService)
+    public function __construct(WhatsAppService $whatsappService, LogicWareService $logicwareService)
     {
         $this->whatsappService = $whatsappService;
+        $this->logicwareService = $logicwareService;
         $this->botPhoneNumberId = config('services.whatsapp.leads_bot_id');
         $this->loadFlows();
     }
@@ -307,6 +309,11 @@ class BotService
         $this->updateState($conversation, self::STATE_FINISHED, $context);
 
         if ($qualified) {
+            // ==========================================
+            // 🎯 ENVIAR LEAD CALIFICADO AL CRM
+            // ==========================================
+            $this->sendQualifiedLeadToCRM($conversation);
+            
             $msg = "🎉 ¡Felicidades! Según tus respuestas, **SÍ CALIFICAS** para el Bono Techo Propio. 🏠💰\n\n" .
                    "Un asesor revisará tus datos y te contactará pronto para gestionar tu bono. ¡Estate atento!";
         } else {
@@ -316,6 +323,64 @@ class BotService
         }
 
         $this->sendMessage($conversation->contact, $msg);
+    }
+
+    /**
+     * Enviar lead calificado al CRM de LogicWare
+     */
+    private function sendQualifiedLeadToCRM(BotConversation $conversation): void
+    {
+        try {
+            $contact = $conversation->contact;
+            
+            Log::info('BotService: Attempting to send qualified lead to CRM', [
+                'contact_id' => $contact->id,
+                'phone' => $contact->phone_number,
+                'conversation_id' => $conversation->id
+            ]);
+            
+            // Verificar si ya fue enviado (evitar duplicados)
+            if ($this->logicwareService->wasAlreadySentToCRM($contact)) {
+                Log::info('BotService: Lead already sent to CRM, skipping', [
+                    'contact_id' => $contact->id
+                ]);
+                return;
+            }
+            
+            // Enviar al CRM
+            $result = $this->logicwareService->createQualifiedLead($contact, $conversation);
+            
+            if ($result['success']) {
+                Log::info('BotService: Lead sent to CRM successfully', [
+                    'contact_id' => $contact->id,
+                    'lead_id' => $result['lead_id'] ?? null,
+                    'assigned_to' => $result['assigned_to'] ?? null
+                ]);
+                
+                // Opcional: Enviar confirmación adicional al usuario
+                // $this->sendMessage(
+                //     $contact,
+                //     "✅ Tus datos han sido registrados exitosamente en nuestro sistema de gestión."
+                // );
+            } else {
+                Log::error('BotService: Failed to send lead to CRM', [
+                    'contact_id' => $contact->id,
+                    'error' => $result['error'] ?? 'Unknown error',
+                    'response' => $result['response'] ?? null
+                ]);
+                
+                // No notificar al usuario del error técnico
+                // El asesor podrá ver el lead en el sistema igualmente
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('BotService: Exception sending qualified lead to CRM', [
+                'contact_id' => $conversation->contact_id,
+                'conversation_id' => $conversation->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
 
     // ==================== HELPERS ====================
