@@ -10,6 +10,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatbotConfigController;
+use App\Http\Controllers\CRMController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -104,6 +105,14 @@ Route::middleware('api')->group(function () {
         Route::put('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'updateStep']);
         Route::delete('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'deleteStep']);
         Route::get('/debug', [ChatbotConfigController::class, 'debug']); // Diagnóstico
+    });
+
+    // CRM Integration (LogicWare)
+    Route::prefix('crm')->group(function () {
+        Route::get('/stats', [CRMController::class, 'stats']);
+        Route::get('/failed-leads', [CRMController::class, 'failedLeads']);
+        Route::post('/resend/{contactId}', [CRMController::class, 'resend']);
+        Route::post('/clear-token-cache', [CRMController::class, 'clearTokenCache']);
     });
 
     // Test endpoints (remover en producción)

@@ -42,7 +42,10 @@ export class LoginComponent {
       },
       error: (err) => {
         this.loading = false;
-        this.error = err.error?.message || 'Email o contraseña incorrectos';
+        // 401 devuelve { message: '...' }, 422 devuelve { errors: { email: [...] } }
+        this.error = err.error?.message
+          || err.error?.errors?.email?.[0]
+          || 'Email o contraseña incorrectos';
       }
     });
   }
