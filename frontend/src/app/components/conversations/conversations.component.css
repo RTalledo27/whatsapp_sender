@@ -1185,7 +1185,7 @@
 .document-name {
   font-weight: 600;
   font-size: 0.9rem;
-  color: #2c3e50;
+  color: var(--text);
   margin-bottom: 0.25rem;
   white-space: nowrap;
   overflow: hidden;

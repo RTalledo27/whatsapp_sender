@@ -44,4 +44,17 @@ return [
         ],
     ],
 
+    'logicware' => [
+        'api_url' => env('LOGICWARE_API_URL', 'https://gw.logicwareperu.com'),
+        'api_key' => env('LOGICWARE_API_KEY'),
+        'subdomain' => env('LOGICWARE_SUBDOMAIN'),
+        'version' => env('LOGICWARE_VERSION', 'v1.0'),
+        'portal_code' => env('LOGICWARE_PORTAL_CODE', 'WEB'),
+        'project_code' => env('LOGICWARE_PROJECT_CODE', 'CASABONITA'),
+    ],
+
+    'stats_webhook' => [
+        'url' => env('STATS_WEBHOOK_URL'),
+    ],
+
 ];

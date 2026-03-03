@@ -13,13 +13,48 @@
         <p class="subtitle">Gestiona los flujos conversacionales del bot con diagramas interactivos</p>
       </div>
     </div>
-    <button class="btn-primary" (click)="createFlow()" *ngIf="!isEditingFlow">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      Nuevo Flujo
-    </button>
+    
+    <div class="header-actions">
+      <!-- Menú desplegable -->
+      <div class="dropdown-container">
+        <button class="btn-dropdown" (click)="toggleDropdownMenu()" [class.active]="showDropdownMenu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"/>
+            <circle cx="19" cy="12" r="1"/>
+            <circle cx="5" cy="12" r="1"/>
+          </svg>
+          <span>Opciones</span>
+        </button>
+        
+        <div class="dropdown-menu" *ngIf="showDropdownMenu">
+          <button class="dropdown-item" (click)="switchView('config')" [class.active]="currentView === 'config'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v6"/>
+              <path d="M22.54 12.29l-5.2-3-5.2 3 5.2 3 5.2-3z"/>
+            </svg>
+            Configuración
+          </button>
+          
+          <button class="dropdown-item" (click)="switchView('stats')" [class.active]="currentView === 'stats'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            Estadísticas
+          </button>
+        </div>
+      </div>
+      
+      <button class="btn-primary" (click)="createFlow()" *ngIf="!isEditingFlow && currentView === 'config'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo Flujo
+      </button>
+    </div>
   </div>
 
   <!-- Modal para crear nuevo flujo -->
@@ -37,7 +72,7 @@
     </div>
   </div>
 
-  <div class="content-layout" [class.edit-mode]="isEditMode">
+  <div class="content-layout" [class.edit-mode]="isEditMode" *ngIf="currentView === 'config'">
     <!-- Sidebar: Lista de flujos -->
     <aside class="flows-sidebar" *ngIf="!isEditMode">
       <h3>Flujos</h3>
@@ -303,7 +338,7 @@
                     class="form-control">
                     <option value="">-- Seleccionar --</option>
                     <option value="finished">✅ Calificado</option>
-                    <option value="handoff">👤 Humano</option>
+                    <option value="nofinished">❌ No califica</option>
                     <option *ngFor="let s of selectedFlow.steps" [value]="s.state">
                       {{ getStepLabel(s.state) }}
                     </option>
@@ -322,5 +357,158 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Vista de Estadísticas -->
+  <div class="stats-view-container" *ngIf="currentView === 'stats'">
+    <div class="stats-view-header">
+      <h2>📊 Estadísticas del Bot</h2>
+      <div class="header-actions">
+        <button class="btn-icon" (click)="loadStats()" title="Actualizar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+        <button class="btn-secondary" (click)="switchView('config')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Volver
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-content" *ngIf="!loadingStats && stats">
+      <!-- Tarjetas de estadísticas principales -->
+      <div class="stats-grid">
+        <div class="stat-card success">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.qualified_leads }}</div>
+            <div class="stat-label">Calificados</div>
+          </div>
+        </div>
+
+        <div class="stat-card danger">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.non_qualified_leads }}</div>
+            <div class="stat-label">No Calificados</div>
+          </div>
+        </div>
+
+        <div class="stat-card info">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="19" x2="12" y2="5"/>
+              <polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.sent_to_crm }}</div>
+            <div class="stat-label">Enviados al CRM</div>
+          </div>
+        </div>
+
+        <div class="stat-card warning">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.pending_to_send }}</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+        </div>
+
+        <div class="stat-card error">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.failed_to_send }}</div>
+            <div class="stat-label">Fallidos</div>
+          </div>
+        </div>
+
+        <div class="stat-card primary">
+          <div class="stat-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.success_rate }}%</div>
+            <div class="stat-label">Tasa de Éxito</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de leads recientes -->
+      <div class="recent-leads-section" *ngIf="stats.recently_sent && stats.recently_sent.length > 0">
+        <h3>Últimos Leads Enviados al CRM</h3>
+        <div class="table-container">
+          <table class="leads-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Lead CRM ID</th>
+                <th>Asignado a</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let lead of stats.recently_sent">
+                <td>{{ lead.id }}</td>
+                <td>{{ lead.name }}</td>
+                <td>{{ lead.phone_number }}</td>
+                <td>{{ lead.email || 'N/A' }}</td>
+                <td>{{ lead.metadata?.crm_lead_id || 'N/A' }}</td>
+                <td>{{ lead.metadata?.crm_assigned_to || 'N/A' }}</td>
+                <td>{{ lead.metadata?.crm_sent_at ? (lead.metadata?.crm_sent_at | date:'short') : 'N/A' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="no-data" *ngIf="!stats.recently_sent || stats.recently_sent.length === 0">
+        <p>No hay leads enviados aún</p>
+      </div>
+    </div>
+
+    <div class="loading-state" *ngIf="loadingStats">
+      <div class="spinner"></div>
+      <p>Cargando estadísticas...</p>
+    </div>
+
+    <div class="error-state" *ngIf="!loadingStats && !stats">
+      <p>❌ Error al cargar estadísticas</p>
+      <button class="btn-primary" (click)="loadStats()">Reintentar</button>
+    </div>
   </div>
 </div>

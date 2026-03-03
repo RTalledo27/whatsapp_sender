@@ -2,6 +2,7 @@ import { Component, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angula
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatbotService, BotFlow, BotStep } from '../../services/chatbot.service';
+import { BotStatsService, BotStats } from '../../services/bot-stats.service';
 import mermaid from 'mermaid';
 
 @Component({
@@ -24,6 +25,14 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   newFlowName = '';
   mermaidDiagram = '';
   
+  // Menú desplegable y vistas
+  showDropdownMenu = false;
+  currentView: 'config' | 'stats' = 'config';
+  
+  // Estadísticas
+  stats: BotStats | null = null;
+  loadingStats = false;
+  
   // Para pan y zoom
   zoomLevel = 100;
   currentScale = 1;
@@ -42,7 +51,10 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     ]
   };
 
-  constructor(private chatbotService: ChatbotService) {}
+  constructor(
+    private chatbotService: ChatbotService,
+    private statsService: BotStatsService
+  ) {}
 
   ngOnInit(): void {
     this.initMermaid();
@@ -434,5 +446,38 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       svg.style.transformOrigin = 'center center';
       svg.style.transition = 'none';
     }
+  }
+
+  // Métodos para el menú desplegable y vistas
+  toggleDropdownMenu(): void {
+    this.showDropdownMenu = !this.showDropdownMenu;
+  }
+
+  switchView(view: 'config' | 'stats'): void {
+    this.currentView = view;
+    this.showDropdownMenu = false;
+    
+    if (view === 'stats') {
+      this.loadStats();
+    } else if (view === 'config') {
+      // Re-renderizar el diagrama cuando se vuelve a la vista de config
+      setTimeout(() => {
+        this.renderMermaid();
+      }, 100);
+    }
+  }
+
+  loadStats(): void {
+    this.loadingStats = true;
+    this.statsService.getStats().subscribe({
+      next: (stats: BotStats) => {
+        this.stats = stats;
+        this.loadingStats = false;
+      },
+      error: (error: any) => {
+        console.error('Error cargando estadísticas:', error);
+        this.loadingStats = false;
+      }
+    });
   }
 }
