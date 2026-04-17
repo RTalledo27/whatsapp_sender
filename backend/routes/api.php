@@ -4,7 +4,6 @@ use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\TemplateController;
-use App\Http\Controllers\TestController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AuthController;
@@ -34,7 +33,7 @@ Route::get('/me', [AuthController::class, 'me']);
 Route::get('/webhook/whatsapp', [WebhookController::class, 'verify']);
 Route::post('/webhook/whatsapp', [WebhookController::class, 'receive']);
 
-Route::middleware('api')->group(function () {
+Route::middleware(['api', 'auth:api'])->group(function () {
     
     // Conversations (historial de chat)
     // Notas
@@ -115,9 +114,6 @@ Route::middleware('api')->group(function () {
         Route::post('/clear-token-cache', [CRMController::class, 'clearTokenCache']);
     });
 
-    // Test endpoints (remover en producción)
-    Route::post('/test/template', [TestController::class, 'testTemplate']);
-    Route::post('/test/text', [TestController::class, 'testTextMessage']);
     
     // Debug
     Route::get('/debug/latest-campaign', function() {
