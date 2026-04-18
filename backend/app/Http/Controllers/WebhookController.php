@@ -6,6 +6,7 @@ use App\Models\Contact;
 use App\Models\Message;
 use App\Services\WhatsAppService;
 use App\Services\BotService;
+use App\Jobs\SendStatsWebhookJob;
 use App\Helpers\PhoneHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -78,6 +79,9 @@ class WebhookController extends Controller
                     }
                 }
             }
+            
+            // Disparar envío de estadísticas por usuario al webhook externo
+            SendStatsWebhookJob::dispatch();
             
             return response()->json(['status' => 'ok']);
             
