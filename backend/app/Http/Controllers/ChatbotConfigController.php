@@ -76,56 +76,69 @@ class ChatbotConfigController extends Controller
      */
     private function saveFlows($flows)
     {
+        $path = storage_path('app/chatbot/flows.json');
+
         try {
-            $path = storage_path('app/chatbot/flows.json');
-            
-            // Verificar que el directorio existe
-            $dir = dirname($path);
+            // Verificar que el directorio existe, crearlo si no
+            $dir = dirname($path);  
             if (!file_exists($dir)) {
-                mkdir($dir, 0755, true);
+                if (!mkdir($dir, 0775, true)) {
+                    throw new \RuntimeException("No se pudo crear el directorio: {$dir}");
+                }
                 Log::info('Created chatbot directory', ['dir' => $dir]);
             }
-            
-            // Intentar guardar
-            $result = Storage::put($this->storageFile, json_encode($flows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-            
-            if ($result) {
-                // Verificar que el archivo se guardó correctamente
-                clearstatcache(true, $path);
-                $fileSize = file_exists($path) ? filesize($path) : 0;
-                
-                Log::info('Chatbot flows saved successfully', [
-                    'path' => $path,
-                    'flows_count' => count($flows),
-                    'file_size' => $fileSize,
-                    'timestamp' => date('Y-m-d H:i:s')
-                ]);
-            } else {
-                Log::error('Failed to save chatbot flows', ['path' => $path]);
+
+            // Verificar que el archivo (si existe) tiene permisos de escritura
+            if (file_exists($path) && !is_writable($path)) {
+                throw new \RuntimeException(
+                    "Sin permisos de escritura sobre el archivo: {$path}. " .
+                    "Ejecuta en el servidor: chmod 664 {$path}"
+                );
             }
-            
-            // Limpiar caché usando ambos métodos para asegurar
-            Cache::forget('chatbot_flows');
-            cache()->forget('chatbot_flows');
-            
-            // También limpiar el cache de archivos por si acaso
-            if (config('cache.default') === 'file') {
-                $cacheFile = storage_path('framework/cache/data') . '/' . sha1('chatbot_flows');
-                if (file_exists($cacheFile)) {
-                    @unlink($cacheFile);
-                    Log::info('Deleted cache file', ['file' => $cacheFile]);
-                }
+
+            // Guardar el JSON
+            $json   = json_encode($flows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $result = Storage::put($this->storageFile, $json);
+
+            if (!$result) {
+                throw new \RuntimeException(
+                    "Storage::put() devolvió false. Revisa los permisos del archivo o directorio: {$path}"
+                );
             }
-            
-            Log::info('Chatbot cache cleared successfully');
-            
+
+            // Verificar tamaño real para confirmar escritura
+            clearstatcache(true, $path);
+            $fileSize = file_exists($path) ? filesize($path) : 0;
+
+            Log::info('Chatbot flows saved successfully', [
+                'path'        => $path,
+                'flows_count' => count($flows),
+                'file_size'   => $fileSize,
+                'timestamp'   => date('Y-m-d H:i:s'),
+            ]);
+
         } catch (\Exception $e) {
             Log::error('Exception saving chatbot flows', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'path'  => $path,
+                'trace' => $e->getTraceAsString(),
             ]);
-            throw $e;
+            throw $e; // Propaga el error → los endpoints retornarán 500 en vez de 200 falso
         }
+
+        // Limpiar caché
+        Cache::forget('chatbot_flows');
+        cache()->forget('chatbot_flows');
+
+        if (config('cache.default') === 'file') {
+            $cacheFile = storage_path('framework/cache/data') . '/' . sha1('chatbot_flows');
+            if (file_exists($cacheFile)) {
+                @unlink($cacheFile);
+                Log::info('Deleted cache file', ['file' => $cacheFile]);
+            }
+        }
+
+        Log::info('Chatbot cache cleared successfully');
     }
 
     /**
