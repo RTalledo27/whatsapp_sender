@@ -3,17 +3,32 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export interface BotButton {
-  id: string;
-  title: string;
-  nextState: string;
+// ==================== INTERFACES ====================
+
+export type ActionType = 'buttons' | 'free_text' | 'validated_input';
+export type ValidationType = 'dni' | 'phone' | 'email' | 'number' | 'text' | 'regex';
+
+export interface BotAction {
+  id?: string;
+  title?: string;       // Solo para action_type = 'buttons'
+  next_state: string;
+}
+
+export interface BotValidation {
+  type: ValidationType;
+  error_message?: string;
+  regex_pattern?: string;
 }
 
 export interface BotStep {
   state: string;
   question: string;
-  buttons: BotButton[];
+  action_type: ActionType;
+  actions: BotAction[];
+  validation?: BotValidation;
   order: number;
+  // Retrocompatibilidad con el formato legacy
+  buttons?: { id: string; title: string; nextState: string }[];
 }
 
 export interface BotFlow {
@@ -23,6 +38,37 @@ export interface BotFlow {
   created_at?: string;
   updated_at?: string;
 }
+
+// ==================== HELPERS ====================
+
+/**
+ * Normaliza un paso para asegurar que siempre tenga action_type y actions,
+ * incluso si viene en formato legacy (con buttons).
+ */
+export function normalizeStep(step: BotStep): BotStep {
+  const normalized = { ...step };
+
+  // Si viene sin action_type pero con buttons (formato legacy), convertir
+  if (!normalized.action_type) {
+    normalized.action_type = 'buttons';
+  }
+
+  if (!normalized.actions || normalized.actions.length === 0) {
+    if (normalized.buttons && normalized.buttons.length > 0) {
+      normalized.actions = normalized.buttons.map(b => ({
+        id: b.id,
+        title: b.title,
+        next_state: b.nextState,
+      }));
+    } else {
+      normalized.actions = [];
+    }
+  }
+
+  return normalized;
+}
+
+// ==================== SERVICE ====================
 
 @Injectable({
   providedIn: 'root'

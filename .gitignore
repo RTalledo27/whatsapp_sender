@@ -36,3 +36,10 @@ backend/storage/framework/views/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker
+docker-compose.yml
+docker-compose.prod.yml
+.dockerignore
+docker/
+Dockerfile
