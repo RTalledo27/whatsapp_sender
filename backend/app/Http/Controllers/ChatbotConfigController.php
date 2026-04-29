@@ -12,7 +12,7 @@ class ChatbotConfigController extends Controller
     private $storageFile = 'chatbot/flows.json';
 
     // Tipos de acción válidos
-    private const VALID_ACTION_TYPES = ['buttons', 'free_text', 'validated_input'];
+    private const VALID_ACTION_TYPES = ['buttons', 'free_text', 'validated_input', 'link_button'];
 
     // Tipos de validación válidos
     private const VALID_VALIDATION_TYPES = ['dni', 'phone', 'email', 'number', 'text', 'regex'];
@@ -228,7 +228,7 @@ class ChatbotConfigController extends Controller
         $request->validate([
             'state'       => 'required|string',
             'question'    => 'required|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input',
+            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button',
             'order'       => 'sometimes|integer',
 
             // Para action_type = buttons (y retrocompatibilidad con buttons legacy)
@@ -274,7 +274,7 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'question'    => 'sometimes|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input',
+            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button',
             'order'       => 'sometimes|integer',
 
             'actions'              => 'sometimes|array',
@@ -338,6 +338,16 @@ class ChatbotConfigController extends Controller
             }
             // Limpiar campos de botones
             unset($step['buttons']);
+        } elseif ($actionType === 'link_button') {
+            if ($request->has('actions')) {
+                $action = $request->actions[0] ?? [];
+                $step['actions'] = [[
+                    'button_text' => $action['button_text'] ?? 'Ver más',
+                    'url'         => $action['url'] ?? '',
+                    'next_state'  => $action['next_state'] ?? '',
+                ]];
+            }
+            unset($step['buttons'], $step['validation']);
         }
 
         if ($request->has('order')) {
@@ -442,12 +452,19 @@ class ChatbotConfigController extends Controller
                 $step['actions'] = [];
             }
         } elseif (in_array($actionType, ['free_text', 'validated_input'])) {
-            $nextState      = $request->actions[0]['next_state'] ?? '';
+            $nextState       = $request->actions[0]['next_state'] ?? '';
             $step['actions'] = [['next_state' => $nextState]];
 
             if ($actionType === 'validated_input') {
                 $step['validation'] = $request->validation ?? ['type' => 'text'];
             }
+        } elseif ($actionType === 'link_button') {
+            $action = $request->actions[0] ?? [];
+            $step['actions'] = [[
+                'button_text' => $action['button_text'] ?? 'Ver más',
+                'url'         => $action['url'] ?? '',
+                'next_state'  => $action['next_state'] ?? '',
+            ]];
         }
 
         return $step;
