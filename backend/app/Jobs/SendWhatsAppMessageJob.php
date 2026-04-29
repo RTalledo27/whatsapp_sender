@@ -48,7 +48,8 @@ class SendWhatsAppMessageJob implements ShouldQueue
                 $templateData = [
                     'name' => $campaign->template_name,
                     'language' => 'es',
-                    'parameters' => $campaign->template_parameters ?? []
+                    'parameters' => $campaign->template_parameters ?? [],
+                    'param_names' => $campaign->template_param_names ?? [],
                 ];
 
                 // Agregar video_link si existe

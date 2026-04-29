@@ -50,6 +50,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     { value: 'buttons',         label: 'Botones',          icon: '🔘', description: 'El usuario elige entre opciones predefinidas' },
     { value: 'free_text',       label: 'Texto libre',      icon: '✏️', description: 'El usuario escribe libremente (nombre, comentario, etc.)' },
     { value: 'validated_input', label: 'Entrada validada', icon: '🔍', description: 'El usuario escribe y se valida el formato (DNI, email, etc.)' },
+    { value: 'link_button',     label: 'Enlace / CTA',     icon: '🔗', description: 'Muestra un botón que abre una URL en el navegador. Avanza automáticamente.' },
   ];
 
   // Opciones de tipo de validación
@@ -147,6 +148,11 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
         step.actions = [{ next_state: '' }];
         step.validation = { type: 'dni', error_message: '' };
         break;
+
+      case 'link_button':
+        step.actions = [{ button_text: '', url: '', next_state: '' }];
+        delete step.validation;
+        break;
     }
   }
 
@@ -169,6 +175,17 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   isFreeTextType(step: BotStep | null): boolean {
     return step?.action_type === 'free_text';
+  }
+
+  isLinkButtonType(step: BotStep | null): boolean {
+    return step?.action_type === 'link_button';
+  }
+
+  /** Tipos que usan un solo next_state sin botones de respuesta */
+  isSingleNextType(step: BotStep | null): boolean {
+    return step?.action_type === 'free_text' ||
+           step?.action_type === 'validated_input' ||
+           step?.action_type === 'link_button';
   }
 
   getNonButtonNextState(step: BotStep): string {

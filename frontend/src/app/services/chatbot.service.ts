@@ -5,12 +5,14 @@ import { environment } from '../../environments/environment';
 
 // ==================== INTERFACES ====================
 
-export type ActionType = 'buttons' | 'free_text' | 'validated_input';
+export type ActionType = 'buttons' | 'free_text' | 'validated_input' | 'link_button';
 export type ValidationType = 'dni' | 'phone' | 'email' | 'number' | 'text' | 'regex';
 
 export interface BotAction {
   id?: string;
-  title?: string;       // Solo para action_type = 'buttons'
+  title?: string;       // Para action_type = 'buttons'
+  button_text?: string; // Para action_type = 'link_button'
+  url?: string;         // Para action_type = 'link_button'
   next_state: string;
 }
 

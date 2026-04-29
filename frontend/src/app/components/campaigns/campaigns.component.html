@@ -164,15 +164,24 @@
             <div class="template-body">
               {{ getTemplateBodyText() }}
             </div>
+            <small class="hint" style="margin-top: 8px;">
+              Componentes detectados: {{ selectedTemplate.components.length }} |
+              Parámetros dinámicos: {{ templateParameters.length }}
+            </small>
           </div>
 
-          <div *ngIf="templateParameters.length > 0">
+          <div *ngIf="templateParameters.length > 0" class="template-params-section">
             <h4>Parámetros del Template</h4>
+            <p class="hint" style="margin-bottom: 12px;">
+              Completa los valores que reemplazarán los marcadores dinámicos del template.
+            </p>
             <div class="form-group" *ngFor="let param of templateParameters; let i = index">
-              <label>Parámetro {{i + 1}} *</label>
+              <label>
+                {{ param.label }} *
+              </label>
               <input type="text" 
                      [(ngModel)]="campaignForm.template_parameters[i]"
-                     [placeholder]="'Valor para {{' + (i+1) + '}}'"/>
+                     [placeholder]="'Escribe el valor para {{' + param.name + '}}'" />
             </div>
           </div>
 

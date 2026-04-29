@@ -321,7 +321,7 @@
                 </div>
 
                 <!-- ACCIONES: tipo FREE_TEXT o VALIDATED_INPUT (siguiente paso único) -->
-                <div class="form-section" *ngIf="!isButtonsType(selectedStep)">
+                <div class="form-section" *ngIf="isFreeTextType(selectedStep) || isValidatedType(selectedStep)">
                   <label>Siguiente paso:</label>
                   <select
                     [ngModel]="getNonButtonNextState(selectedStep)"
@@ -354,6 +354,42 @@
                       <input type="text" [(ngModel)]="selectedStep.validation!.error_message" [disabled]="!isEditingStep" class="form-control" placeholder="Ej: DNI inválido. Debe tener 8 dígitos.">
                     </div>
                   </div>
+                </div>
+
+                <!-- ENLACE / CTA: solo para link_button -->
+                <div class="form-section link-button-section" *ngIf="isLinkButtonType(selectedStep)">
+                  <label>Configuración del enlace:</label>
+                  <div class="validation-config">
+                    <div class="form-row">
+                      <label>Texto del botón (máx 20 car.):</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="selectedStep.actions[0].button_text"
+                        [disabled]="!isEditingStep"
+                        class="form-control"
+                        maxlength="20"
+                        placeholder="Ej: Ver más, Visitar sitio">
+                    </div>
+                    <div class="form-row">
+                      <label>URL de destino:</label>
+                      <input
+                        type="url"
+                        [(ngModel)]="selectedStep.actions[0].url"
+                        [disabled]="!isEditingStep"
+                        class="form-control"
+                        placeholder="https://ejemplo.com">
+                    </div>
+                    <div class="form-row">
+                      <label>Siguiente paso:</label>
+                      <select [(ngModel)]="selectedStep.actions[0].next_state" [disabled]="!isEditingStep" class="form-control">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="finished">✅ Califica al club</option>
+                        <option value="nofinished">❌ No califica</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="hint-text">⚡ El bot enviará el mensaje con el botón y avanzará automáticamente al siguiente paso sin esperar respuesta.</p>
                 </div>
 
                 <div *ngIf="isEditingStep" class="editor-actions">
@@ -426,7 +462,7 @@
                 </div>
 
                 <!-- ACCIONES: tipo FREE_TEXT o VALIDATED_INPUT -->
-                <div class="form-section" *ngIf="!isButtonsType(newQuestion)">
+                <div class="form-section" *ngIf="isFreeTextType(newQuestion) || isValidatedType(newQuestion)">
                   <label>Siguiente paso:</label>
                   <select
                     [ngModel]="getNonButtonNextState(newQuestion)"
@@ -458,6 +494,40 @@
                       <input type="text" [(ngModel)]="newQuestion.validation!.error_message" class="form-control" placeholder="Ej: Valor inválido. Intenta de nuevo.">
                     </div>
                   </div>
+                </div>
+
+                <!-- ENLACE / CTA: solo para link_button -->
+                <div class="form-section link-button-section" *ngIf="isLinkButtonType(newQuestion)">
+                  <label>Configuración del enlace:</label>
+                  <div class="validation-config">
+                    <div class="form-row">
+                      <label>Texto del botón (máx 20 car.):</label>
+                      <input
+                        type="text"
+                        [(ngModel)]="newQuestion.actions[0].button_text"
+                        class="form-control"
+                        maxlength="20"
+                        placeholder="Ej: Ver más, Visitar sitio">
+                    </div>
+                    <div class="form-row">
+                      <label>URL de destino:</label>
+                      <input
+                        type="url"
+                        [(ngModel)]="newQuestion.actions[0].url"
+                        class="form-control"
+                        placeholder="https://ejemplo.com">
+                    </div>
+                    <div class="form-row">
+                      <label>Siguiente paso:</label>
+                      <select [(ngModel)]="newQuestion.actions[0].next_state" class="form-control">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="finished">✅ Califica al club</option>
+                        <option value="nofinished">❌ No califica</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="hint-text">⚡ El bot enviará el mensaje con el botón y avanzará automáticamente al siguiente paso sin esperar respuesta.</p>
                 </div>
 
                 <div class="editor-actions">

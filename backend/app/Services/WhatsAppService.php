@@ -124,18 +124,34 @@ class WhatsAppService
                 if (isset($templateData['components']) && is_array($templateData['components']) && !empty($templateData['components'])) {
                     $components = array_merge($components, $templateData['components']);
                 } elseif (isset($templateData['parameters']) && is_array($templateData['parameters']) && !empty($templateData['parameters'])) {
-                    // Compatibilidad con la lógica anterior: solo body con texto
                     // Filtrar parámetros vacíos
                     $validParams = array_filter($templateData['parameters'], function($param) {
                         return !empty($param);
                     });
 
+                    $paramNames = $templateData['param_names'] ?? [];
+
                     if (!empty($validParams)) {
+                        $bodyParams = [];
+                        $index = 0;
+                        foreach (array_values($validParams) as $param) {
+                            $paramEntry = [
+                                'type' => 'text',
+                                'text' => (string)$param,
+                            ];
+
+                            // Include parameter_name if available (required for named params like {{months}})
+                            if (isset($paramNames[$index]) && !empty($paramNames[$index])) {
+                                $paramEntry['parameter_name'] = $paramNames[$index];
+                            }
+
+                            $bodyParams[] = $paramEntry;
+                            $index++;
+                        }
+
                         $components[] = [
                             'type' => 'body',
-                            'parameters' => array_values(array_map(function($param) {
-                                return ['type' => 'text', 'text' => (string)$param];
-                            }, $validParams))
+                            'parameters' => $bodyParams
                         ];
                     }
                 }
@@ -674,6 +690,106 @@ class WhatsAppService
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
+            ];
+        }
+    }
+    /**
+     * Enviar mensaje con botón CTA (Call-to-Action) que abre una URL
+     * 
+     * @param string $phoneNumber Número del destinatario
+     * @param string $bodyText Texto del mensaje
+     * @param string $buttonText Texto del botón (máx 20 caracteres)
+     * @param string $url URL que abre el botón
+     * @param string|null $headerText Texto opcional del header
+     * @param string|null $footerText Texto opcional del footer
+     * @return array
+     */
+    public function sendCtaUrlMessage(
+        string $phoneNumber,
+        string $bodyText,
+        string $buttonText,
+        string $url,
+        ?string $headerText = null,
+        ?string $footerText = null
+    ): array {
+        try {
+            $phoneNumber = $this->formatPhoneNumber($phoneNumber);
+            $apiUrl = "{$this->apiUrl}/{$this->version}/{$this->phoneNumberId}/messages";
+
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type'    => 'individual',
+                'to'                => $phoneNumber,
+                'type'              => 'interactive',
+                'interactive'       => [
+                    'type' => 'cta_url',
+                    'body' => [
+                        'text' => $bodyText,
+                    ],
+                    'action' => [
+                        'name'       => 'cta_url',
+                        'parameters' => [
+                            'display_text' => $buttonText,
+                            'url'          => $url,
+                        ],
+                    ],
+                ],
+            ];
+
+            if ($headerText) {
+                $payload['interactive']['header'] = [
+                    'type' => 'text',
+                    'text' => $headerText,
+                ];
+            }
+
+            if ($footerText) {
+                $payload['interactive']['footer'] = [
+                    'text' => $footerText,
+                ];
+            }
+
+            Log::info('Sending CTA URL Message', [
+                'to'          => $phoneNumber,
+                'button_text' => $buttonText,
+                'url'         => $url,
+            ]);
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->accessToken}",
+                'Content-Type'  => 'application/json',
+            ])->post($apiUrl, $payload);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                Log::info('CTA URL message sent successfully', [
+                    'message_id' => $data['messages'][0]['id'] ?? null,
+                ]);
+                return [
+                    'success'    => true,
+                    'message_id' => $data['messages'][0]['id'] ?? null,
+                    'data'       => $data,
+                ];
+            }
+
+            Log::error('WhatsApp CTA URL Error', [
+                'status'   => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            return [
+                'success'     => false,
+                'error'       => $response->json()['error']['message'] ?? 'Error desconocido',
+                'status_code' => $response->status(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp CTA URL Exception', [
+                'message' => $e->getMessage(),
+            ]);
+            return [
+                'success' => false,
+                'error'   => $e->getMessage(),
             ];
         }
     }

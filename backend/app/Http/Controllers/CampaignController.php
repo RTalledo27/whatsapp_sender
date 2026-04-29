@@ -92,6 +92,7 @@ class CampaignController extends Controller
         if ($request->filled('template_name')) {
             $rules['template_name'] = 'required|string';
             $rules['template_parameters'] = 'nullable|array';
+            $rules['template_param_names'] = 'nullable|array';
             $rules['video_link'] = 'nullable|url';
             $rules['image_link'] = 'nullable|url';
             $rules['image_media_id'] = 'nullable|string';
@@ -121,6 +122,7 @@ class CampaignController extends Controller
                 'message' => $request->message,
                 'template_name' => $request->template_name,
                 'template_parameters' => $request->template_parameters,
+                'template_param_names' => $request->template_param_names,
                 'video_link' => $request->video_link,
                 'image_link' => $request->image_link,
                 'image_media_id' => $request->image_media_id,

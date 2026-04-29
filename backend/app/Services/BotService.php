@@ -23,6 +23,7 @@ class BotService
     const ACTION_BUTTONS         = 'buttons';
     const ACTION_FREE_TEXT       = 'free_text';
     const ACTION_VALIDATED_INPUT = 'validated_input';
+    const ACTION_LINK_BUTTON     = 'link_button';
 
     // Tipos de validación disponibles
     const VALIDATION_DNI    = 'dni';
@@ -202,6 +203,12 @@ class BotService
                 $this->handleValidatedInputStep($conversation, $message, $currentStep, $flow);
                 break;
 
+            case self::ACTION_LINK_BUTTON:
+                // Los link_button no esperan respuesta: avanzan solos al enviar
+                // Si el usuario escribe algo, simplemente re-enviamos el link
+                $this->handleLinkButtonStep($conversation, $currentStep, $flow);
+                break;
+
             case self::ACTION_BUTTONS:
             default:
                 $this->handleButtonsStep($conversation, $message, $currentStep, $flow);
@@ -247,6 +254,25 @@ class BotService
         $context['responses'][$step['state']] = $selectedAction['title'];
 
         $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+    }
+
+    /**
+     * Manejar paso de tipo LINK_BUTTON
+     * Envía el texto con el botón CTA y avanza automáticamente al siguiente estado.
+     * No espera respuesta del usuario.
+     */
+    private function handleLinkButtonStep(BotConversation $conversation, array $step, array $flow)
+    {
+        $context   = $conversation->context ?? [];
+        $actions   = $step['actions'] ?? [];
+        $nextState = $actions[0]['next_state'] ?? null;
+
+        // Marcar en el contexto que ya se envió este link
+        $context['retries']                    = 0;
+        $context['responses'][$step['state']] = 'link_sent';
+
+        // Avanzar inmediatamente al siguiente estado
+        $this->routeToNextState($conversation, null, $step, $context, $nextState, $flow);
     }
 
     /**
@@ -335,7 +361,7 @@ class BotService
      */
     private function routeToNextState(
         BotConversation $conversation,
-        Message $message,
+        ?Message $message,
         array $currentStep,
         array $context,
         ?string $nextState,
@@ -392,6 +418,46 @@ class BotService
                     'title' => $a['title'],
                 ], $actions);
                 $this->sendInteractiveMessage($contact, $question, $buttons);
+                break;
+
+            case self::ACTION_LINK_BUTTON:
+                $actions    = $step['actions'] ?? [];
+                $buttonText = $actions[0]['button_text'] ?? 'Ver más';
+                $url        = $actions[0]['url'] ?? '';
+                $footer     = $step['link_footer'] ?? null;
+
+                if (!$url) {
+                    $this->sendMessage($contact, $question);
+                    break;
+                }
+
+                // Modo testing
+                if ($this->botPhoneNumberId && str_starts_with($this->botPhoneNumberId, 'TEST_')) {
+                    Log::info("BotService [TEST MODE]: Would send CTA URL message", [
+                        'to' => $contact->phone_number, 'url' => $url,
+                    ]);
+                    $this->sendMessage($contact, "{$question}\n\n🔗 {$buttonText}: {$url}");
+                    break;
+                }
+
+                // Modo real
+                try {
+                    $ws     = new WhatsAppService($this->botPhoneNumberId);
+                    $result = $ws->sendCtaUrlMessage(
+                        $contact->phone_number,
+                        $question,
+                        $buttonText,
+                        $url,
+                        null,
+                        $footer
+                    );
+                    if (!$result['success']) {
+                        $this->sendMessage($contact, "{$question}\n\n🔗 {$buttonText}: {$url}");
+                    }
+                } catch (\Exception $e) {
+                    Log::error('BotService: Error sending CTA URL', ['error' => $e->getMessage()]);
+                    $this->sendMessage($contact, "{$question}\n\n🔗 {$buttonText}: {$url}");
+                }
                 break;
 
             case self::ACTION_FREE_TEXT:
