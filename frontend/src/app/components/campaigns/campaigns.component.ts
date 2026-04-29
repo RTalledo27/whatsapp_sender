@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CampaignService, Campaign, WhatsAppNumber } from '../../services/campaign.service';
 import { ContactService, Contact } from '../../services/contact.service';
-import { TemplateService, WhatsAppTemplate } from '../../services/template.service';
+import { TemplateService, WhatsAppTemplate, TemplateParameter } from '../../services/template.service';
 import { CampaignPollingService } from '../../services/campaign-polling.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
@@ -25,7 +25,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
   selectedCampaign: Campaign | null = null;
   templates: WhatsAppTemplate[] = [];
   selectedTemplate: WhatsAppTemplate | null = null;
-  templateParameters: string[] = [];
+  templateParameters: TemplateParameter[] = [];
   hasVideoHeader = false;
   hasImageHeader = false;
   imageInputType: 'link' | 'file' = 'link';
@@ -51,6 +51,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
     message: '',
     template_name: '',
     template_parameters: [] as string[],
+    template_param_names: [] as string[],
     video_link: '',
     image_link: '',
     image_media_id: '',
@@ -183,9 +184,19 @@ export class CampaignsComponent implements OnInit, OnDestroy {
 
     if (this.selectedTemplate) {
       this.campaignForm.template_name = this.selectedTemplate.name;
-      const params = this.templateService.getTemplateParameters(this.selectedTemplate);
-      this.templateParameters = params;
-      this.campaignForm.template_parameters = new Array(params.length).fill('');
+
+      // Extract detailed parameters from ALL components (HEADER, BODY, BUTTONS)
+      const detailedParams = this.templateService.getTemplateParametersDetailed(this.selectedTemplate);
+      this.templateParameters = detailedParams;
+      this.campaignForm.template_parameters = new Array(detailedParams.length).fill('');
+      this.campaignForm.template_param_names = detailedParams.map(p => p.name);
+
+      // Debug: log template info to help diagnose parameter detection
+      console.log('[Template Selected]', {
+        name: this.selectedTemplate.name,
+        components: this.selectedTemplate.components,
+        detectedParams: detailedParams
+      });
 
       // Chequear si tiene header de video
       const header = this.selectedTemplate.components.find(c => c.type === 'HEADER');
@@ -202,13 +213,19 @@ export class CampaignsComponent implements OnInit, OnDestroy {
         this.selectedImageFile = null;
         this.imageInputType = 'link';
       }
+    } else {
+      // Reset if no template selected
+      this.templateParameters = [];
+      this.campaignForm.template_parameters = [];
+      this.campaignForm.template_name = '';
+      this.hasVideoHeader = false;
+      this.hasImageHeader = false;
     }
   }
 
   getTemplateBodyText(): string {
     if (!this.selectedTemplate) return 'Sin contenido';
-    const bodyComponent = this.selectedTemplate.components.find(c => c.type === 'BODY');
-    return bodyComponent?.text || 'Sin contenido';
+    return this.templateService.getFullTemplatePreview(this.selectedTemplate);
   }
 
   searchContacts() {
@@ -308,6 +325,7 @@ export class CampaignsComponent implements OnInit, OnDestroy {
       message: '',
       template_name: '',
       template_parameters: [],
+      template_param_names: [],
       video_link: '',
       image_link: '',
       image_media_id: '',

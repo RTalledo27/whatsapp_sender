@@ -124,18 +124,34 @@ class WhatsAppService
                 if (isset($templateData['components']) && is_array($templateData['components']) && !empty($templateData['components'])) {
                     $components = array_merge($components, $templateData['components']);
                 } elseif (isset($templateData['parameters']) && is_array($templateData['parameters']) && !empty($templateData['parameters'])) {
-                    // Compatibilidad con la lógica anterior: solo body con texto
                     // Filtrar parámetros vacíos
                     $validParams = array_filter($templateData['parameters'], function($param) {
                         return !empty($param);
                     });
 
+                    $paramNames = $templateData['param_names'] ?? [];
+
                     if (!empty($validParams)) {
+                        $bodyParams = [];
+                        $index = 0;
+                        foreach (array_values($validParams) as $param) {
+                            $paramEntry = [
+                                'type' => 'text',
+                                'text' => (string)$param,
+                            ];
+
+                            // Include parameter_name if available (required for named params like {{months}})
+                            if (isset($paramNames[$index]) && !empty($paramNames[$index])) {
+                                $paramEntry['parameter_name'] = $paramNames[$index];
+                            }
+
+                            $bodyParams[] = $paramEntry;
+                            $index++;
+                        }
+
                         $components[] = [
                             'type' => 'body',
-                            'parameters' => array_values(array_map(function($param) {
-                                return ['type' => 'text', 'text' => (string)$param];
-                            }, $validParams))
+                            'parameters' => $bodyParams
                         ];
                     }
                 }

@@ -17,6 +17,7 @@ class Campaign extends Model
         'message',
         'template_name',
         'template_parameters',
+        'template_param_names',
         'video_link',
         'image_link',
         'image_media_id',
@@ -31,6 +32,7 @@ class Campaign extends Model
 
     protected $casts = [
         'template_parameters' => 'array',
+        'template_param_names' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
