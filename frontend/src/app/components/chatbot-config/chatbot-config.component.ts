@@ -1,7 +1,9 @@
 import { Component, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ChatbotService, BotFlow, BotStep } from '../../services/chatbot.service';
+import {
+  ChatbotService, BotFlow, BotStep, BotAction, BotValidation, ActionType, ValidationType, normalizeStep
+} from '../../services/chatbot.service';
 import { BotStatsService, BotStats } from '../../services/bot-stats.service';
 import mermaid from 'mermaid';
 
@@ -22,18 +24,19 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   isEditingStep = false;
   isAddingNewQuestion = false;
   isEditMode = false;
+  isSaving = false;
   newFlowName = '';
   mermaidDiagram = '';
-  
+
   // Menú desplegable y vistas
   showDropdownMenu = false;
   currentView: 'config' | 'stats' = 'config';
-  
+
   // Estadísticas
   stats: BotStats | null = null;
   loadingStats = false;
-  
-  // Para pan y zoom
+
+  // Pan y zoom
   zoomLevel = 100;
   currentScale = 1;
   isPanning = false;
@@ -41,15 +44,26 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   startY = 0;
   translateX = 0;
   translateY = 0;
-  
-  // Para crear nueva pregunta
-  newQuestion = {
-    question: '',
-    buttons: [
-      { id: '', title: '', nextState: '' },
-      { id: '', title: '', nextState: '' }
-    ]
-  };
+
+  // Opciones de tipo de acción para el selector
+  readonly actionTypes: { value: ActionType; label: string; icon: string; description: string }[] = [
+    { value: 'buttons',         label: 'Botones',          icon: '🔘', description: 'El usuario elige entre opciones predefinidas' },
+    { value: 'free_text',       label: 'Texto libre',      icon: '✏️', description: 'El usuario escribe libremente (nombre, comentario, etc.)' },
+    { value: 'validated_input', label: 'Entrada validada', icon: '🔍', description: 'El usuario escribe y se valida el formato (DNI, email, etc.)' },
+  ];
+
+  // Opciones de tipo de validación
+  readonly validationTypes: { value: ValidationType; label: string; placeholder: string }[] = [
+    { value: 'dni',    label: 'DNI (8 dígitos)',       placeholder: 'Ej: 12345678' },
+    { value: 'phone',  label: 'Teléfono',              placeholder: 'Ej: +51987654321' },
+    { value: 'email',  label: 'Correo electrónico',    placeholder: 'Ej: usuario@correo.com' },
+    { value: 'number', label: 'Número',                placeholder: 'Ej: 42' },
+    { value: 'text',   label: 'Texto (no vacío)',      placeholder: 'Cualquier texto' },
+    { value: 'regex',  label: 'Expresión regular',     placeholder: 'Ej: /^\\d{8}$/' },
+  ];
+
+  // Modelo para nueva pregunta
+  newQuestion: BotStep = this.emptyQuestion();
 
   constructor(
     private chatbotService: ChatbotService,
@@ -66,28 +80,22 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   }
 
   initMermaid(): void {
-    mermaid.initialize({ 
+    mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: 'basis'
-      }
+      flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
     });
   }
 
   loadFlows(): void {
     this.chatbotService.getFlows().subscribe({
       next: (flows: BotFlow[]) => {
-        this.flows = flows;
+        this.flows = flows.map(f => ({ ...f, steps: f.steps.map(normalizeStep) }));
         if (flows.length > 0 && !this.selectedFlow) {
-          this.selectFlow(flows[0]);
+          this.selectFlow(this.flows[0]);
         }
       },
-      error: (error: any) => {
-        console.error('Error al cargar flujos:', error);
-      }
+      error: (err: any) => console.error('Error al cargar flujos:', err)
     });
   }
 
@@ -102,7 +110,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   }
 
   selectStep(step: BotStep): void {
-    this.selectedStep = { ...step };
+    this.selectedStep = this.deepClone(normalizeStep(step));
     this.isEditingStep = false;
     this.isAddingNewQuestion = false;
   }
@@ -113,13 +121,197 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       this.selectedStep = null;
       this.isAddingNewQuestion = false;
       this.isEditingStep = false;
-      // Regenerar y renderizar el diagrama al volver
-      setTimeout(() => {
-        this.generateMermaidDiagram();
-        this.renderMermaid();
-      }, 100);
+      setTimeout(() => { this.generateMermaidDiagram(); this.renderMermaid(); }, 100);
     }
   }
+
+  // ==================== LÓGICA DE TIPO DE ACCIÓN ====================
+
+  onActionTypeChange(step: BotStep): void {
+    // Al cambiar el tipo de acción, resetear las acciones y validación
+    switch (step.action_type) {
+      case 'buttons':
+        step.actions = [
+          { id: '', title: '', next_state: '' },
+          { id: '', title: '', next_state: '' },
+        ];
+        delete step.validation;
+        break;
+
+      case 'free_text':
+        step.actions = [{ next_state: '' }];
+        delete step.validation;
+        break;
+
+      case 'validated_input':
+        step.actions = [{ next_state: '' }];
+        step.validation = { type: 'dni', error_message: '' };
+        break;
+    }
+  }
+
+  getActionTypeLabel(step: BotStep): string {
+    return this.actionTypes.find(t => t.value === step.action_type)?.label ?? 'Botones';
+  }
+
+  getActionTypeIcon(step: BotStep): string {
+    return this.actionTypes.find(t => t.value === step.action_type)?.icon ?? '🔘';
+  }
+
+  isButtonsType(step: BotStep | null): boolean {
+    if (!step) return false;
+    return (step.action_type ?? 'buttons') === 'buttons';
+  }
+
+  isValidatedType(step: BotStep | null): boolean {
+    return step?.action_type === 'validated_input';
+  }
+
+  isFreeTextType(step: BotStep | null): boolean {
+    return step?.action_type === 'free_text';
+  }
+
+  getNonButtonNextState(step: BotStep): string {
+    return step.actions?.[0]?.next_state ?? '';
+  }
+
+  setNonButtonNextState(step: BotStep, value: string): void {
+    if (!step.actions || step.actions.length === 0) {
+      step.actions = [{ next_state: value }];
+    } else {
+      step.actions[0].next_state = value;
+    }
+  }
+
+  // ==================== BOTONES EN PASO DE TIPO BUTTONS ====================
+
+  addButton(): void {
+    if (!this.selectedStep) return;
+    this.selectedStep.actions = this.selectedStep.actions ?? [];
+    this.selectedStep.actions.push({ id: `btn_${Date.now()}`, title: '', next_state: '' });
+  }
+
+  removeButton(index: number): void {
+    if (!this.selectedStep) return;
+    this.selectedStep.actions.splice(index, 1);
+  }
+
+  addNewQuestionButton(): void {
+    this.newQuestion.actions = this.newQuestion.actions ?? [];
+    this.newQuestion.actions.push({ id: `btn_${Date.now()}`, title: '', next_state: '' });
+  }
+
+  removeNewQuestionButton(index: number): void {
+    this.newQuestion.actions.splice(index, 1);
+  }
+
+  // ==================== EDICIÓN DE PASO EXISTENTE ====================
+
+  editStep(): void {
+    this.isEditingStep = true;
+  }
+
+  saveStep(): void {
+    if (!this.selectedFlow || !this.selectedStep) return;
+    this.isSaving = true;
+
+    this.chatbotService.updateStep(this.selectedFlow.id, this.selectedStep).subscribe({
+      next: (updatedStep: BotStep) => {
+        this.chatbotService.getFlow(this.selectedFlow!.id).subscribe({
+          next: (freshFlow: BotFlow) => {
+            freshFlow.steps = freshFlow.steps.map(normalizeStep);
+            const flowIndex = this.flows.findIndex((f: BotFlow) => f.id === freshFlow.id);
+            if (flowIndex !== -1) this.flows[flowIndex] = freshFlow;
+            this.selectedFlow = freshFlow;
+            this.selectedStep = freshFlow.steps.find((s) => s.state === updatedStep.state) ?? null;
+            this.isEditingStep = false;
+            this.isSaving = false;
+            this.generateMermaidDiagram();
+            alert('Pregunta actualizada correctamente');
+          },
+          error: () => {
+            this.isEditingStep = false;
+            this.isSaving = false;
+            this.generateMermaidDiagram();
+            alert('Pregunta actualizada correctamente');
+          }
+        });
+      },
+      error: (err: any) => {
+        console.error('Error al guardar pregunta:', err);
+        this.isSaving = false;
+        alert('Error al guardar la pregunta');
+      }
+    });
+  }
+
+  cancelEditStep(): void {
+    if (this.selectedFlow && this.selectedStep) {
+      const orig = this.selectedFlow.steps.find((s) => s.state === this.selectedStep!.state);
+      if (orig) this.selectedStep = this.deepClone(normalizeStep(orig));
+    }
+    this.isEditingStep = false;
+  }
+
+  // ==================== NUEVA PREGUNTA ====================
+
+  addQuestion(): void {
+    if (!this.selectedFlow) return;
+    if (!this.newQuestion.question.trim()) {
+      alert('Por favor ingresa el texto de la pregunta');
+      return;
+    }
+
+    const step: BotStep = {
+      state:       `state_${Date.now()}`,
+      question:    this.newQuestion.question,
+      action_type: this.newQuestion.action_type,
+      actions:     this.newQuestion.actions.filter(a => (a.next_state ?? '').trim() !== ''),
+      order:       this.selectedFlow.steps.length + 1,
+    };
+
+    if (this.newQuestion.action_type === 'validated_input' && this.newQuestion.validation) {
+      step.validation = this.newQuestion.validation;
+    }
+
+    this.isSaving = true;
+    this.chatbotService.addStep(this.selectedFlow.id, step).subscribe({
+      next: (addedStep: BotStep) => {
+        if (this.selectedFlow) {
+          this.selectedFlow.steps.push(normalizeStep(addedStep));
+          this.isAddingNewQuestion = false;
+          this.isSaving = false;
+          this.newQuestion = this.emptyQuestion();
+          this.generateMermaidDiagram();
+          alert('Pregunta agregada correctamente');
+        }
+      },
+      error: (err: any) => {
+        console.error('Error al agregar pregunta:', err);
+        this.isSaving = false;
+        alert('Error al agregar la pregunta');
+      }
+    });
+  }
+
+  resetNewQuestion(): void {
+    this.newQuestion = this.emptyQuestion();
+  }
+
+  private emptyQuestion(): BotStep {
+    return {
+      state:       '',
+      question:    '',
+      action_type: 'buttons',
+      actions:     [
+        { id: '', title: '', next_state: '' },
+        { id: '', title: '', next_state: '' },
+      ],
+      order: 0,
+    };
+  }
+
+  // ==================== DIAGRAMA MERMAID ====================
 
   generateMermaidDiagram(): void {
     if (!this.selectedFlow || this.selectedFlow.steps.length === 0) {
@@ -130,61 +322,62 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     let diagram = 'graph TD\n';
     diagram += '    Start((Inicio)):::startNode\n';
 
-    // Agregar nodos para cada pregunta
-    this.selectedFlow.steps.forEach((step: BotStep, index: number) => {
-      const nodeId = step.state.replace(/[^a-zA-Z0-9]/g, '_');
-      const question = step.question.substring(0, 50).replace(/"/g, '');
-      diagram += `    ${nodeId}["${question}..."]:::questionNode\n`;
+    this.selectedFlow.steps.forEach((step: BotStep) => {
+      const nodeId   = step.state.replace(/[^a-zA-Z0-9]/g, '_');
+      const question = step.question.substring(0, 45).replace(/"/g, '');
+      const icon     = this.getActionTypeIcon(step);
+      diagram += `    ${nodeId}["${icon} ${question}..."]:::questionNode\n`;
     });
 
-    // Nodos especiales
-    diagram += '    Finished([✅ Calificado]):::successNode\n';
+    diagram += '    Finished([✅ Califica]):::successNode\n';
     diagram += '    noFinished([❌ No califica]):::noFinishedNode\n';
 
-    // Conectar inicio con primera pregunta
     if (this.selectedFlow.steps.length > 0) {
-      const firstNodeId = this.selectedFlow.steps[0].state.replace(/[^a-zA-Z0-9]/g, '_');
-      diagram += `    Start --> ${firstNodeId}\n`;
+      const firstId = this.selectedFlow.steps[0].state.replace(/[^a-zA-Z0-9]/g, '_');
+      diagram += `    Start --> ${firstId}\n`;
     }
 
-    // Conectar botones a siguiente estado
     this.selectedFlow.steps.forEach((step: BotStep) => {
-      const nodeId = step.state.replace(/[^a-zA-Z0-9]/g, '_');
-      
-      step.buttons.forEach((btn: any) => {
-        if (btn.nextState) {
-          let nextNodeId = btn.nextState.replace(/[^a-zA-Z0-9]/g, '_');
-          
-          if (btn.nextState === 'finished') {
-            nextNodeId = 'Finished';
-          } else if (btn.nextState === 'nofinished') {
-            nextNodeId = 'noFinished';
+      const nodeId  = step.state.replace(/[^a-zA-Z0-9]/g, '_');
+      const actions = step.actions ?? [];
+
+      if (step.action_type === 'buttons') {
+        actions.forEach((action: BotAction) => {
+          if (action.next_state) {
+            let nextId = action.next_state.replace(/[^a-zA-Z0-9]/g, '_');
+            if (action.next_state === 'finished')   nextId = 'Finished';
+            if (action.next_state === 'nofinished') nextId = 'noFinished';
+            const label = (action.title ?? '').substring(0, 20);
+            diagram += `    ${nodeId} -->|"${label}"| ${nextId}\n`;
           }
-          
-          const btnTitle = btn.title.substring(0, 20);
-          diagram += `    ${nodeId} -->|"${btnTitle}"| ${nextNodeId}\n`;
+        });
+      } else {
+        // Para free_text y validated_input: flecha sin etiqueta de botón
+        const nextState = actions[0]?.next_state;
+        if (nextState) {
+          let nextId = nextState.replace(/[^a-zA-Z0-9]/g, '_');
+          if (nextState === 'finished')   nextId = 'Finished';
+          if (nextState === 'nofinished') nextId = 'noFinished';
+          const label = step.action_type === 'validated_input' ? '🔍 validar' : '✏️ respuesta';
+          diagram += `    ${nodeId} -->|"${label}"| ${nextId}\n`;
         }
-      });
+      }
     });
 
-    // Estilos
     diagram += '    classDef startNode fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff\n';
     diagram += '    classDef questionNode fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff\n';
     diagram += '    classDef successNode fill:#22c55e,stroke:#16a34a,stroke-width:2px,color:#fff\n';
     diagram += '    classDef noFinishedNode fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff\n';
 
     this.mermaidDiagram = diagram;
-    
     setTimeout(() => this.renderMermaid(), 100);
   }
 
   async renderMermaid(): Promise<void> {
     if (!this.mermaidContainer || !this.mermaidDiagram) return;
-
     try {
       const element = this.mermaidContainer.nativeElement;
       element.innerHTML = '';
-      
       const { svg } = await mermaid.render('mermaidGraph', this.mermaidDiagram);
       element.innerHTML = svg;
     } catch (error) {
@@ -192,76 +385,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     }
   }
 
-  editStep(): void {
-    this.isEditingStep = true;
-  }
-
-  saveStep(): void {
-    if (!this.selectedFlow || !this.selectedStep) return;
-
-    this.chatbotService.updateStep(this.selectedFlow.id, this.selectedStep).subscribe({
-      next: (updatedStep: BotStep) => {
-        // Recargar el flow completo desde el servidor para asegurar sincronización
-        this.chatbotService.getFlow(this.selectedFlow!.id).subscribe({
-          next: (freshFlow: BotFlow) => {
-            // Actualizar el flow en el array
-            const flowIndex = this.flows.findIndex((f: BotFlow) => f.id === freshFlow.id);
-            if (flowIndex !== -1) {
-              this.flows[flowIndex] = freshFlow;
-            }
-            // Actualizar el flow seleccionado
-            this.selectedFlow = freshFlow;
-            // Actualizar el step seleccionado con la versión fresca
-            this.selectedStep = freshFlow.steps.find((s: BotStep) => s.state === updatedStep.state) || null;
-            this.isEditingStep = false;
-            this.generateMermaidDiagram();
-            alert('Pregunta actualizada correctamente');
-          },
-          error: (error: any) => {
-            console.error('Error al recargar flow:', error);
-            // Fallback: actualizar localmente
-            if (this.selectedFlow) {
-              const index = this.selectedFlow.steps.findIndex((s: BotStep) => s.state === updatedStep.state);
-              if (index !== -1) {
-                this.selectedFlow.steps[index] = updatedStep;
-              }
-            }
-            this.isEditingStep = false;
-            this.generateMermaidDiagram();
-            alert('Pregunta actualizada correctamente');
-          }
-        });
-      },
-      error: (error: any) => {
-        console.error('Error al guardar pregunta:', error);
-        alert('Error al guardar la pregunta');
-      }
-    });
-  }
-
-  cancelEditStep(): void {
-    if (this.selectedFlow && this.selectedStep) {
-      const originalStep = this.selectedFlow.steps.find((s: BotStep) => s.state === this.selectedStep!.state);
-      if (originalStep) {
-        this.selectedStep = { ...originalStep };
-      }
-    }
-    this.isEditingStep = false;
-  }
-
-  addButton(): void {
-    if (!this.selectedStep) return;
-    this.selectedStep.buttons.push({
-      id: `btn_${Date.now()}`,
-      title: '',
-      nextState: ''
-    });
-  }
-
-  removeButton(index: number): void {
-    if (!this.selectedStep) return;
-    this.selectedStep.buttons.splice(index, 1);
-  }
+  // ==================== GESTIÓN DE FLUJOS ====================
 
   createFlow(): void {
     this.isEditingFlow = true;
@@ -273,7 +397,6 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       alert('Por favor ingresa un nombre para el flujo');
       return;
     }
-
     this.chatbotService.createFlow(this.newFlowName).subscribe({
       next: (newFlow: BotFlow) => {
         this.flows.push(newFlow);
@@ -281,10 +404,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
         this.isEditingFlow = false;
         this.newFlowName = '';
       },
-      error: (error: any) => {
-        console.error('Error al crear flujo:', error);
-        alert('Error al crear el flujo');
-      }
+      error: (err: any) => { console.error('Error al crear flujo:', err); alert('Error al crear el flujo'); }
     });
   }
 
@@ -293,61 +413,14 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.newFlowName = '';
   }
 
-  startAddingQuestion(): void {
-    this.selectedStep = null;
-    this.isEditingStep = false;
-    this.isAddingNewQuestion = true;
-    this.resetNewQuestion();
-  }
-
-  addQuestion(): void {
-    if (!this.selectedFlow) return;
-
-    const newStep: BotStep = {
-      state: `state_${Date.now()}`,
-      question: this.newQuestion.question,
-      buttons: this.newQuestion.buttons.filter(b => b.title.trim() !== ''),
-      order: this.selectedFlow.steps.length + 1
-    };
-
-    this.chatbotService.addStep(this.selectedFlow.id, newStep).subscribe({
-      next: (addedStep: BotStep) => {
-        if (this.selectedFlow) {
-          this.selectedFlow.steps.push(addedStep);
-          this.isAddingNewQuestion = false;
-          this.resetNewQuestion();
-          this.generateMermaidDiagram();
-          alert('Pregunta agregada correctamente');
-        }
-      },
-      error: (error: any) => {
-        console.error('Error al agregar pregunta:', error);
-        alert('Error al agregar la pregunta');
-      }
-    });
-  }
-
-  resetNewQuestion(): void {
-    this.newQuestion = {
-      question: '',
-      buttons: [
-        { id: '', title: '', nextState: '' },
-        { id: '', title: '', nextState: '' }
-      ]
-    };
-  }
-
   deleteStep(step: BotStep): void {
     if (!this.selectedFlow) return;
-    
-    if (!confirm(`¿Estás seguro de eliminar la pregunta: "${step.question}"?`)) {
-      return;
-    }
+    if (!confirm(`¿Estás seguro de eliminar la pregunta: "${step.question}"?`)) return;
 
     this.chatbotService.deleteStep(this.selectedFlow.id, step.state).subscribe({
       next: () => {
         if (this.selectedFlow) {
-          this.selectedFlow.steps = this.selectedFlow.steps.filter((s: BotStep) => s.state !== step.state);
+          this.selectedFlow.steps = this.selectedFlow.steps.filter((s) => s.state !== step.state);
           if (this.selectedStep?.state === step.state) {
             this.selectedStep = null;
             this.isAddingNewQuestion = false;
@@ -356,17 +429,12 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
           alert('Pregunta eliminada correctamente');
         }
       },
-      error: (error: any) => {
-        console.error('Error al eliminar pregunta:', error);
-        alert('Error al eliminar la pregunta');
-      }
+      error: (err: any) => { console.error('Error al eliminar pregunta:', err); alert('Error al eliminar la pregunta'); }
     });
   }
 
   deleteFlow(flow: BotFlow): void {
-    if (!confirm(`¿Estás seguro de eliminar el flujo: "${flow.name}"?`)) {
-      return;
-    }
+    if (!confirm(`¿Estás seguro de eliminar el flujo: "${flow.name}"?`)) return;
 
     this.chatbotService.deleteFlow(flow.id).subscribe({
       next: () => {
@@ -377,20 +445,18 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
         }
         alert('Flujo eliminado correctamente');
       },
-      error: (error: any) => {
-        console.error('Error al eliminar flujo:', error);
-        alert('Error al eliminar el flujo');
-      }
+      error: (err: any) => { console.error('Error al eliminar flujo:', err); alert('Error al eliminar el flujo'); }
     });
   }
 
   getStepLabel(state: string): string {
     if (!this.selectedFlow) return state;
-    const step = this.selectedFlow.steps.find((s: BotStep) => s.state === state);
+    const step = this.selectedFlow.steps.find((s) => s.state === state);
     return step ? `${step.question.substring(0, 30)}...` : state;
   }
 
-  // Métodos para pan y zoom
+  // ==================== PAN & ZOOM ====================
+
   startPan(event: MouseEvent): void {
     this.isPanning = true;
     this.startX = event.clientX - this.translateX;
@@ -399,15 +465,12 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   onPan(event: MouseEvent): void {
     if (!this.isPanning) return;
-    
     this.translateX = event.clientX - this.startX;
     this.translateY = event.clientY - this.startY;
     this.updateTransform();
   }
 
-  endPan(): void {
-    this.isPanning = false;
-  }
+  endPan(): void { this.isPanning = false; }
 
   onWheel(event: WheelEvent): void {
     event.preventDefault();
@@ -417,29 +480,17 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.updateTransform();
   }
 
-  zoomIn(): void {
-    this.currentScale = Math.min(3, this.currentScale + 0.2);
-    this.zoomLevel = Math.round(this.currentScale * 100);
-    this.updateTransform();
-  }
-
-  zoomOut(): void {
-    this.currentScale = Math.max(0.3, this.currentScale - 0.2);
-    this.zoomLevel = Math.round(this.currentScale * 100);
-    this.updateTransform();
-  }
+  zoomIn(): void  { this.currentScale = Math.min(3, this.currentScale + 0.2); this.zoomLevel = Math.round(this.currentScale * 100); this.updateTransform(); }
+  zoomOut(): void { this.currentScale = Math.max(0.3, this.currentScale - 0.2); this.zoomLevel = Math.round(this.currentScale * 100); this.updateTransform(); }
 
   resetZoom(): void {
-    this.currentScale = 1;
-    this.zoomLevel = 100;
-    this.translateX = 0;
-    this.translateY = 0;
+    this.currentScale = 1; this.zoomLevel = 100;
+    this.translateX = 0; this.translateY = 0;
     this.updateTransform();
   }
 
   private updateTransform(): void {
     if (!this.mermaidContainer) return;
-    
     const svg = this.mermaidContainer.nativeElement.querySelector('svg');
     if (svg) {
       svg.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.currentScale})`;
@@ -448,36 +499,28 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // Métodos para el menú desplegable y vistas
-  toggleDropdownMenu(): void {
-    this.showDropdownMenu = !this.showDropdownMenu;
-  }
+  // ==================== VISTAS Y STATS ====================
+
+  toggleDropdownMenu(): void { this.showDropdownMenu = !this.showDropdownMenu; }
 
   switchView(view: 'config' | 'stats'): void {
     this.currentView = view;
     this.showDropdownMenu = false;
-    
-    if (view === 'stats') {
-      this.loadStats();
-    } else if (view === 'config') {
-      // Re-renderizar el diagrama cuando se vuelve a la vista de config
-      setTimeout(() => {
-        this.renderMermaid();
-      }, 100);
-    }
+    if (view === 'stats') { this.loadStats(); }
+    else { setTimeout(() => this.renderMermaid(), 100); }
   }
 
   loadStats(): void {
     this.loadingStats = true;
     this.statsService.getStats().subscribe({
-      next: (stats: BotStats) => {
-        this.stats = stats;
-        this.loadingStats = false;
-      },
-      error: (error: any) => {
-        console.error('Error cargando estadísticas:', error);
-        this.loadingStats = false;
-      }
+      next: (stats: BotStats) => { this.stats = stats; this.loadingStats = false; },
+      error: () => { this.loadingStats = false; }
     });
+  }
+
+  // ==================== HELPERS ====================
+
+  private deepClone<T>(obj: T): T {
+    return JSON.parse(JSON.stringify(obj));
   }
 }

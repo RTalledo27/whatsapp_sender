@@ -866,9 +866,32 @@
   color: var(--text);
   border: 1px solid var(--border);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--item-hover-bg);
   }
+}
+
+// Botón con loader integrado
+.btn-with-loader {
+  min-width: 110px;
+  justify-content: center;
+  position: relative;
+
+  &:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .spinner {
+    flex-shrink: 0;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .btn-icon-delete {
@@ -1494,3 +1517,148 @@
     color: #ef4444;
   }
 }
+
+// ==================== SISTEMA DE ACCIONES TIPADAS ====================
+
+// Selector de tipo de acción (radio group visual)
+.action-type-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .action-type-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card-bg);
+    user-select: none;
+
+    input[type="radio"] {
+      display: none;
+    }
+
+    .type-icon {
+      font-size: 1.1em;
+    }
+
+    .type-label {
+      font-size: 0.88em;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    &:hover:not(.disabled) {
+      border-color: var(--accent);
+      background: var(--info-bg);
+    }
+
+    &.selected {
+      border-color: var(--accent);
+      background: var(--info-bg);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+
+      .type-label {
+        color: var(--accent);
+      }
+    }
+
+    &.disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  }
+}
+
+.hint-text {
+  margin: 6px 0 0 0;
+  font-size: 0.82em;
+  color: var(--muted);
+  font-style: italic;
+}
+
+// Badges del tipo de acción en la lista de preguntas
+.question-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+
+  .button-badge {
+    background: var(--panel-bg);
+    color: var(--text);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    border: 1px solid var(--border);
+  }
+
+  .action-type-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &.badge-buttons {
+      background: rgba(59, 130, 246, 0.12);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    &.badge-free_text {
+      background: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    &.badge-validated_input {
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+  }
+}
+
+// Sección de configuración de validación
+.validation-section {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+
+  > label {
+    color: #f59e0b !important;
+    font-weight: 600 !important;
+    margin-bottom: 12px !important;
+
+    &::before {
+      content: "🔍 ";
+    }
+  }
+
+  .validation-config {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      label {
+        font-size: 0.85em;
+        font-weight: 500;
+        color: var(--text);
+      }
+    }
+  }
+}
+
