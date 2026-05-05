@@ -29,7 +29,7 @@ return [
             ],
             [
                 'id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID'),
-                'name' => 'Atención al Cliente',
+                'name' => 'centro de experiencia / SAC',
                 'phone' => env('WHATSAPP_ALT_PHONE_NUMBER', '51 922 902 154'),
                 'access_token' => env('WHATSAPP_ALT_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
                 'business_account_id' => env('WHATSAPP_ALT_BUSINESS_ACCOUNT_ID'),
