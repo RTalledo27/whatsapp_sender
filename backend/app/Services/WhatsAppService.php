@@ -693,17 +693,7 @@ class WhatsAppService
             ];
         }
     }
-    /**
-     * Enviar mensaje con botón CTA (Call-to-Action) que abre una URL
-     * 
-     * @param string $phoneNumber Número del destinatario
-     * @param string $bodyText Texto del mensaje
-     * @param string $buttonText Texto del botón (máx 20 caracteres)
-     * @param string $url URL que abre el botón
-     * @param string|null $headerText Texto opcional del header
-     * @param string|null $footerText Texto opcional del footer
-     * @return array
-     */
+    
     public function sendCtaUrlMessage(
         string $phoneNumber,
         string $bodyText,
