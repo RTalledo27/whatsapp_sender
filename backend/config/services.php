@@ -36,7 +36,7 @@ return [
             ],
             [
                 'id' => env('LEADS_PHONE_NUMBER_ID'),
-                'name' => 'Bot Leads - Techo Propio',
+                'name' => 'Bot Club de Beneficios',
                 'phone' => env('WHATSAPP_LEADS_PHONE_NUMBER', '51 922 902 122'),
                 'access_token' => env('WHATSAPP_LEADS_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
                 'business_account_id' => env('WHATSAPP_LEADS_BUSINESS_ACCOUNT_ID'),
