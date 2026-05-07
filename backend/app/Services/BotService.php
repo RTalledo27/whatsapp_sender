@@ -5,12 +5,16 @@ namespace App\Services;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Models\BotConversation;
+use App\Services\ComercioService;
+use App\Services\DniValidationService;
 use Illuminate\Support\Facades\Log;
 
 class BotService
 {
     private WhatsAppService $whatsappService;
     private LogicWareService $logicwareService;
+    private ComercioService $comercioService;
+    private DniValidationService $dniValidationService;
     private $botPhoneNumberId;
     private $flows = null;
 
@@ -33,11 +37,17 @@ class BotService
     const VALIDATION_TEXT   = 'text';
     const VALIDATION_REGEX  = 'regex';
 
-    public function __construct(WhatsAppService $whatsappService, LogicWareService $logicwareService)
-    {
-        $this->whatsappService  = $whatsappService;
-        $this->logicwareService = $logicwareService;
-        $this->botPhoneNumberId = config('services.whatsapp.leads_bot_id');
+    public function __construct(
+        WhatsAppService $whatsappService,
+        LogicWareService $logicwareService,
+        ComercioService $comercioService,
+        DniValidationService $dniValidationService
+    ) {
+        $this->whatsappService      = $whatsappService;
+        $this->logicwareService     = $logicwareService;
+        $this->comercioService      = $comercioService;
+        $this->dniValidationService = $dniValidationService;
+        $this->botPhoneNumberId     = config('services.whatsapp.leads_bot_id');
         $this->loadFlows();
     }
 
@@ -94,6 +104,25 @@ class BotService
 
         $conversation = $this->getOrCreateConversation($contact);
         Log::info("BotService: Conversation retrieved. State: {$conversation->state}, ID: {$conversation->id}");
+
+        // Detectar comercio por el número del remitente (quien escribe)
+        $senderPhone = $contact->phone_number;
+        $comercio = $this->comercioService->detectarPorTelefono($senderPhone);
+        if ($comercio) {
+            $context = $conversation->context ?? [];
+            if (empty($context['comercio_id'])) {
+                $context['comercio_id']     = $comercio->id;
+                $context['comercio_nombre'] = $comercio->nombre;
+                $context['tipo_flujo']      = $this->comercioService->getTipoFlujo($senderPhone);
+                $this->updateState($conversation, $conversation->state, $context);
+                $conversation->refresh();
+                Log::info('BotService: Comercio detectado por número de remitente', [
+                    'comercio_id'     => $comercio->id,
+                    'comercio_nombre' => $comercio->nombre,
+                    'sender_phone'    => $senderPhone,
+                ]);
+            }
+        }
 
         // Reiniciar si el usuario escribe hola/reset
         if (strtolower(trim($message->message_content)) === 'hola' || strtolower(trim($message->message_content)) === 'reset') {
@@ -341,7 +370,56 @@ class BotService
         $context['retries']                    = 0;
         $context['responses'][$step['state']] = $content;
 
-        // Obtener el siguiente estado
+        // Si es DNI con validación externa → llamar API
+        if ($type === self::VALIDATION_DNI && ($validation['external_validation'] ?? false)) {
+            try {
+                $apiResult  = $this->dniValidationService->validar($content);
+                $comercioId = $context['comercio_id'] ?? null;
+
+                // Registrar evento en tabla consultas
+                $this->dniValidationService->registrarEvento([
+                    'dni'                 => $content,
+                    'tipo_evento'         => 'consulta',
+                    'resultado'           => $apiResult['resultado'],
+                    'telefono_origen'     => $conversation->contact->phone_number,
+                    'comercio_id'         => $comercioId,
+                    'flujo_tipo'          => $context['tipo_flujo'] ?? 'normal',
+                    'status_http'         => $apiResult['status_http'],
+                    'tiempo_respuesta_ms' => $apiResult['tiempo_ms'],
+                ]);
+
+                // Guardar resultado en contexto
+                $context['dni_resultado'] = $apiResult['resultado'];
+
+                // Buscar next_state según resultado del API
+                $nextState = $this->resolveNextStateByResultado($step, $apiResult['resultado']);
+
+                if (!$nextState) {
+                    Log::error('BotService: No next_state for DNI resultado', [
+                        'state'     => $step['state'],
+                        'resultado' => $apiResult['resultado'],
+                    ]);
+                    $this->sendMessage($conversation->contact, "Error de configuración en el flujo.");
+                    return;
+                }
+
+                $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+                return;
+
+            } catch (\Exception $e) {
+                Log::error('BotService: DNI validation API error', [
+                    'dni'   => $content,
+                    'error' => $e->getMessage(),
+                ]);
+                $this->sendMessage(
+                    $conversation->contact,
+                    "❌ Ocurrió un error al verificar tu DNI. Por favor intenta de nuevo más tarde."
+                );
+                return;
+            }
+        }
+
+        // Flujo normal (sin external_validation)
         $actions   = $step['actions'] ?? [];
         $nextState = $actions[0]['next_state'] ?? null;
 
@@ -355,6 +433,33 @@ class BotService
     }
 
     // ==================== ROUTING Y FINALIZACIÓN ====================
+
+    /**
+     * Resolver el siguiente estado basado en el resultado de la validación de DNI.
+     * Busca en el array 'actions' del paso un entry con 'resultado' que coincida.
+     *
+     * @param array $step       El paso actual del flujo
+     * @param string $resultado El resultado del API ('apto', 'no_apto', 'no_encontrado')
+     * @return string|null      El next_state correspondiente
+     */
+    private function resolveNextStateByResultado(array $step, string $resultado): ?string
+    {
+        $actions = $step['actions'] ?? [];
+
+        foreach ($actions as $action) {
+            if (($action['resultado'] ?? '') === $resultado) {
+                return $action['next_state'] ?? null;
+            }
+        }
+
+        // Fallback: usar el primer next_state disponible
+        Log::warning('BotService: No matching resultado in actions, using fallback', [
+            'state'     => $step['state'],
+            'resultado' => $resultado,
+        ]);
+
+        return $actions[0]['next_state'] ?? null;
+    }
 
     /**
      * Redirigir al siguiente estado o finalizar el flujo
@@ -483,8 +588,11 @@ class BotService
         $this->updateState($conversation, self::STATE_FINISHED, $context);
 
         if ($qualified) {
-            // Enviar lead calificado al CRM
-            $this->sendQualifiedLeadToCRM($conversation);
+            // CRM desactivado para este flujo
+            Log::info('BotService: Flow finished (CRM disabled)', [
+                'conversation_id' => $conversation->id,
+                'qualified'       => $qualified,
+            ]);
 
             $msg = "🎉 ¡Felicidades! Según tus respuestas, **SÍ TIENES ACCESO** a los beneficios del club. 🏆\n\n" .
                    "Un asesor revisará tus datos y te contactará pronto. ¡Estate atento!";

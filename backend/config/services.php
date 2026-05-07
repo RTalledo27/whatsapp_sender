@@ -57,4 +57,8 @@ return [
         'url' => env('STATS_WEBHOOK_URL'),
     ],
 
+    'dni_validation' => [
+        'url' => env('DNI_VALIDATION_URL', 'https://backend.casabonita.pe/api/status-customer'),
+    ],
+
 ];

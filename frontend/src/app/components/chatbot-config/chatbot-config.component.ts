@@ -5,6 +5,7 @@ import {
   ChatbotService, BotFlow, BotStep, BotAction, BotValidation, ActionType, ValidationType, normalizeStep
 } from '../../services/chatbot.service';
 import { BotStatsService, BotStats } from '../../services/bot-stats.service';
+import { ComercioService, Comercio, ComercioTelefono } from '../../services/comercio.service';
 import mermaid from 'mermaid';
 
 @Component({
@@ -30,11 +31,25 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   // Menú desplegable y vistas
   showDropdownMenu = false;
-  currentView: 'config' | 'stats' = 'config';
+  currentView: 'config' | 'stats' | 'comercios' = 'config';
 
   // Estadísticas
   stats: BotStats | null = null;
   loadingStats = false;
+
+  // Comercios
+  comercios: Comercio[] = [];
+  loadingComercios = false;
+  selectedComercio: Comercio | null = null;
+  isAddingComercio = false;
+  isEditingComercio = false;
+  newComercioNombre = '';
+  editComercioNombre = '';
+  editComercioEstado: 'activo' | 'inactivo' = 'activo';
+  isAddingTelefono = false;
+  newTelefono = '';
+  newTelefonoFlujo = 'normal';
+  comercioError = '';
 
   // Pan y zoom
   zoomLevel = 100;
@@ -68,7 +83,8 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   constructor(
     private chatbotService: ChatbotService,
-    private statsService: BotStatsService
+    private statsService: BotStatsService,
+    private comercioService: ComercioService
   ) {}
 
   ngOnInit(): void {
@@ -520,10 +536,11 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   toggleDropdownMenu(): void { this.showDropdownMenu = !this.showDropdownMenu; }
 
-  switchView(view: 'config' | 'stats'): void {
+  switchView(view: 'config' | 'stats' | 'comercios'): void {
     this.currentView = view;
     this.showDropdownMenu = false;
     if (view === 'stats') { this.loadStats(); }
+    else if (view === 'comercios') { this.loadComercios(); }
     else { setTimeout(() => this.renderMermaid(), 100); }
   }
 
@@ -532,6 +549,154 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.statsService.getStats().subscribe({
       next: (stats: BotStats) => { this.stats = stats; this.loadingStats = false; },
       error: () => { this.loadingStats = false; }
+    });
+  }
+
+  // ==================== COMERCIOS ====================
+
+  loadComercios(): void {
+    this.loadingComercios = true;
+    this.comercioError = '';
+    this.comercioService.getAll().subscribe({
+      next: (data: Comercio[]) => {
+        this.comercios = data;
+        this.loadingComercios = false;
+      },
+      error: (err: any) => {
+        console.error('Error al cargar comercios:', err);
+        this.comercioError = 'Error al cargar comercios';
+        this.loadingComercios = false;
+      }
+    });
+  }
+
+  selectComercio(comercio: Comercio): void {
+    this.selectedComercio = comercio;
+    this.isAddingComercio = false;
+    this.isEditingComercio = false;
+    this.isAddingTelefono = false;
+    this.editComercioNombre = comercio.nombre;
+    this.editComercioEstado = comercio.estado;
+  }
+
+  startAddComercio(): void {
+    this.isAddingComercio = true;
+    this.newComercioNombre = '';
+    this.comercioError = '';
+  }
+
+  cancelAddComercio(): void {
+    this.isAddingComercio = false;
+    this.newComercioNombre = '';
+  }
+
+  saveNewComercio(): void {
+    if (!this.newComercioNombre.trim()) {
+      this.comercioError = 'El nombre es obligatorio';
+      return;
+    }
+    this.comercioError = '';
+    this.comercioService.create({ nombre: this.newComercioNombre.trim() }).subscribe({
+      next: (comercio: Comercio) => {
+        this.comercios.push(comercio);
+        this.isAddingComercio = false;
+        this.newComercioNombre = '';
+        this.selectComercio(comercio);
+      },
+      error: (err: any) => {
+        this.comercioError = err.error?.errors?.nombre?.[0] || 'Error al crear comercio';
+      }
+    });
+  }
+
+  startEditComercio(): void {
+    if (!this.selectedComercio) return;
+    this.isEditingComercio = true;
+    this.editComercioNombre = this.selectedComercio.nombre;
+    this.editComercioEstado = this.selectedComercio.estado;
+  }
+
+  cancelEditComercio(): void {
+    this.isEditingComercio = false;
+  }
+
+  saveEditComercio(): void {
+    if (!this.selectedComercio) return;
+    this.comercioError = '';
+    this.comercioService.update(this.selectedComercio.id, {
+      nombre: this.editComercioNombre.trim(),
+      estado: this.editComercioEstado
+    }).subscribe({
+      next: (updated: Comercio) => {
+        const idx = this.comercios.findIndex(c => c.id === updated.id);
+        if (idx >= 0) { this.comercios[idx] = updated; }
+        this.selectedComercio = updated;
+        this.isEditingComercio = false;
+      },
+      error: (err: any) => {
+        this.comercioError = 'Error al actualizar comercio';
+      }
+    });
+  }
+
+  deleteComercio(comercio: Comercio): void {
+    if (!confirm(`¿Eliminar el comercio "${comercio.nombre}"? Se eliminarán también sus teléfonos.`)) return;
+    this.comercioService.delete(comercio.id).subscribe({
+      next: () => {
+        this.comercios = this.comercios.filter(c => c.id !== comercio.id);
+        if (this.selectedComercio?.id === comercio.id) {
+          this.selectedComercio = null;
+        }
+      },
+      error: () => { this.comercioError = 'Error al eliminar comercio'; }
+    });
+  }
+
+  startAddTelefono(): void {
+    this.isAddingTelefono = true;
+    this.newTelefono = '';
+    this.newTelefonoFlujo = 'normal';
+    this.comercioError = '';
+  }
+
+  cancelAddTelefono(): void {
+    this.isAddingTelefono = false;
+    this.newTelefono = '';
+  }
+
+  saveNewTelefono(): void {
+    if (!this.selectedComercio || !this.newTelefono.trim()) {
+      this.comercioError = 'El número es obligatorio';
+      return;
+    }
+    this.comercioError = '';
+    this.comercioService.addTelefono(this.selectedComercio.id, {
+      telefono: this.newTelefono.trim(),
+      tipo_flujo: this.newTelefonoFlujo
+    }).subscribe({
+      next: (tel: ComercioTelefono) => {
+        if (this.selectedComercio?.telefonos) {
+          this.selectedComercio.telefonos.push(tel);
+        }
+        this.isAddingTelefono = false;
+        this.newTelefono = '';
+      },
+      error: (err: any) => {
+        this.comercioError = err.error?.error || 'Error al agregar teléfono';
+      }
+    });
+  }
+
+  removeTelefono(tel: ComercioTelefono): void {
+    if (!this.selectedComercio) return;
+    if (!confirm(`¿Eliminar el teléfono ${tel.telefono}?`)) return;
+    this.comercioService.removeTelefono(this.selectedComercio.id, tel.id).subscribe({
+      next: () => {
+        if (this.selectedComercio?.telefonos) {
+          this.selectedComercio.telefonos = this.selectedComercio.telefonos.filter(t => t.id !== tel.id);
+        }
+      },
+      error: () => { this.comercioError = 'Error al eliminar teléfono'; }
     });
   }
 
