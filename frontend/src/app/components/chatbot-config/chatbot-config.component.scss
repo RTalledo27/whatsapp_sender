@@ -1687,6 +1687,88 @@
   }
 }
 
+// External Validation Routes (3 rutas)
+.external-routes-section {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+
+  > label {
+    color: var(--accent) !important;
+    font-weight: 600 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .hint-text {
+    margin-top: 12px;
+    font-size: 0.85em;
+    color: var(--muted);
+  }
+}
+
+.external-routes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.route-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+
+  .route-label {
+    flex-shrink: 0;
+    min-width: 140px;
+    font-weight: 600;
+    font-size: 0.85em;
+  }
+
+  .form-control {
+    flex: 1;
+  }
+
+  &.route-apto {
+    border-left: 3px solid #22c55e;
+    .route-label { color: #22c55e; }
+  }
+
+  &.route-no-apto {
+    border-left: 3px solid #ef4444;
+    .route-label { color: #ef4444; }
+  }
+
+  &.route-no-encontrado {
+    border-left: 3px solid #f59e0b;
+    .route-label { color: #f59e0b; }
+  }
+}
+
+// Toggle label para external_validation
+.toggle-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500 !important;
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  span {
+    font-size: 0.95em;
+  }
+}
+
 // ==================== COMERCIOS VIEW ====================
 
 .comercios-view-container {

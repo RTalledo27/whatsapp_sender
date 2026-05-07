@@ -488,6 +488,47 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     return step ? `${step.question.substring(0, 30)}...` : state;
   }
 
+  // ==================== EXTERNAL VALIDATION (3 RUTAS) ====================
+
+  /**
+   * Obtiene el next_state de una acción por su campo 'resultado'
+   */
+  getResultadoNextState(step: BotStep, resultado: string): string {
+    const action = step.actions.find(a => a.resultado === resultado);
+    return action?.next_state || '';
+  }
+
+  /**
+   * Asigna el next_state de una acción por su campo 'resultado'
+   */
+  setResultadoNextState(step: BotStep, resultado: string, nextState: string): void {
+    let action = step.actions.find(a => a.resultado === resultado);
+    if (action) {
+      action.next_state = nextState;
+    } else {
+      step.actions.push({ resultado, next_state: nextState });
+    }
+  }
+
+  /**
+   * Cuando se activa/desactiva external_validation, inicializa o limpia las 3 rutas
+   */
+  onExternalValidationToggle(step: BotStep): void {
+    if (step.validation?.external_validation) {
+      // Activado: crear 3 acciones con resultado
+      const resultados = ['apto', 'no_apto', 'no_encontrado'];
+      const existingActions = step.actions || [];
+      step.actions = resultados.map(r => {
+        const existing = existingActions.find(a => a.resultado === r);
+        return existing || { resultado: r, next_state: '' };
+      });
+    } else {
+      // Desactivado: volver a 1 acción simple
+      const firstNext = step.actions[0]?.next_state || '';
+      step.actions = [{ next_state: firstNext }];
+    }
+  }
+
   // ==================== PAN & ZOOM ====================
 
   startPan(event: MouseEvent): void {

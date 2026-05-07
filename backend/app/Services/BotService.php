@@ -403,7 +403,67 @@ class BotService
                     return;
                 }
 
-                $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+                // Si apunta directo a finished/nofinished/end_flow, terminar
+                if ($nextState === 'finished') {
+                    $this->updateState($conversation, $step['state'], $context);
+                    $this->finishFlow($conversation, true, 'DNI resultado: ' . $apiResult['resultado']);
+                    return;
+                }
+                if ($nextState === 'nofinished') {
+                    $this->updateState($conversation, $step['state'], $context);
+                    $this->finishFlow($conversation, false, 'DNI resultado: ' . $apiResult['resultado']);
+                    return;
+                }
+                if ($nextState === 'end_flow') {
+                    $this->updateState($conversation, $step['state'], $context);
+                    $this->endFlowSilently($conversation, 'DNI resultado: ' . $apiResult['resultado']);
+                    return;
+                }
+
+                // Si apunta a un paso intermedio (msg_apto, etc.), auto-enviar mensaje y auto-finalizar
+                $targetStep = $this->findStepByState($flow, $nextState);
+                if ($targetStep) {
+                    $isTerminalMessage = false;
+                    $finalState = null;
+
+                    // Verificar si el paso intermedio es solo un mensaje final (1 sola acción que apunta a terminar)
+                    if (in_array($targetStep['action_type'] ?? 'free_text', ['free_text', 'validated_input'])) {
+                        $finalState = $targetStep['actions'][0]['next_state'] ?? null;
+                        if (in_array($finalState, ['finished', 'nofinished', 'end_flow'])) {
+                            $isTerminalMessage = true;
+                        }
+                    }
+
+                    if ($isTerminalMessage) {
+                        // Es un mensaje final: enviarlo y cerrar el chat automáticamente
+                        $this->sendMessage($conversation->contact, $targetStep['question']);
+                        $this->updateState($conversation, $nextState, $context);
+                        
+                        if ($finalState === 'end_flow') {
+                            $this->endFlowSilently($conversation, 'DNI resultado: ' . $apiResult['resultado']);
+                        } else {
+                            $this->finishFlow($conversation, $finalState === 'finished', 'DNI resultado: ' . $apiResult['resultado'], true);
+                        }
+
+                        Log::info('BotService: Auto-advanced and ended after DNI validation', [
+                            'resultado'   => $apiResult['resultado'],
+                            'target_step' => $nextState,
+                            'final_state' => $finalState,
+                        ]);
+                    } else {
+                        // Es una pregunta real o el flujo continúa: avanzar y ESPERAR respuesta del usuario
+                        $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+                    }
+
+                    Log::info('BotService: Auto-advanced after DNI validation', [
+                        'resultado'   => $apiResult['resultado'],
+                        'target_step' => $nextState,
+                        'final_state' => $finalState,
+                    ]);
+                } else {
+                    // Paso no encontrado, usar routeToNextState normal
+                    $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+                }
                 return;
 
             } catch (\Exception $e) {
@@ -489,6 +549,13 @@ class BotService
             // El flujo determinó que NO califica
             $this->updateState($conversation, $currentStep['state'], $context);
             $this->finishFlow($conversation, false, "No cumple uno o más requisitos para el beneficio del club");
+            return;
+        }
+
+        if ($nextState === 'end_flow') {
+            // Terminar chat sin mensaje extra
+            $this->updateState($conversation, $currentStep['state'], $context);
+            $this->endFlowSilently($conversation, 'Finalizado por flujo');
             return;
         }
 
@@ -578,8 +645,9 @@ class BotService
 
     /**
      * Finalizar el flujo con resultado (califica / no califica para el club)
+     * @param bool $skipMessage Si true, no envía el mensaje hardcodeado (ya se envió desde el paso)
      */
-    private function finishFlow(BotConversation $conversation, bool $qualified, string $reason)
+    private function finishFlow(BotConversation $conversation, bool $qualified, string $reason, bool $skipMessage = false)
     {
         $context               = $conversation->context ?? [];
         $context['qualified']  = $qualified;
@@ -587,13 +655,18 @@ class BotService
 
         $this->updateState($conversation, self::STATE_FINISHED, $context);
 
-        if ($qualified) {
-            // CRM desactivado para este flujo
-            Log::info('BotService: Flow finished (CRM disabled)', [
-                'conversation_id' => $conversation->id,
-                'qualified'       => $qualified,
-            ]);
+        Log::info('BotService: Flow finished', [
+            'conversation_id' => $conversation->id,
+            'qualified'       => $qualified,
+            'skip_message'    => $skipMessage,
+        ]);
 
+        // Si ya se envió un mensaje personalizado desde el paso, no enviar el hardcodeado
+        if ($skipMessage) {
+            return;
+        }
+
+        if ($qualified) {
             $msg = "🎉 ¡Felicidades! Según tus respuestas, **SÍ TIENES ACCESO** a los beneficios del club. 🏆\n\n" .
                    "Un asesor revisará tus datos y te contactará pronto. ¡Estate atento!";
         } else {
@@ -603,6 +676,23 @@ class BotService
         }
 
         $this->sendMessage($conversation->contact, $msg);
+    }
+
+    /**
+     * Terminar el flujo silenciosamente (sin enviar mensaje hardcodeado)
+     * Se usa cuando el usuario configura "Terminar chat" como siguiente paso
+     */
+    private function endFlowSilently(BotConversation $conversation, string $reason): void
+    {
+        $context           = $conversation->context ?? [];
+        $context['reason'] = $reason;
+
+        $this->updateState($conversation, self::STATE_FINISHED, $context);
+
+        Log::info('BotService: Flow ended silently', [
+            'conversation_id' => $conversation->id,
+            'reason'          => $reason,
+        ]);
     }
 
     /**
