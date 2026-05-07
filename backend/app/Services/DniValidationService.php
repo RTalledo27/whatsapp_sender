@@ -46,8 +46,8 @@ class DniValidationService
                 'tiempo_ms'   => $tiempoMs,
             ]);
 
-            // HTTP 422 → no encontrado
-            if ($statusHttp === 422) {
+            // HTTP 422, 404, 400 → no encontrado
+            if (in_array($statusHttp, [422, 404, 400])) {
                 return [
                     'resultado'   => 'no_encontrado',
                     'status_http' => $statusHttp,
@@ -59,8 +59,17 @@ class DniValidationService
             if ($response->successful()) {
                 $body = $response->json();
 
+                // Caso especial: la API responde HTTP 200 pero el JSON indica que no fue encontrado o es inválido
+                if (isset($body['errors']) || (isset($body['message']) && str_contains(strtolower($body['message']), 'invalido'))) {
+                    return [
+                        'resultado'   => 'no_encontrado',
+                        'status_http' => $statusHttp,
+                        'tiempo_ms'   => $tiempoMs,
+                    ];
+                }
+
                 // El endpoint puede devolver el valor directamente o envuelto en un campo
-                $apiValue = is_array($body) ? ($body['status'] ?? $body['result'] ?? $body['data'] ?? $body) : $body;
+                $apiValue = is_array($body) ? ($body['is_value'] ?? $body['status'] ?? $body['result'] ?? $body['data'] ?? $body) : $body;
 
                 $resultado = Consulta::transformarResultado($apiValue);
 
