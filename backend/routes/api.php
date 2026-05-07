@@ -10,6 +10,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatbotConfigController;
 use App\Http\Controllers\CRMController;
+use App\Http\Controllers\ComercioController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -130,6 +131,17 @@ Route::middleware(['api', 'auth:api'])->group(function () {
             'template_name_empty' => empty($campaign->template_name),
             'template_parameters' => $campaign->template_parameters,
         ]);
+    });
+
+    // Comercios (gestión de comercios y teléfonos)
+    Route::prefix('comercios')->group(function () {
+        Route::get('/', [ComercioController::class, 'index']);
+        Route::post('/', [ComercioController::class, 'store']);
+        Route::get('/{id}', [ComercioController::class, 'show']);
+        Route::put('/{id}', [ComercioController::class, 'update']);
+        Route::delete('/{id}', [ComercioController::class, 'destroy']);
+        Route::post('/{id}/telefonos', [ComercioController::class, 'addTelefono']);
+        Route::delete('/{id}/telefonos/{telefonoId}', [ComercioController::class, 'removeTelefono']);
     });
 
     // Health check
