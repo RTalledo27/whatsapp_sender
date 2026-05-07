@@ -309,8 +309,7 @@
                         placeholder="Texto del botón">
                       <select [(ngModel)]="action.next_state" [disabled]="!isEditingStep" class="form-control">
                         <option value="">-- Siguiente paso --</option>
-                        <option value="finished">✅ Califica al club</option>
-                        <option value="nofinished">❌ No califica</option>
+                        <option value="end_flow">⏹️ Terminar chat</option>
                         <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                       </select>
                       <button *ngIf="isEditingStep" class="btn-icon-delete" (click)="removeButton(i)" [disabled]="selectedStep.actions.length <= 1">
@@ -328,8 +327,8 @@
                   </div>
                 </div>
 
-                <!-- ACCIONES: tipo FREE_TEXT o VALIDATED_INPUT (siguiente paso único) -->
-                <div class="form-section" *ngIf="isFreeTextType(selectedStep) || isValidatedType(selectedStep)">
+                <!-- ACCIONES: tipo FREE_TEXT (siguiente paso único siempre) -->
+                <div class="form-section" *ngIf="isFreeTextType(selectedStep)">
                   <label>Siguiente paso:</label>
                   <select
                     [ngModel]="getNonButtonNextState(selectedStep)"
@@ -337,10 +336,52 @@
                     [disabled]="!isEditingStep"
                     class="form-control">
                     <option value="">-- Seleccionar --</option>
-                    <option value="finished">✅ Califica al club</option>
-                    <option value="nofinished">❌ No califica</option>
+                    <option value="end_flow">⏹️ Terminar chat</option>
                     <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                   </select>
+                </div>
+
+                <!-- ACCIONES: tipo VALIDATED_INPUT sin external_validation (siguiente paso único) -->
+                <div class="form-section" *ngIf="isValidatedType(selectedStep) && !selectedStep.validation?.external_validation">
+                  <label>Siguiente paso:</label>
+                  <select
+                    [ngModel]="getNonButtonNextState(selectedStep)"
+                    (ngModelChange)="setNonButtonNextState(selectedStep, $event)"
+                    [disabled]="!isEditingStep"
+                    class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    <option value="end_flow">Terminar chat</option>
+                    <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                  </select>
+                </div>
+
+                <!-- ACCIONES: tipo VALIDATED_INPUT con external_validation (3 rutas por resultado) -->
+                <div class="form-section external-routes-section" *ngIf="isValidatedType(selectedStep) && selectedStep.validation?.external_validation">
+                  <label>🚦 Rutas según resultado del API:</label>
+                  <div class="external-routes">
+                    <div class="route-row route-apto">
+                      <span class="route-label">✅ APTO</span>
+                      <select [ngModel]="getResultadoNextState(selectedStep, 'apto')" (ngModelChange)="setResultadoNextState(selectedStep, 'apto', $event)" [disabled]="!isEditingStep" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                    <div class="route-row route-no-apto">
+                      <span class="route-label">❌ NO APTO</span>
+                      <select [ngModel]="getResultadoNextState(selectedStep, 'no_apto')" (ngModelChange)="setResultadoNextState(selectedStep, 'no_apto', $event)" [disabled]="!isEditingStep" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                    <div class="route-row route-no-encontrado">
+                      <span class="route-label">❓ NO ENCONTRADO</span>
+                      <select [ngModel]="getResultadoNextState(selectedStep, 'no_encontrado')" (ngModelChange)="setResultadoNextState(selectedStep, 'no_encontrado', $event)" [disabled]="!isEditingStep" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="hint-text">🔄 Cada resultado de la validación de DNI dirige a un paso diferente del flujo.</p>
                 </div>
 
                 <!-- VALIDACIÓN: solo para validated_input -->
@@ -360,6 +401,14 @@
                     <div class="form-row">
                       <label>Mensaje de error:</label>
                       <input type="text" [(ngModel)]="selectedStep.validation!.error_message" [disabled]="!isEditingStep" class="form-control" placeholder="Ej: DNI inválido. Debe tener 8 dígitos.">
+                    </div>
+                    <!-- Toggle de validación externa (solo para DNI) -->
+                    <div class="form-row" *ngIf="selectedStep.validation?.type === 'dni'">
+                      <label class="toggle-label">
+                        <input type="checkbox" [(ngModel)]="selectedStep.validation!.external_validation" [disabled]="!isEditingStep" (change)="onExternalValidationToggle(selectedStep)">
+                        <span>Validar contra API externa</span>
+                      </label>
+                      <p class="hint-text" *ngIf="selectedStep.validation?.external_validation">El bot consultará al endpoint de validación y dirigirá según el resultado (apto / no_apto / no_encontrado).</p>
                     </div>
                   </div>
                 </div>
@@ -391,8 +440,7 @@
                       <label>Siguiente paso:</label>
                       <select [(ngModel)]="selectedStep.actions[0].next_state" [disabled]="!isEditingStep" class="form-control">
                         <option value="">-- Seleccionar --</option>
-                        <option value="finished">✅ Califica al club</option>
-                        <option value="nofinished">❌ No califica</option>
+                        <option value="end_flow">⏹️ Terminar chat</option>
                         <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                       </select>
                     </div>
@@ -450,8 +498,7 @@
                       <input type="text" [(ngModel)]="action.title" class="form-control" placeholder="Texto del botón">
                       <select [(ngModel)]="action.next_state" class="form-control">
                         <option value="">-- Siguiente paso --</option>
-                        <option value="finished">✅ Califica al club</option>
-                        <option value="nofinished">❌ No califica</option>
+                        <option value="end_flow">⏹️ Terminar chat</option>
                         <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                       </select>
                       <button class="btn-icon-delete" (click)="removeNewQuestionButton(i)" [disabled]="newQuestion.actions.length <= 1">
@@ -469,18 +516,59 @@
                   </div>
                 </div>
 
-                <!-- ACCIONES: tipo FREE_TEXT o VALIDATED_INPUT -->
-                <div class="form-section" *ngIf="isFreeTextType(newQuestion) || isValidatedType(newQuestion)">
+                <!-- ACCIONES: tipo FREE_TEXT (siguiente paso único siempre) -->
+                <div class="form-section" *ngIf="isFreeTextType(newQuestion)">
                   <label>Siguiente paso:</label>
                   <select
                     [ngModel]="getNonButtonNextState(newQuestion)"
                     (ngModelChange)="setNonButtonNextState(newQuestion, $event)"
                     class="form-control">
                     <option value="">-- Seleccionar --</option>
-                    <option value="finished">✅ Califica al club</option>
-                    <option value="nofinished">❌ No califica</option>
+                    <option value="end_flow">⏹️ Terminar chat</option>
                     <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                   </select>
+                </div>
+
+                <!-- ACCIONES: tipo VALIDATED_INPUT sin external_validation -->
+                <div class="form-section" *ngIf="isValidatedType(newQuestion) && !newQuestion.validation?.external_validation">
+                  <label>Siguiente paso:</label>
+                  <select
+                    [ngModel]="getNonButtonNextState(newQuestion)"
+                    (ngModelChange)="setNonButtonNextState(newQuestion, $event)"
+                    class="form-control">
+                    <option value="">-- Seleccionar --</option>
+                    <option value="end_flow">Terminar chat</option>
+                    <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                  </select>
+                </div>
+
+                <!-- ACCIONES: tipo VALIDATED_INPUT con external_validation (3 rutas) -->
+                <div class="form-section external-routes-section" *ngIf="isValidatedType(newQuestion) && newQuestion.validation?.external_validation">
+                  <label>🚦 Rutas según resultado del API:</label>
+                  <div class="external-routes">
+                    <div class="route-row route-apto">
+                      <span class="route-label">✅ APTO</span>
+                      <select [ngModel]="getResultadoNextState(newQuestion, 'apto')" (ngModelChange)="setResultadoNextState(newQuestion, 'apto', $event)" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                    <div class="route-row route-no-apto">
+                      <span class="route-label">❌ NO APTO</span>
+                      <select [ngModel]="getResultadoNextState(newQuestion, 'no_apto')" (ngModelChange)="setResultadoNextState(newQuestion, 'no_apto', $event)" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                    <div class="route-row route-no-encontrado">
+                      <span class="route-label">❓ NO ENCONTRADO</span>
+                      <select [ngModel]="getResultadoNextState(newQuestion, 'no_encontrado')" (ngModelChange)="setResultadoNextState(newQuestion, 'no_encontrado', $event)" class="form-control">
+                        <option value="">-- Siguiente paso --</option>
+                        <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="hint-text">🔄 Cada resultado de la validación de DNI dirige a un paso diferente del flujo.</p>
                 </div>
 
                 <!-- VALIDACIÓN -->
@@ -500,6 +588,14 @@
                     <div class="form-row">
                       <label>Mensaje de error:</label>
                       <input type="text" [(ngModel)]="newQuestion.validation!.error_message" class="form-control" placeholder="Ej: Valor inválido. Intenta de nuevo.">
+                    </div>
+                    <!-- Toggle de validación externa (solo para DNI) -->
+                    <div class="form-row" *ngIf="newQuestion.validation?.type === 'dni'">
+                      <label class="toggle-label">
+                        <input type="checkbox" [(ngModel)]="newQuestion.validation!.external_validation" (change)="onExternalValidationToggle(newQuestion)">
+                        <span>Validar contra API externa</span>
+                      </label>
+                      <p class="hint-text" *ngIf="newQuestion.validation?.external_validation">El bot consultará al endpoint y dirigirá según resultado.</p>
                     </div>
                   </div>
                 </div>
@@ -529,8 +625,7 @@
                       <label>Siguiente paso:</label>
                       <select [(ngModel)]="newQuestion.actions[0].next_state" class="form-control">
                         <option value="">-- Seleccionar --</option>
-                        <option value="finished">✅ Califica al club</option>
-                        <option value="nofinished">❌ No califica</option>
+                        <option value="end_flow">Terminar chat</option>
                         <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                       </select>
                     </div>

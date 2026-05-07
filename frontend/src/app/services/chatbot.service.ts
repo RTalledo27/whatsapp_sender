@@ -13,6 +13,7 @@ export interface BotAction {
   title?: string;       // Para action_type = 'buttons'
   button_text?: string; // Para action_type = 'link_button'
   url?: string;         // Para action_type = 'link_button'
+  resultado?: string;   // Para validated_input con external_validation ('apto', 'no_apto', 'no_encontrado')
   next_state: string;
 }
 
@@ -20,6 +21,7 @@ export interface BotValidation {
   type: ValidationType;
   error_message?: string;
   regex_pattern?: string;
+  external_validation?: boolean;  // Para DNI: activar validación contra API externa
 }
 
 export interface BotStep {

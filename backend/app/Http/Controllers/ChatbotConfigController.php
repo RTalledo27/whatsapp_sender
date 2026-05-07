@@ -236,12 +236,14 @@ class ChatbotConfigController extends Controller
             'actions.*.id'          => 'sometimes|string',
             'actions.*.title'       => 'required_if_accepted:actions|string',
             'actions.*.next_state'  => 'required_if_accepted:actions|string',
+            'actions.*.resultado'   => 'sometimes|string',
 
             // Para action_type = validated_input
             'validation'                  => 'sometimes|array',
             'validation.type'             => 'required_with:validation|string|in:dni,phone,email,number,text,regex',
             'validation.error_message'    => 'sometimes|string',
             'validation.regex_pattern'    => 'sometimes|nullable|string',
+            'validation.external_validation' => 'sometimes|boolean',
 
             // Retrocompatibilidad legacy
             'buttons'              => 'sometimes|array',
@@ -281,11 +283,13 @@ class ChatbotConfigController extends Controller
             'actions.*.id'         => 'sometimes|string',
             'actions.*.title'      => 'sometimes|string',
             'actions.*.next_state' => 'sometimes|string',
+            'actions.*.resultado'  => 'sometimes|string',
 
             'validation'               => 'sometimes|array',
             'validation.type'          => 'sometimes|string|in:dni,phone,email,number,text,regex',
             'validation.error_message' => 'sometimes|string',
             'validation.regex_pattern' => 'sometimes|nullable|string',
+            'validation.external_validation' => 'sometimes|boolean',
 
             // Retrocompatibilidad legacy
             'buttons'             => 'sometimes|array',
@@ -330,8 +334,19 @@ class ChatbotConfigController extends Controller
             }
         } elseif (in_array($actionType, ['free_text', 'validated_input'])) {
             if ($request->has('actions')) {
-                // Solo guardar next_state para estos tipos
-                $step['actions'] = [['next_state' => $request->actions[0]['next_state'] ?? '']];
+                if ($actionType === 'validated_input' && ($request->validation['external_validation'] ?? false)) {
+                    $actions = [];
+                    foreach ($request->actions as $act) {
+                        $actions[] = [
+                            'resultado'  => $act['resultado'] ?? '',
+                            'next_state' => $act['next_state'] ?? '',
+                        ];
+                    }
+                    $step['actions'] = $actions;
+                } else {
+                    // Solo guardar next_state para estos tipos
+                    $step['actions'] = [['next_state' => $request->actions[0]['next_state'] ?? '']];
+                }
             }
             if ($actionType === 'validated_input' && $request->has('validation')) {
                 $step['validation'] = $request->validation;
@@ -452,11 +467,22 @@ class ChatbotConfigController extends Controller
                 $step['actions'] = [];
             }
         } elseif (in_array($actionType, ['free_text', 'validated_input'])) {
-            $nextState       = $request->actions[0]['next_state'] ?? '';
-            $step['actions'] = [['next_state' => $nextState]];
-
             if ($actionType === 'validated_input') {
                 $step['validation'] = $request->validation ?? ['type' => 'text'];
+            }
+
+            if ($actionType === 'validated_input' && ($step['validation']['external_validation'] ?? false)) {
+                $actions = [];
+                foreach ($request->actions ?? [] as $act) {
+                    $actions[] = [
+                        'resultado'  => $act['resultado'] ?? '',
+                        'next_state' => $act['next_state'] ?? '',
+                    ];
+                }
+                $step['actions'] = $actions;
+            } else {
+                $nextState       = $request->actions[0]['next_state'] ?? '';
+                $step['actions'] = [['next_state' => $nextState]];
             }
         } elseif ($actionType === 'link_button') {
             $action = $request->actions[0] ?? [];
