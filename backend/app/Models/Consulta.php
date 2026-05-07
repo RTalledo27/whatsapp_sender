@@ -52,11 +52,11 @@ class Consulta extends Model
      */
     public static function transformarResultado($apiResponse): string
     {
-        if ($apiResponse === true) {
+        if ($apiResponse === true || $apiResponse === 1 || $apiResponse === '1') {
             return 'apto';
         }
 
-        if ($apiResponse === false) {
+        if ($apiResponse === false || $apiResponse === 0 || $apiResponse === '0') {
             return 'no_apto';
         }
 

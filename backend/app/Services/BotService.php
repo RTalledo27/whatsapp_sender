@@ -878,18 +878,20 @@ class BotService
         try {
             Log::info("BotService: Attempting to send real message to {$contact->phone_number}: {$text}");
             $ws = new WhatsAppService($this->botPhoneNumberId);
-            $ws->sendMessage($contact->phone_number, $text);
+            $response = $ws->sendMessage($contact->phone_number, $text);
+            $wamid = $response['message_id'] ?? null;
 
             Message::create([
-                'contact_id'        => $contact->id,
-                'phone_number_id'   => $this->botPhoneNumberId,
-                'phone_number'      => $contact->phone_number,
-                'message'           => $text,
-                'message_content'   => $text,
-                'direction'         => 'outbound',
-                'status'            => 'sent',
-                'message_timestamp' => now(),
-                'message_type'      => 'text',
+                'contact_id'          => $contact->id,
+                'phone_number_id'     => $this->botPhoneNumberId,
+                'phone_number'        => $contact->phone_number,
+                'message'             => $text,
+                'message_content'     => $text,
+                'direction'           => 'outbound',
+                'status'              => 'sent',
+                'message_timestamp'   => now(),
+                'message_type'        => 'text',
+                'whatsapp_message_id' => $wamid,
             ]);
         } catch (\Exception $e) {
             Log::error("BotService: Error enviando mensaje real: " . $e->getMessage());
