@@ -19,6 +19,7 @@ export interface Comercio {
   id: number;
   nombre: string;
   estado: 'activo' | 'inactivo';
+  flow_id?: string;
   telefonos?: ComercioTelefono[];
   created_at?: string;
   updated_at?: string;

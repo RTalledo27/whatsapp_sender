@@ -46,6 +46,8 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   newComercioNombre = '';
   editComercioNombre = '';
   editComercioEstado: 'activo' | 'inactivo' = 'activo';
+  editComercioFlowId = '';
+  newComercioFlowId = '';
   isAddingTelefono = false;
   newTelefono = '';
   newTelefonoFlujo = 'normal';
@@ -618,11 +620,13 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.isAddingTelefono = false;
     this.editComercioNombre = comercio.nombre;
     this.editComercioEstado = comercio.estado;
+    this.editComercioFlowId = comercio.flow_id ?? '';
   }
 
   startAddComercio(): void {
     this.isAddingComercio = true;
     this.newComercioNombre = '';
+    this.newComercioFlowId = '';
     this.comercioError = '';
   }
 
@@ -637,11 +641,15 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       return;
     }
     this.comercioError = '';
-    this.comercioService.create({ nombre: this.newComercioNombre.trim() }).subscribe({
+    this.comercioService.create({
+      nombre: this.newComercioNombre.trim(),
+      flow_id: this.newComercioFlowId || undefined
+    } as any).subscribe({
       next: (comercio: Comercio) => {
         this.comercios.push(comercio);
         this.isAddingComercio = false;
         this.newComercioNombre = '';
+        this.newComercioFlowId = '';
         this.selectComercio(comercio);
       },
       error: (err: any) => {
@@ -655,6 +663,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.isEditingComercio = true;
     this.editComercioNombre = this.selectedComercio.nombre;
     this.editComercioEstado = this.selectedComercio.estado;
+    this.editComercioFlowId = this.selectedComercio.flow_id ?? '';
   }
 
   cancelEditComercio(): void {
@@ -666,8 +675,9 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.comercioError = '';
     this.comercioService.update(this.selectedComercio.id, {
       nombre: this.editComercioNombre.trim(),
-      estado: this.editComercioEstado
-    }).subscribe({
+      estado: this.editComercioEstado,
+      flow_id: this.editComercioFlowId || null
+    } as any).subscribe({
       next: (updated: Comercio) => {
         const idx = this.comercios.findIndex(c => c.id === updated.id);
         if (idx >= 0) { this.comercios[idx] = updated; }
@@ -742,6 +752,12 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   }
 
   // ==================== HELPERS ====================
+
+  getFlowName(flowId: string): string {
+    if (!flowId) return 'Sin asignar';
+    const flow = this.flows.find(f => f.id === flowId);
+    return flow ? flow.name : 'Flujo no encontrado';
+  }
 
   private deepClone<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
