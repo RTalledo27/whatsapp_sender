@@ -150,6 +150,9 @@ class ComercioController extends Controller
             'activo'     => $request->activo ?? true,
         ]);
 
+        // IMPORTANTE: Limpiar caché para que el bot reconozca este número inmediatamente
+        $this->comercioService->limpiarCache($telefono->telefono);
+
         Log::info('ComercioController: Teléfono agregado', [
             'comercio_id' => $comercio->id,
             'telefono'    => $telefono->telefono,

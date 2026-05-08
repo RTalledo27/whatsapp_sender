@@ -122,14 +122,27 @@ class BotService
         $comercio = $this->comercioService->detectarPorTelefono($senderPhone);
         if ($comercio) {
             $context = $conversation->context ?? [];
+
+            // Siempre actualizar flow_id del comercio (puede cambiar en cualquier momento)
+            $needsUpdate = false;
+
             if (empty($context['comercio_id'])) {
                 $context['comercio_id']     = $comercio->id;
                 $context['comercio_nombre'] = $comercio->nombre;
                 $context['tipo_flujo']      = $this->comercioService->getTipoFlujo($senderPhone);
-                $context['flow_id']         = $comercio->flow_id;
+                $needsUpdate = true;
+            }
+
+            // Siempre sincronizar flow_id (por si se cambió desde el panel)
+            if (($context['flow_id'] ?? null) !== $comercio->flow_id) {
+                $context['flow_id'] = $comercio->flow_id;
+                $needsUpdate = true;
+            }
+
+            if ($needsUpdate) {
                 $this->updateState($conversation, $conversation->state, $context);
                 $conversation->refresh();
-                Log::info('BotService: Comercio detectado por número de remitente', [
+                Log::info('BotService: Comercio detectado/actualizado', [
                     'comercio_id'     => $comercio->id,
                     'comercio_nombre' => $comercio->nombre,
                     'sender_phone'    => $senderPhone,
