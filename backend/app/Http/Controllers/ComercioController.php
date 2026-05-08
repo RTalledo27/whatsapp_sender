@@ -34,8 +34,9 @@ class ComercioController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nombre' => 'required|string|max:255',
-            'estado' => 'sometimes|in:activo,inactivo',
+            'nombre'  => 'required|string|max:255',
+            'estado'  => 'sometimes|in:activo,inactivo',
+            'flow_id' => 'sometimes|nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -43,8 +44,9 @@ class ComercioController extends Controller
         }
 
         $comercio = Comercio::create([
-            'nombre' => $request->nombre,
-            'estado' => $request->estado ?? 'activo',
+            'nombre'  => $request->nombre,
+            'estado'  => $request->estado ?? 'activo',
+            'flow_id' => $request->flow_id,
         ]);
 
         Log::info('ComercioController: Comercio creado', [
@@ -73,15 +75,16 @@ class ComercioController extends Controller
         $comercio = Comercio::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'nombre' => 'sometimes|string|max:255',
-            'estado' => 'sometimes|in:activo,inactivo',
+            'nombre'  => 'sometimes|string|max:255',
+            'estado'  => 'sometimes|in:activo,inactivo',
+            'flow_id' => 'sometimes|nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $comercio->update($request->only(['nombre', 'estado']));
+        $comercio->update($request->only(['nombre', 'estado', 'flow_id']));
 
         // Limpiar caché de los teléfonos asociados
         $this->comercioService->limpiarCacheComercio($comercio);

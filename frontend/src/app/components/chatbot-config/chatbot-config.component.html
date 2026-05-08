@@ -309,7 +309,7 @@
                         placeholder="Texto del botón">
                       <select [(ngModel)]="action.next_state" [disabled]="!isEditingStep" class="form-control">
                         <option value="">-- Siguiente paso --</option>
-                        <option value="end_flow">⏹️ Terminar chat</option>
+                        <option value="end_flow">Terminar chat</option>
                         <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                       </select>
                       <button *ngIf="isEditingStep" class="btn-icon-delete" (click)="removeButton(i)" [disabled]="selectedStep.actions.length <= 1">
@@ -336,7 +336,7 @@
                     [disabled]="!isEditingStep"
                     class="form-control">
                     <option value="">-- Seleccionar --</option>
-                    <option value="end_flow">⏹️ Terminar chat</option>
+                    <option value="end_flow">Terminar chat</option>
                     <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
                   </select>
                 </div>
@@ -846,6 +846,14 @@
           <label>Nombre del Comercio:</label>
           <input type="text" [(ngModel)]="newComercioNombre" placeholder="Ej: Farmacia San José" class="form-control">
         </div>
+        <div class="form-group">
+          <label>Flujo de Chatbot:</label>
+          <select [(ngModel)]="newComercioFlowId" class="form-control">
+            <option value="">-- Flujo por defecto --</option>
+            <option *ngFor="let flow of flows" [value]="flow.id">{{ flow.name }}</option>
+          </select>
+          <small class="form-hint">Selecciona el flujo conversacional que usará este comercio</small>
+        </div>
         <div class="modal-actions">
           <button class="btn-secondary" (click)="cancelAddComercio()">Cancelar</button>
           <button class="btn-primary" (click)="saveNewComercio()">Crear Comercio</button>
@@ -905,6 +913,12 @@
               <span class="status-badge" [class.active]="selectedComercio.estado === 'activo'" [class.inactive]="selectedComercio.estado === 'inactivo'">
                 {{ selectedComercio.estado }}
               </span>
+              <span class="flujo-badge" *ngIf="selectedComercio.flow_id">
+                🤖 {{ getFlowName(selectedComercio.flow_id) }}
+              </span>
+              <span class="flujo-badge" *ngIf="!selectedComercio.flow_id" style="opacity: 0.5;">
+                Flujo por defecto
+              </span>
             </div>
             <button class="btn-secondary" (click)="startEditComercio()" *ngIf="!isEditingComercio">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -927,6 +941,14 @@
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
               </select>
+            </div>
+            <div class="form-row">
+              <label>Flujo de Chatbot:</label>
+              <select [(ngModel)]="editComercioFlowId" class="form-control">
+                <option value="">-- Flujo por defecto --</option>
+                <option *ngFor="let flow of flows" [value]="flow.id">{{ flow.name }}</option>
+              </select>
+              <small class="form-hint">Determina qué flujo conversacional usará el bot para este comercio</small>
             </div>
             <div class="form-actions">
               <button class="btn-secondary" (click)="cancelEditComercio()">Cancelar</button>

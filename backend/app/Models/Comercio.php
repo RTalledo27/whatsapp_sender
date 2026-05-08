@@ -15,6 +15,7 @@ class Comercio extends Model
     protected $fillable = [
         'nombre',
         'estado',
+        'flow_id',
     ];
 
     /**

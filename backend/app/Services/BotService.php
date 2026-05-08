@@ -77,11 +77,23 @@ class BotService
     /**
      * Obtener el flujo activo (el primero por ahora)
      */
-    private function getActiveFlow()
+    private function getActiveFlow(?string $flowId = null)
     {
         if (empty($this->flows)) {
             return null;
         }
+
+        // Si se especifica un flow_id, buscar ese flujo
+        if ($flowId) {
+            foreach ($this->flows as $flow) {
+                if (($flow['id'] ?? '') === $flowId) {
+                    return $flow;
+                }
+            }
+            Log::warning('BotService: Flow not found by ID, using default', ['flow_id' => $flowId]);
+        }
+
+        // Fallback: el primer flujo
         return $this->flows[0] ?? null;
     }
 
@@ -114,12 +126,14 @@ class BotService
                 $context['comercio_id']     = $comercio->id;
                 $context['comercio_nombre'] = $comercio->nombre;
                 $context['tipo_flujo']      = $this->comercioService->getTipoFlujo($senderPhone);
+                $context['flow_id']         = $comercio->flow_id;
                 $this->updateState($conversation, $conversation->state, $context);
                 $conversation->refresh();
                 Log::info('BotService: Comercio detectado por número de remitente', [
                     'comercio_id'     => $comercio->id,
                     'comercio_nombre' => $comercio->nombre,
                     'sender_phone'    => $senderPhone,
+                    'flow_id'         => $comercio->flow_id,
                 ]);
             }
         }
@@ -139,13 +153,16 @@ class BotService
 
         Log::info("BotService: Processing message for state: {$conversation->state}");
 
+        // Obtener el flow_id del contexto (asignado por comercio o null)
+        $flowId = $conversation->context['flow_id'] ?? null;
+
         try {
             if ($conversation->state === self::STATE_INITIAL) {
-                Log::info("BotService: Starting flow");
-                $this->startFlow($conversation);
+                Log::info("BotService: Starting flow", ['flow_id' => $flowId]);
+                $this->startFlow($conversation, $flowId);
             } else {
-                Log::info("BotService: Processing step");
-                $this->processStep($conversation, $message);
+                Log::info("BotService: Processing step", ['flow_id' => $flowId]);
+                $this->processStep($conversation, $message, $flowId);
             }
         } catch (\Exception $e) {
             Log::error('Error in BotService', [
@@ -186,9 +203,9 @@ class BotService
     /**
      * Iniciar el flujo del bot con el primer paso
      */
-    private function startFlow(BotConversation $conversation)
+    private function startFlow(BotConversation $conversation, ?string $flowId = null)
     {
-        $flow = $this->getActiveFlow();
+        $flow = $this->getActiveFlow($flowId);
 
         if (!$flow || empty($flow['steps'])) {
             $this->sendMessage($conversation->contact, "Lo siento, el servicio no está disponible en este momento.");
@@ -196,16 +213,16 @@ class BotService
         }
 
         $firstStep = $flow['steps'][0];
-        $this->updateState($conversation, $firstStep['state'], ['retries' => 0]);
+        $this->updateState($conversation, $firstStep['state'], ['retries' => 0, 'flow_id' => $flowId]);
         $this->dispatchStep($conversation->contact, $firstStep);
     }
 
     /**
      * Procesar el paso actual según el estado de la conversación
      */
-    private function processStep(BotConversation $conversation, Message $message)
+    private function processStep(BotConversation $conversation, Message $message, ?string $flowId = null)
     {
-        $flow = $this->getActiveFlow();
+        $flow = $this->getActiveFlow($flowId);
         if (!$flow) {
             $this->sendMessage($conversation->contact, "Error: Configuración no disponible.");
             return;
@@ -660,22 +677,6 @@ class BotService
             'qualified'       => $qualified,
             'skip_message'    => $skipMessage,
         ]);
-
-        // Si ya se envió un mensaje personalizado desde el paso, no enviar el hardcodeado
-        if ($skipMessage) {
-            return;
-        }
-
-        if ($qualified) {
-            $msg = "🎉 ¡Felicidades! Según tus respuestas, **SÍ TIENES ACCESO** a los beneficios del club. 🏆\n\n" .
-                   "Un asesor revisará tus datos y te contactará pronto. ¡Estate atento!";
-        } else {
-            $msg = "Gracias por completar las preguntas. 😊\n\n" .
-                   "Según tus respuestas, lamentablemente **NO CUMPLES** los requisitos para acceder a los beneficios del club en este momento.\n\n" .
-                   "Si necesitas orientación, nuestros asesores están disponibles para ayudarte. 🏆";
-        }
-
-        $this->sendMessage($conversation->contact, $msg);
     }
 
     /**
