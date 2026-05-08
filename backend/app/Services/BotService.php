@@ -79,7 +79,10 @@ class BotService
      */
     private function getActiveFlow(?string $flowId = null)
     {
+        Log::info('BotService: getActiveFlow called', ['requested_flow_id' => $flowId, 'total_flows_loaded' => count($this->flows)]);
+
         if (empty($this->flows)) {
+            Log::error('BotService: No flows available in memory!');
             return null;
         }
 
@@ -87,13 +90,15 @@ class BotService
         if ($flowId) {
             foreach ($this->flows as $flow) {
                 if (($flow['id'] ?? '') === $flowId) {
+                    Log::info('BotService: Flow matched successfully', ['flow_id' => $flowId, 'flow_name' => $flow['name'] ?? 'Unknown']);
                     return $flow;
                 }
             }
-            Log::warning('BotService: Flow not found by ID, using default', ['flow_id' => $flowId]);
+            Log::warning('BotService: Flow not found by ID, using default', ['requested_flow_id' => $flowId, 'available_flow_ids' => array_column($this->flows, 'id')]);
         }
 
         // Fallback: el primer flujo
+        Log::info('BotService: Using default flow', ['default_flow_id' => $this->flows[0]['id'] ?? 'Unknown']);
         return $this->flows[0] ?? null;
     }
 
@@ -119,14 +124,23 @@ class BotService
 
         // Detectar comercio por el número del remitente (quien escribe)
         $senderPhone = $contact->phone_number;
+        Log::info("BotService: Incoming message from phone", ['raw_sender_phone' => $senderPhone]);
+
         $comercio = $this->comercioService->detectarPorTelefono($senderPhone);
         if ($comercio) {
+            Log::info("BotService: Comercio object detected via ComercioService", [
+                'comercio_id' => $comercio->id,
+                'comercio_nombre' => $comercio->nombre,
+                'comercio_flow_id' => $comercio->flow_id
+            ]);
+
             $context = $conversation->context ?? [];
 
             // Siempre actualizar flow_id del comercio (puede cambiar en cualquier momento)
             $needsUpdate = false;
 
             if (empty($context['comercio_id'])) {
+                Log::info("BotService: Setting initial comercio_id in context");
                 $context['comercio_id']     = $comercio->id;
                 $context['comercio_nombre'] = $comercio->nombre;
                 $context['tipo_flujo']      = $this->comercioService->getTipoFlujo($senderPhone);
@@ -135,6 +149,10 @@ class BotService
 
             // Siempre sincronizar flow_id (por si se cambió desde el panel)
             if (($context['flow_id'] ?? null) !== $comercio->flow_id) {
+                Log::info("BotService: Syncing flow_id in context", [
+                    'old_flow_id' => $context['flow_id'] ?? null,
+                    'new_flow_id' => $comercio->flow_id
+                ]);
                 $context['flow_id'] = $comercio->flow_id;
                 $needsUpdate = true;
             }
@@ -142,13 +160,12 @@ class BotService
             if ($needsUpdate) {
                 $this->updateState($conversation, $conversation->state, $context);
                 $conversation->refresh();
-                Log::info('BotService: Comercio detectado/actualizado', [
-                    'comercio_id'     => $comercio->id,
-                    'comercio_nombre' => $comercio->nombre,
-                    'sender_phone'    => $senderPhone,
-                    'flow_id'         => $comercio->flow_id,
+                Log::info('BotService: Context updated successfully in DB', [
+                    'final_context' => $conversation->context
                 ]);
             }
+        } else {
+            Log::info("BotService: No comercio detected for this phone number.");
         }
 
         // Reiniciar si el usuario escribe hola/reset
