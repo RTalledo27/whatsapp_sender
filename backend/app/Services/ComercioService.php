@@ -18,10 +18,12 @@ class ComercioService
      */
     public function detectarPorTelefono(string $phoneNumberId): ?Comercio
     {
-        $cacheKey = "comercio_telefono_{$phoneNumberId}";
+        // Normalizar número quitando el símbolo '+' si lo tiene
+        $normalizedPhone = ltrim($phoneNumberId, '+');
+        $cacheKey = "comercio_telefono_{$normalizedPhone}";
 
-        return Cache::remember($cacheKey, 300, function () use ($phoneNumberId) {
-            $telefono = ComercioTelefono::where('telefono', $phoneNumberId)
+        return Cache::remember($cacheKey, 300, function () use ($normalizedPhone) {
+            $telefono = ComercioTelefono::where('telefono', $normalizedPhone)
                 ->where('activo', true)
                 ->first();
 
@@ -53,7 +55,9 @@ class ComercioService
      */
     public function getTipoFlujo(string $phoneNumberId): string
     {
-        $telefono = ComercioTelefono::where('telefono', $phoneNumberId)
+        $normalizedPhone = ltrim($phoneNumberId, '+');
+
+        $telefono = ComercioTelefono::where('telefono', $normalizedPhone)
             ->where('activo', true)
             ->first();
 
