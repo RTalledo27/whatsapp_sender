@@ -135,9 +135,8 @@ class BotService
             ]);
 
             $context = $conversation->context ?? [];
-
-            // Siempre actualizar flow_id del comercio (puede cambiar en cualquier momento)
             $needsUpdate = false;
+            $needsRestart = false;
 
             if (empty($context['comercio_id'])) {
                 Log::info("BotService: Setting initial comercio_id in context");
@@ -155,17 +154,38 @@ class BotService
                 ]);
                 $context['flow_id'] = $comercio->flow_id;
                 $needsUpdate = true;
+                $needsRestart = true; // El flujo cambió, hay que reiniciar la conversación
             }
 
             if ($needsUpdate) {
-                $this->updateState($conversation, $conversation->state, $context);
+                $newState = $needsRestart ? self::STATE_INITIAL : $conversation->state;
+                $this->updateState($conversation, $newState, $context);
                 $conversation->refresh();
                 Log::info('BotService: Context updated successfully in DB', [
-                    'final_context' => $conversation->context
+                    'final_context' => $conversation->context,
+                    'state_restarted' => $needsRestart
                 ]);
             }
         } else {
             Log::info("BotService: No comercio detected for this phone number.");
+            $context = $conversation->context ?? [];
+            if (isset($context['flow_id']) || isset($context['comercio_id'])) {
+                Log::info("BotService: Phone is no longer a comercio, clearing context and resetting state.");
+                unset($context['comercio_id'], $context['comercio_nombre'], $context['tipo_flujo'], $context['flow_id']);
+                
+                // Limpiar el array completamente de esos keys
+                $cleanContext = [];
+                foreach($context as $k => $v) {
+                    if (!in_array($k, ['comercio_id', 'comercio_nombre', 'tipo_flujo', 'flow_id'])) {
+                        $cleanContext[$k] = $v;
+                    }
+                }
+
+                $conversation->state = self::STATE_INITIAL;
+                $conversation->context = $cleanContext;
+                $conversation->save();
+                $conversation->refresh();
+            }
         }
 
         // Reiniciar si el usuario escribe hola/reset
