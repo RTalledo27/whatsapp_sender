@@ -4,3 +4,5 @@
 .env.backup
 storage/*.key
 *.log
+storage/app/public/outgoing-media/
+public/storage/outgoing-media
