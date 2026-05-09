@@ -46,7 +46,7 @@ import { ChannelService, Channel } from './services/channel.service';
           </button>
         </div>
         <ul class="nav-menu">
-          <li>
+          <li *ngIf="hasAccessTo('dashboard')">
             <a routerLink="/dashboard" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="3" y1="20" x2="21" y2="20"/>
@@ -57,7 +57,7 @@ import { ChannelService, Channel } from './services/channel.service';
               <span>Dashboard</span>
             </a>
           </li>
-          <li>
+          <li *ngIf="hasAccessTo('contacts')">
             <a routerLink="/contacts" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -68,7 +68,7 @@ import { ChannelService, Channel } from './services/channel.service';
               <span>Contactos</span>
             </a>
           </li>
-          <li>
+          <li *ngIf="hasAccessTo('campaigns')">
             <a routerLink="/campaigns" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -78,16 +78,16 @@ import { ChannelService, Channel } from './services/channel.service';
             </a>
           </li>
 
-          <li>
-            <a routerLink="/conversations" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
+          <li *ngIf="shouldShowConversationsAndNotes() && hasAccessTo('conversations')">
+            <a routerLink="/conversations" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
               <span>Conversaciones</span>
             </a>
           </li>
-          <li>
-            <a routerLink="/chatbot-config" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
+          <li *ngIf="shouldShowConversationsAndNotes() && hasAccessTo('chatbot-config')">
+            <a routerLink="/chatbot-config" routerLinkActive="active">
               <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="4" y="8" width="16" height="12" rx="2"/>
                 <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -100,8 +100,8 @@ import { ChannelService, Channel } from './services/channel.service';
               <span>Chatbot</span>
             </a>
           </li>
-          <li>
-            <a routerLink="/notes" routerLinkActive="active" *ngIf="shouldShowConversationsAndNotes()">
+          <li *ngIf="shouldShowConversationsAndNotes() && hasAccessTo('notes')">
+            <a routerLink="/notes" routerLinkActive="active">
                <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                  <rect x="4" y="4" width="16" height="16" rx="2"/>
                  <line x1="8" y1="10" x2="16" y2="10"/>
@@ -672,6 +672,7 @@ export class AppComponent implements OnInit {
   isLoginRoute = false;
   currentTheme: 'light' | 'dark' = 'light';
   showLogoutModal = false;
+  currentUser: any = null;
 
   constructor(
     private themeService: ThemeService,
@@ -708,6 +709,14 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Inicializar el usuario desde el almacenamiento local
+    this.currentUser = this.authService.getCurrentUser();
+
+    // Si el usuario está autenticado, refrescar sus datos (y permisos) desde el backend
+    if (this.authService.isAuthenticated()) {
+      this.authService.refreshUser().subscribe();
+    }
+
     // Inicializar canales desde el servicio
     this.channels = this.channelService.getChannels();
     this.selectedChannel = this.channelService.getSelectedChannel();
@@ -725,6 +734,18 @@ export class AppComponent implements OnInit {
     this.themeService.theme$.subscribe(theme => {
       this.currentTheme = theme;
       console.log('AppComponent tema actualizado:', theme);
+      this.cdr.markForCheck();
+    });
+
+    // Suscribirse a cambios del usuario autenticado (para actualizar permisos en tiempo real)
+    this.authService.currentUser$.subscribe(user => {
+      if (user && user.id) {
+        this.currentUser = user;
+      } else {
+        // Si el observable emite algo sin id (como el estado inicial {token}), 
+        // volvemos a intentar leer del localStorage por si acaso
+        this.currentUser = this.authService.getCurrentUser();
+      }
       this.cdr.markForCheck();
     });
 
@@ -764,7 +785,20 @@ export class AppComponent implements OnInit {
   }
 
   isAdmin(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user && user.role === 'admin';
+    return this.currentUser && this.currentUser.role === 'admin';
+  }
+
+  hasAccessTo(componentName: string): boolean {
+    if (!this.currentUser) return false;
+    
+    // Los administradores siempre ven todos los módulos
+    if (this.currentUser.role === 'admin') return true;
+
+    // Si no tiene la configuración `visible_components` definida, por defecto mostrar todo
+    if (!this.currentUser.visible_components || !Array.isArray(this.currentUser.visible_components)) {
+      return true;
+    }
+
+    return this.currentUser.visible_components.includes(componentName);
   }
 }

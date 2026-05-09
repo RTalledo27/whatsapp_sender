@@ -25,6 +25,7 @@ class UserController extends Controller
             'role' => 'required|in:admin,user',
             'phone_number_id' => 'nullable|string',
             'phone_number_name' => 'nullable|string',
+            'visible_components' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -41,6 +42,7 @@ class UserController extends Controller
             'role' => $request->role,
             'phone_number_id' => $request->phone_number_id,
             'phone_number_name' => $request->phone_number_name,
+            'visible_components' => $request->visible_components,
         ]);
 
         return response()->json([
@@ -58,6 +60,7 @@ class UserController extends Controller
             'role' => 'sometimes|in:admin,user',
             'phone_number_id' => 'nullable|string',
             'phone_number_name' => 'nullable|string',
+            'visible_components' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -67,7 +70,7 @@ class UserController extends Controller
             ], 422);
         }
 
-        $data = $request->only(['name', 'email', 'role', 'phone_number_id', 'phone_number_name']);
+        $data = $request->only(['name', 'email', 'role', 'phone_number_id', 'phone_number_name', 'visible_components']);
         
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);

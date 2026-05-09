@@ -15,6 +15,7 @@ export class UsersComponent implements OnInit {
   users: User[] = [];
   loading = false;
   showModal = false;
+  showConfigModal = false;
   isEditing = false;
   availableNumbers: any[] = [];
 
@@ -24,8 +25,20 @@ export class UsersComponent implements OnInit {
     password: '',
     role: 'user',
     phone_number_id: null,
-    phone_number_name: null
+    phone_number_name: null,
+    visible_components: null
   };
+
+  currentConfigUser: User | null = null;
+  availableComponents = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'contacts', label: 'Contactos' },
+    { id: 'campaigns', label: 'Campañas' },
+    { id: 'conversations', label: 'Conversaciones' },
+    { id: 'chatbot-config', label: 'Chatbot' },
+    { id: 'notes', label: 'Notas' }
+  ];
+  selectedComponents: string[] = [];
 
   constructor(
     private userService: UserService,
@@ -70,7 +83,8 @@ export class UsersComponent implements OnInit {
       password: '',
       role: 'user',
       phone_number_id: null,
-      phone_number_name: null
+      phone_number_name: null,
+      visible_components: null
     };
     this.showModal = true;
   }
@@ -139,5 +153,51 @@ export class UsersComponent implements OnInit {
 
   getRoleBadgeClass(role: string): string {
     return role === 'admin' ? 'badge-admin' : 'badge-user';
+  }
+
+  openConfigModal(user: User) {
+    this.currentConfigUser = user;
+    if (user.visible_components && Array.isArray(user.visible_components)) {
+      this.selectedComponents = [...user.visible_components];
+    } else {
+      this.selectedComponents = this.availableComponents.map(c => c.id);
+    }
+    this.showConfigModal = true;
+  }
+
+  closeConfigModal() {
+    this.showConfigModal = false;
+    this.currentConfigUser = null;
+  }
+
+  isComponentVisible(id: string): boolean {
+    return this.selectedComponents.includes(id);
+  }
+
+  toggleComponent(id: string, event: Event) {
+    const isChecked = (event.target as HTMLInputElement).checked;
+    if (isChecked) {
+      if (!this.selectedComponents.includes(id)) {
+        this.selectedComponents.push(id);
+      }
+    } else {
+      this.selectedComponents = this.selectedComponents.filter(c => c !== id);
+    }
+  }
+
+  saveConfig() {
+    if (this.currentConfigUser) {
+      const updateData = { visible_components: this.selectedComponents };
+      this.userService.updateUser(this.currentConfigUser.id, updateData).subscribe({
+        next: () => {
+          this.loadUsers();
+          this.closeConfigModal();
+        },
+        error: (error) => {
+          console.error('Error updating config:', error);
+          alert('Error al guardar la configuración');
+        }
+      });
+    }
   }
 }
