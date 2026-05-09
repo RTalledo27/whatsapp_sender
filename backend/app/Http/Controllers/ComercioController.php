@@ -136,8 +136,11 @@ class ComercioController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Normalizar el teléfono antes de guardar y buscar
+        $telefonoNormalizado = \App\Helpers\PhoneHelper::normalize($request->telefono);
+
         // Verificar que el teléfono no esté ya asignado a otro comercio
-        $existente = ComercioTelefono::where('telefono', $request->telefono)->first();
+        $existente = ComercioTelefono::where('telefono', $telefonoNormalizado)->first();
         if ($existente) {
             return response()->json([
                 'error' => 'Este número ya está asignado al comercio: ' . $existente->comercio->nombre,
@@ -145,13 +148,13 @@ class ComercioController extends Controller
         }
 
         $telefono = $comercio->telefonos()->create([
-            'telefono'   => $request->telefono,
+            'telefono'   => $telefonoNormalizado,
             'tipo_flujo' => $request->tipo_flujo ?? 'normal',
             'activo'     => $request->activo ?? true,
         ]);
 
         // IMPORTANTE: Limpiar caché para que el bot reconozca este número inmediatamente
-        $this->comercioService->limpiarCache($telefono->telefono);
+        $this->comercioService->limpiarCache($telefonoNormalizado);
 
         Log::info('ComercioController: Teléfono agregado', [
             'comercio_id' => $comercio->id,

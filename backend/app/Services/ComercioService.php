@@ -16,12 +16,13 @@ class ComercioService
      * @param string $phoneNumberId  El phone_number_id del webhook de WhatsApp
      * @return Comercio|null
      */
-    public function detectarPorTelefono(string $phoneNumberId): ?Comercio
+    public function detectarPorTelefono(string $phoneNumber): ?Comercio
     {
-        $cacheKey = "comercio_telefono_{$phoneNumberId}";
+        $phoneNumber = \App\Helpers\PhoneHelper::normalize($phoneNumber);
+        $cacheKey = "comercio_telefono_{$phoneNumber}";
 
-        return Cache::remember($cacheKey, 300, function () use ($phoneNumberId) {
-            $telefono = ComercioTelefono::where('telefono', $phoneNumberId)
+        return Cache::remember($cacheKey, 300, function () use ($phoneNumber) {
+            $telefono = ComercioTelefono::where('telefono', $phoneNumber)
                 ->where('activo', true)
                 ->first();
 
@@ -38,7 +39,7 @@ class ComercioService
             Log::info('ComercioService: Comercio detectado', [
                 'comercio_id'     => $comercio->id,
                 'comercio_nombre' => $comercio->nombre,
-                'phone_number_id' => $phoneNumberId,
+                'phone_number'    => $phoneNumber,
             ]);
 
             return $comercio;
@@ -48,12 +49,13 @@ class ComercioService
     /**
      * Obtener el tipo de flujo configurado para un phone_number_id.
      *
-     * @param string $phoneNumberId
+     * @param string $phoneNumber
      * @return string  'normal' por defecto
      */
-    public function getTipoFlujo(string $phoneNumberId): string
+    public function getTipoFlujo(string $phoneNumber): string
     {
-        $telefono = ComercioTelefono::where('telefono', $phoneNumberId)
+        $phoneNumber = \App\Helpers\PhoneHelper::normalize($phoneNumber);
+        $telefono = ComercioTelefono::where('telefono', $phoneNumber)
             ->where('activo', true)
             ->first();
 
@@ -64,11 +66,12 @@ class ComercioService
      * Limpiar caché de detección para un phone_number_id específico.
      * Llamar cuando se modifica un comercio o sus teléfonos.
      *
-     * @param string $phoneNumberId
+     * @param string $phoneNumber
      */
-    public function limpiarCache(string $phoneNumberId): void
+    public function limpiarCache(string $phoneNumber): void
     {
-        Cache::forget("comercio_telefono_{$phoneNumberId}");
+        $phoneNumber = \App\Helpers\PhoneHelper::normalize($phoneNumber);
+        Cache::forget("comercio_telefono_{$phoneNumber}");
     }
 
     /**

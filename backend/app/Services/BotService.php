@@ -171,20 +171,19 @@ class BotService
             $context = $conversation->context ?? [];
             if (isset($context['flow_id']) || isset($context['comercio_id'])) {
                 Log::info("BotService: Phone is no longer a comercio, clearing context and resetting state.");
-                unset($context['comercio_id'], $context['comercio_nombre'], $context['tipo_flujo'], $context['flow_id']);
                 
-                // Limpiar el array completamente de esos keys
-                $cleanContext = [];
-                foreach($context as $k => $v) {
-                    if (!in_array($k, ['comercio_id', 'comercio_nombre', 'tipo_flujo', 'flow_id'])) {
-                        $cleanContext[$k] = $v;
-                    }
-                }
+                // Limpiar el contexto de datos de comercio, manteniendo solo lo esencial
+                $cleanContext = [
+                    'retries' => 0,
+                    'last_comercio_id' => $context['comercio_id'] ?? null // Guardar como historial si fuera necesario
+                ];
 
+                // Forzar el reinicio al flujo inicial (que será el de cliente por defecto)
                 $conversation->state = self::STATE_INITIAL;
                 $conversation->context = $cleanContext;
                 $conversation->save();
                 $conversation->refresh();
+                Log::info('BotService: Conversation reset to INITIAL (Client flow) because commerce link was removed.');
             }
         }
 
