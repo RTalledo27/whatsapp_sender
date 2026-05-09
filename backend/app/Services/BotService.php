@@ -493,50 +493,9 @@ class BotService
                     return;
                 }
 
-                // Si apunta a un paso intermedio (msg_apto, etc.), auto-enviar mensaje y auto-finalizar
-                $targetStep = $this->findStepByState($flow, $nextState);
-                if ($targetStep) {
-                    $isTerminalMessage = false;
-                    $finalState = null;
-
-                    // Verificar si el paso intermedio es solo un mensaje final (1 sola acción que apunta a terminar)
-                    if (in_array($targetStep['action_type'] ?? 'free_text', ['free_text', 'validated_input'])) {
-                        $finalState = $targetStep['actions'][0]['next_state'] ?? null;
-                        if (in_array($finalState, ['finished', 'nofinished', 'end_flow'])) {
-                            $isTerminalMessage = true;
-                        }
-                    }
-
-                    if ($isTerminalMessage) {
-                        // Es un mensaje final: enviarlo y cerrar el chat automáticamente
-                        $this->sendMessage($conversation->contact, $targetStep['question']);
-                        $this->updateState($conversation, $nextState, $context);
-                        
-                        if ($finalState === 'end_flow') {
-                            $this->endFlowSilently($conversation, 'DNI resultado: ' . $apiResult['resultado']);
-                        } else {
-                            $this->finishFlow($conversation, $finalState === 'finished', 'DNI resultado: ' . $apiResult['resultado'], true);
-                        }
-
-                        Log::info('BotService: Auto-advanced and ended after DNI validation', [
-                            'resultado'   => $apiResult['resultado'],
-                            'target_step' => $nextState,
-                            'final_state' => $finalState,
-                        ]);
-                    } else {
-                        // Es una pregunta real o el flujo continúa: avanzar y ESPERAR respuesta del usuario
-                        $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
-                    }
-
-                    Log::info('BotService: Auto-advanced after DNI validation', [
-                        'resultado'   => $apiResult['resultado'],
-                        'target_step' => $nextState,
-                        'final_state' => $finalState,
-                    ]);
-                } else {
-                    // Paso no encontrado, usar routeToNextState normal
-                    $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
-                }
+                // Si apunta a un paso intermedio (msg_apto, etc.), delegar a routeToNextState
+                // que ahora cuenta con lógica global de auto-avance para pasos terminales.
+                $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
                 return;
 
             } catch (\Exception $e) {
@@ -643,13 +602,18 @@ class BotService
 
         // Verificar si el siguiente paso es un mensaje "terminal" (informativo que cierra el flujo)
         // Esto permite enviar un mensaje de "Despedida" y cerrar el chat inmediatamente.
-        $nextActionType = $nextStep['action_type'] ?? self::ACTION_BUTTONS;
         $isAutoAdvance = false;
         $terminalFinalState = null;
 
-        if (in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT])) {
-            $actions = $nextStep['actions'] ?? [];
-            $potentialFinalState = $actions[0]['next_state'] ?? null;
+        // Normalizamos las acciones del siguiente paso
+        $nextActions = $nextStep['actions'] ?? $nextStep['buttons'] ?? [];
+        $nextActionType = $nextStep['action_type'] ?? self::ACTION_BUTTONS;
+
+        // Si tiene exactamente 1 acción (o es de tipo free_text/validated_input)
+        if (count($nextActions) === 1 || in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT])) {
+            $potentialFinalState = $nextActions[0]['next_state'] ?? null;
+            
+            // Si esa única opción de ruta apunta a terminar el flujo
             if (in_array($potentialFinalState, ['finished', 'nofinished', 'end_flow'])) {
                 $isAutoAdvance = true;
                 $terminalFinalState = $potentialFinalState;
@@ -657,9 +621,9 @@ class BotService
         }
 
         if ($isAutoAdvance) {
-            // Es un paso de despedida: enviarlo y cerrar inmediatamente
+            // Es un paso de despedida: enviarlo como texto plano y cerrar inmediatamente
             Log::info("BotService: Auto-advancing to terminal step", ['nextState' => $nextState, 'final' => $terminalFinalState]);
-            $this->dispatchStep($conversation->contact, $nextStep);
+            $this->sendMessage($conversation->contact, $nextStep['question']); // Enviar directamente como texto
             $this->updateState($conversation, $nextState, $context);
             
             if ($terminalFinalState === 'end_flow') {
