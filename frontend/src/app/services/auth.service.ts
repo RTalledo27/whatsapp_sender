@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap } from 'rxjs';
+import { Observable, BehaviorSubject, tap, catchError, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 
@@ -14,6 +14,7 @@ export interface LoginResponse {
     role: string;
     phone_number_id: string | null;
     phone_number_name: string | null;
+    visible_components: string[] | null;
   };
 }
 
@@ -64,5 +65,21 @@ export class AuthService {
   getCurrentUser(): any {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
+  }
+
+  refreshUser(): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/me`).pipe(
+      tap(response => {
+        if (response && response.user) {
+          localStorage.setItem('user', JSON.stringify(response.user));
+          this.currentUserSubject.next(response.user);
+        }
+      }),
+      catchError(() => {
+        // Opcional: si falla el token, podríamos cerrar sesión. Por ahora solo devolvemos null
+        // this.logout();
+        return of(null);
+      })
+    );
   }
 }

@@ -10,6 +10,7 @@ export interface User {
   role: string;
   phone_number_id: string | null;
   phone_number_name: string | null;
+  visible_components: string[] | null;
   created_at: string;
 }
 

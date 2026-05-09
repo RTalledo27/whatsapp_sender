@@ -41,6 +41,7 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'phone_number_id' => $user->phone_number_id,
                 'phone_number_name' => $user->phone_number_name,
+                'visible_components' => $user->visible_components,
             ]
         ]);
     }
@@ -58,14 +59,8 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $decoded = base64_decode($token);
-        $email = explode(':', $decoded)[0] ?? null;
-        
-        if (!$email) {
-            return response()->json(['message' => 'Invalid token'], 401);
-        }
-
-        $user = User::where('email', $email)->first();
+        // Buscar al usuario directamente por su api_token
+        $user = User::where('api_token', $token)->first();
         
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
@@ -79,6 +74,7 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'phone_number_id' => $user->phone_number_id,
                 'phone_number_name' => $user->phone_number_name,
+                'visible_components' => $user->visible_components,
             ]
         ]);
     }

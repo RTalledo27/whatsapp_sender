@@ -17,6 +17,7 @@ class User extends Authenticatable
         'role',
         'phone_number_id',
         'phone_number_name',
+        'visible_components',
     ];
 
     protected $hidden = [
@@ -26,6 +27,7 @@ class User extends Authenticatable
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'visible_components' => 'array',
     ];
 
     public function isAdmin(): bool
