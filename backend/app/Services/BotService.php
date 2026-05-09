@@ -187,10 +187,17 @@ class BotService
             }
         }
 
-        // Reiniciar si el usuario escribe hola/reset
+        // Reiniciar automáticamente si la conversación ya terminó
+        if ($conversation->state === self::STATE_FINISHED) {
+            Log::info("BotService: Conversation was FINISHED. Auto-resetting for new incoming message.");
+            $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
+            $conversation->refresh();
+        }
+
+        // Reiniciar si el usuario escribe hola/reset explícitamente
         if (strtolower(trim($message->message_content)) === 'hola' || strtolower(trim($message->message_content)) === 'reset') {
             Log::info("BotService: Resetting conversation by user request.");
-            $this->updateState($conversation, self::STATE_INITIAL, []);
+            $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
             $conversation->refresh();
         }
 
@@ -634,7 +641,36 @@ class BotService
             return;
         }
 
-        // Avanzar al siguiente estado y enviar la siguiente pregunta
+        // Verificar si el siguiente paso es un mensaje "terminal" (informativo que cierra el flujo)
+        // Esto permite enviar un mensaje de "Despedida" y cerrar el chat inmediatamente.
+        $nextActionType = $nextStep['action_type'] ?? self::ACTION_BUTTONS;
+        $isAutoAdvance = false;
+        $terminalFinalState = null;
+
+        if (in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT])) {
+            $actions = $nextStep['actions'] ?? [];
+            $potentialFinalState = $actions[0]['next_state'] ?? null;
+            if (in_array($potentialFinalState, ['finished', 'nofinished', 'end_flow'])) {
+                $isAutoAdvance = true;
+                $terminalFinalState = $potentialFinalState;
+            }
+        }
+
+        if ($isAutoAdvance) {
+            // Es un paso de despedida: enviarlo y cerrar inmediatamente
+            Log::info("BotService: Auto-advancing to terminal step", ['nextState' => $nextState, 'final' => $terminalFinalState]);
+            $this->dispatchStep($conversation->contact, $nextStep);
+            $this->updateState($conversation, $nextState, $context);
+            
+            if ($terminalFinalState === 'end_flow') {
+                $this->endFlowSilently($conversation, 'Cierre automático después de mensaje final');
+            } else {
+                $this->finishFlow($conversation, $terminalFinalState === 'finished', 'Cierre automático después de mensaje final', true);
+            }
+            return;
+        }
+
+        // Avanzar al siguiente estado y enviar la siguiente pregunta (comportamiento normal)
         $this->updateState($conversation, $nextState, $context);
         $this->dispatchStep($conversation->contact, $nextStep);
     }
