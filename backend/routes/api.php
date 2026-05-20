@@ -9,6 +9,7 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatbotConfigController;
+use App\Http\Controllers\ClubMetricsController;
 use App\Http\Controllers\CRMController;
 use App\Http\Controllers\ComercioController;
 use Illuminate\Http\Request;
@@ -105,6 +106,14 @@ Route::middleware(['api', 'auth:api'])->group(function () {
         Route::put('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'updateStep']);
         Route::delete('/flows/{id}/steps/{state}', [ChatbotConfigController::class, 'deleteStep']);
         Route::get('/debug', [ChatbotConfigController::class, 'debug']); // Diagnóstico
+    });
+
+    // Chatbot Club Metrics (Clientes/Comercios)
+    Route::prefix('chatbot/metrics')->group(function () {
+        Route::get('/clients', [ClubMetricsController::class, 'clientsStats']);
+        Route::get('/clients/detail', [ClubMetricsController::class, 'clientsDetails']);
+        Route::get('/comercios', [ClubMetricsController::class, 'commerceStats']);
+        Route::get('/comercios/detail', [ClubMetricsController::class, 'commerceDetails']);
     });
 
     // CRM Integration (LogicWare)

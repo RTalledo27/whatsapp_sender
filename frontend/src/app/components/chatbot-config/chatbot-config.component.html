@@ -656,6 +656,10 @@
     <div class="stats-view-header">
       <h2>📊 Estadísticas del Bot</h2>
       <div class="header-actions">
+        <div class="stats-mode-toggle">
+          <button class="mode-button" [class.active]="statsMode === 'crm'" (click)="setStatsMode('crm')">CRM</button>
+          <button class="mode-button" [class.active]="statsMode === 'club'" (click)="setStatsMode('club')">Club Casa Bonita</button>
+        </div>
         <button class="btn-icon" (click)="loadStats()" title="Actualizar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"/>
@@ -672,136 +676,467 @@
       </div>
     </div>
 
-    <div class="stats-content" *ngIf="!loadingStats && stats">
-      <!-- Tarjetas de estadísticas principales -->
-      <div class="stats-grid">
-        <div class="stat-card success">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
+    <ng-container *ngIf="statsMode === 'crm'">
+      <div class="stats-content" *ngIf="!loadingStats && stats">
+        <!-- Tarjetas de estadísticas principales -->
+        <div class="stats-grid">
+          <div class="stat-card success">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.qualified_leads }}</div>
+              <div class="stat-label">Calificados</div>
+            </div>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.qualified_leads }}</div>
-            <div class="stat-label">Calificados</div>
+
+          <div class="stat-card danger">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.non_qualified_leads }}</div>
+              <div class="stat-label">No Calificados</div>
+            </div>
+          </div>
+
+          <div class="stat-card info">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="19" x2="12" y2="5"/>
+                <polyline points="5 12 12 5 19 12"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.sent_to_crm }}</div>
+              <div class="stat-label">Enviados al CRM</div>
+            </div>
+          </div>
+
+          <div class="stat-card warning">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.pending_to_send }}</div>
+              <div class="stat-label">Pendientes</div>
+            </div>
+          </div>
+
+          <div class="stat-card error">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.failed_to_send }}</div>
+              <div class="stat-label">Fallidos</div>
+            </div>
+          </div>
+
+          <div class="stat-card primary">
+            <div class="stat-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.success_rate }}%</div>
+              <div class="stat-label">Tasa de Éxito</div>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card danger">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
-            </svg>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.non_qualified_leads }}</div>
-            <div class="stat-label">No Calificados</div>
-          </div>
-        </div>
-
-        <div class="stat-card info">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="19" x2="12" y2="5"/>
-              <polyline points="5 12 12 5 19 12"/>
-            </svg>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.sent_to_crm }}</div>
-            <div class="stat-label">Enviados al CRM</div>
-          </div>
-        </div>
-
-        <div class="stat-card warning">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.pending_to_send }}</div>
-            <div class="stat-label">Pendientes</div>
+        <!-- Tabla de leads recientes -->
+        <div class="recent-leads-section" *ngIf="stats.recently_sent && stats.recently_sent.length > 0">
+          <h3>Últimos Leads Enviados al CRM</h3>
+          <div class="table-container">
+            <table class="leads-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Teléfono</th>
+                  <th>Email</th>
+                  <th>Lead CRM ID</th>
+                  <th>Asignado a</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let lead of stats.recently_sent">
+                  <td>{{ lead.id }}</td>
+                  <td>{{ lead.name }}</td>
+                  <td>{{ lead.phone_number }}</td>
+                  <td>{{ lead.email || 'N/A' }}</td>
+                  <td>{{ lead.metadata?.crm_lead_id || 'N/A' }}</td>
+                  <td>{{ lead.metadata?.crm_assigned_to || 'N/A' }}</td>
+                  <td>{{ lead.metadata?.crm_sent_at ? (lead.metadata?.crm_sent_at | date:'short') : 'N/A' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div class="stat-card error">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
+        <div class="no-data" *ngIf="!stats.recently_sent || stats.recently_sent.length === 0">
+          <p>No hay leads enviados aún</p>
+        </div>
+      </div>
+
+      <div class="loading-state" *ngIf="loadingStats">
+        <div class="spinner"></div>
+        <p>Cargando estadísticas...</p>
+      </div>
+
+      <div class="error-state" *ngIf="!loadingStats && !stats">
+        <p>❌ Error al cargar estadísticas</p>
+        <button class="btn-primary" (click)="loadStats()">Reintentar</button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="statsMode === 'club'">
+      <div class="club-tabs">
+        <button class="tab-button" [class.active]="clubView === 'clientes'" (click)="setClubView('clientes')">Clientes</button>
+        <button class="tab-button" [class.active]="clubView === 'comercios'" (click)="setClubView('comercios')">Comercios</button>
+      </div>
+
+      <div class="filters-bar" *ngIf="clubView === 'clientes'">
+        <div class="filter-group">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="clientFilters.startDate">
+        </div>
+        <div class="filter-group">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="clientFilters.endDate">
+        </div>
+        <div class="filter-group">
+          <label>DNI</label>
+          <input type="text" [(ngModel)]="clientFilters.dni" placeholder="DNI">
+        </div>
+        <div class="filter-group">
+          <label>Teléfono</label>
+          <input type="text" [(ngModel)]="clientFilters.telefono" placeholder="+51...">
+        </div>
+        <div class="filter-group">
+          <label>Resultado</label>
+          <select [(ngModel)]="clientFilters.resultado">
+            <option value="">Todos</option>
+            <option value="apto">Apto</option>
+            <option value="no_apto">No apto</option>
+            <option value="no_encontrado">No encontrado</option>
+          </select>
+        </div>
+        <button class="btn-primary" (click)="applyClientFilters()">Aplicar</button>
+      </div>
+
+      <div class="filters-bar" *ngIf="clubView === 'comercios'">
+        <div class="filter-group">
+          <label>Desde</label>
+          <input type="date" [(ngModel)]="commerceFilters.startDate">
+        </div>
+        <div class="filter-group">
+          <label>Hasta</label>
+          <input type="date" [(ngModel)]="commerceFilters.endDate">
+        </div>
+        <div class="filter-group">
+          <label>DNI</label>
+          <input type="text" [(ngModel)]="commerceFilters.dni" placeholder="DNI">
+        </div>
+        <div class="filter-group">
+          <label>Comercio</label>
+          <select [(ngModel)]="commerceFilters.comercioId">
+            <option value="">Todos</option>
+            <option *ngFor="let c of comercios" [value]="c.id">{{ c.nombre }}</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Resultado</label>
+          <select [(ngModel)]="commerceFilters.resultado">
+            <option value="">Todos</option>
+            <option value="apto">Apto</option>
+            <option value="no_apto">No apto</option>
+            <option value="no_encontrado">No encontrado</option>
+          </select>
+        </div>
+        <button class="btn-primary" (click)="applyCommerceFilters()">Aplicar</button>
+      </div>
+
+      <div class="stats-content" *ngIf="!loadingClubStats">
+        <div *ngIf="clubView === 'clientes' && clubClientStats">
+          <div class="stats-grid">
+            <div class="stat-card info">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubClientStats.totals.total_consultas }}</div>
+                <div class="stat-label">Total consultas</div>
+              </div>
+            </div>
+            <div class="stat-card primary">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubClientStats.totals.unique_clients }}</div>
+                <div class="stat-label">Clientes únicos</div>
+              </div>
+            </div>
+            <div class="stat-card success">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubClientStats.totals.apto }}</div>
+                <div class="stat-label">Calificados</div>
+              </div>
+            </div>
+            <div class="stat-card warning">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubClientStats.totals.no_apto }}</div>
+                <div class="stat-label">No calificados</div>
+              </div>
+            </div>
+            <div class="stat-card danger">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubClientStats.totals.no_encontrado }}</div>
+                <div class="stat-label">No encontrados</div>
+              </div>
+            </div>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.failed_to_send }}</div>
-            <div class="stat-label">Fallidos</div>
+
+          <div class="stats-table">
+            <h3>Consultas por mes</h3>
+            <div class="table-container">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th>Total</th>
+                    <th>Apto</th>
+                    <th>No apto</th>
+                    <th>No encontrado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubClientStats.by_month">
+                    <td>{{ row.month }}</td>
+                    <td>{{ row.total }}</td>
+                    <td>{{ row.apto }}</td>
+                    <td>{{ row.no_apto }}</td>
+                    <td>{{ row.no_encontrado }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stats-table">
+            <h3>Consultas por teléfono</h3>
+            <div class="table-container">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>Teléfono</th>
+                    <th>Total</th>
+                    <th>Apto</th>
+                    <th>No apto</th>
+                    <th>No encontrado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubClientStats.by_phone">
+                    <td>{{ row.telefono_origen }}</td>
+                    <td>{{ row.total }}</td>
+                    <td>{{ row.apto }}</td>
+                    <td>{{ row.no_apto }}</td>
+                    <td>{{ row.no_encontrado }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stats-table" *ngIf="clubClientStats.by_phone_month?.length">
+            <h3>Consultas por mes (teléfono seleccionado)</h3>
+            <div class="table-container">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>Teléfono</th>
+                    <th>Mes</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubClientStats.by_phone_month">
+                    <td>{{ row.telefono_origen }}</td>
+                    <td>{{ row.month }}</td>
+                    <td>{{ row.total }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stats-table">
+            <h3>Detalle de clientes</h3>
+            <div class="table-container" *ngIf="!loadingClubDetails">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>DNI</th>
+                    <th>Teléfono</th>
+                    <th>Resultado</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubClientDetails">
+                    <td>{{ row.dni }}</td>
+                    <td>{{ row.telefono_origen || 'N/A' }}</td>
+                    <td>{{ row.resultado }}</td>
+                    <td>{{ row.fecha_consulta | date:'short' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" *ngIf="clubClientMeta">
+              <button class="btn-secondary" (click)="prevClientPage()" [disabled]="clubClientMeta.current_page <= 1">Anterior</button>
+              <span>Página {{ clubClientMeta.current_page }} de {{ clubClientMeta.last_page }}</span>
+              <button class="btn-secondary" (click)="nextClientPage()" [disabled]="clubClientMeta.current_page >= clubClientMeta.last_page">Siguiente</button>
+            </div>
           </div>
         </div>
 
-        <div class="stat-card primary">
-          <div class="stat-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="20" x2="18" y2="10"/>
-              <line x1="12" y1="20" x2="12" y2="4"/>
-              <line x1="6" y1="20" x2="6" y2="14"/>
-            </svg>
+        <div *ngIf="clubView === 'comercios' && clubCommerceStats">
+          <div class="stats-grid">
+            <div class="stat-card info">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubCommerceStats.totals.total_consumos }}</div>
+                <div class="stat-label">Total consultas</div>
+              </div>
+            </div>
+            <div class="stat-card primary">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubCommerceStats.totals.comercios_con_consumo }}</div>
+                <div class="stat-label">Comercios con consumo</div>
+              </div>
+            </div>
+            <div class="stat-card success">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubCommerceStats.totals.apto }}</div>
+                <div class="stat-label">Descuento aplicado</div>
+              </div>
+            </div>
+            <div class="stat-card warning">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubCommerceStats.totals.no_apto }}</div>
+                <div class="stat-label">No se dio</div>
+              </div>
+            </div>
+            <div class="stat-card danger">
+              <div class="stat-info">
+                <div class="stat-value">{{ clubCommerceStats.totals.no_encontrado }}</div>
+                <div class="stat-label">No encontrados</div>
+              </div>
+            </div>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.success_rate }}%</div>
-            <div class="stat-label">Tasa de Éxito</div>
+
+          <div class="stats-table">
+            <h3>Consultas por mes</h3>
+            <div class="table-container">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th>Total</th>
+                    <th>Apto</th>
+                    <th>No apto</th>
+                    <th>No encontrado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubCommerceStats.by_month">
+                    <td>{{ row.month }}</td>
+                    <td>{{ row.total }}</td>
+                    <td>{{ row.apto }}</td>
+                    <td>{{ row.no_apto }}</td>
+                    <td>{{ row.no_encontrado }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stats-table">
+            <h3>Consultas por comercio</h3>
+            <div class="table-container">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>Comercio</th>
+                    <th>Total</th>
+                    <th>Apto</th>
+                    <th>No apto</th>
+                    <th>No encontrado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubCommerceStats.by_comercio">
+                    <td>{{ row.comercio_nombre }}</td>
+                    <td>{{ row.total }}</td>
+                    <td>{{ row.apto }}</td>
+                    <td>{{ row.no_apto }}</td>
+                    <td>{{ row.no_encontrado }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="stats-table">
+            <h3>Detalle de comercios</h3>
+            <div class="table-container" *ngIf="!loadingClubDetails">
+              <table class="leads-table">
+                <thead>
+                  <tr>
+                    <th>DNI</th>
+                    <th>Resultado</th>
+                    <th>Comercio</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of clubCommerceDetails">
+                    <td>{{ row.dni }}</td>
+                    <td>{{ row.resultado }}</td>
+                    <td>{{ row.comercio_nombre || 'N/A' }}</td>
+                    <td>{{ row.fecha_consulta | date:'short' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination" *ngIf="clubCommerceMeta">
+              <button class="btn-secondary" (click)="prevCommercePage()" [disabled]="clubCommerceMeta.current_page <= 1">Anterior</button>
+              <span>Página {{ clubCommerceMeta.current_page }} de {{ clubCommerceMeta.last_page }}</span>
+              <button class="btn-secondary" (click)="nextCommercePage()" [disabled]="clubCommerceMeta.current_page >= clubCommerceMeta.last_page">Siguiente</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tabla de leads recientes -->
-      <div class="recent-leads-section" *ngIf="stats.recently_sent && stats.recently_sent.length > 0">
-        <h3>Últimos Leads Enviados al CRM</h3>
-        <div class="table-container">
-          <table class="leads-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Teléfono</th>
-                <th>Email</th>
-                <th>Lead CRM ID</th>
-                <th>Asignado a</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let lead of stats.recently_sent">
-                <td>{{ lead.id }}</td>
-                <td>{{ lead.name }}</td>
-                <td>{{ lead.phone_number }}</td>
-                <td>{{ lead.email || 'N/A' }}</td>
-                <td>{{ lead.metadata?.crm_lead_id || 'N/A' }}</td>
-                <td>{{ lead.metadata?.crm_assigned_to || 'N/A' }}</td>
-                <td>{{ lead.metadata?.crm_sent_at ? (lead.metadata?.crm_sent_at | date:'short') : 'N/A' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="loading-state" *ngIf="loadingClubStats">
+        <div class="spinner"></div>
+        <p>Cargando estadísticas...</p>
       </div>
-
-      <div class="no-data" *ngIf="!stats.recently_sent || stats.recently_sent.length === 0">
-        <p>No hay leads enviados aún</p>
-      </div>
-    </div>
-
-    <div class="loading-state" *ngIf="loadingStats">
-      <div class="spinner"></div>
-      <p>Cargando estadísticas...</p>
-    </div>
-
-    <div class="error-state" *ngIf="!loadingStats && !stats">
-      <p>❌ Error al cargar estadísticas</p>
-      <button class="btn-primary" (click)="loadStats()">Reintentar</button>
-    </div>
+    </ng-container>
   </div>
 
   <!-- Vista de Comercios -->

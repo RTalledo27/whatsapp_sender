@@ -5,6 +5,14 @@ import {
   ChatbotService, BotFlow, BotStep, BotAction, BotValidation, ActionType, ValidationType, normalizeStep
 } from '../../services/chatbot.service';
 import { BotStatsService, BotStats } from '../../services/bot-stats.service';
+import {
+  ClubStatsService,
+  ClientStats,
+  CommerceStats,
+  ClientDetail,
+  CommerceDetail,
+  PaginationMeta
+} from '../../services/club-stats.service';
 import { ComercioService, Comercio, ComercioTelefono } from '../../services/comercio.service';
 import mermaid from 'mermaid';
 
@@ -36,6 +44,36 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   // Estadísticas
   stats: BotStats | null = null;
   loadingStats = false;
+  statsMode: 'crm' | 'club' = 'crm';
+  clubView: 'clientes' | 'comercios' = 'clientes';
+  clubClientStats: ClientStats | null = null;
+  clubCommerceStats: CommerceStats | null = null;
+  clubClientDetails: ClientDetail[] = [];
+  clubCommerceDetails: CommerceDetail[] = [];
+  clubClientMeta: PaginationMeta | null = null;
+  clubCommerceMeta: PaginationMeta | null = null;
+  loadingClubStats = false;
+  loadingClubDetails = false;
+  clientFilters = {
+    startDate: '',
+    endDate: '',
+    dni: '',
+    telefono: '',
+    resultado: '',
+    page: 1,
+    perPage: 20,
+    limit: 50
+  };
+  commerceFilters = {
+    startDate: '',
+    endDate: '',
+    dni: '',
+    comercioId: '',
+    resultado: '',
+    page: 1,
+    perPage: 20,
+    limit: 50
+  };
 
   // Comercios
   comercios: Comercio[] = [];
@@ -86,6 +124,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   constructor(
     private chatbotService: ChatbotService,
     private statsService: BotStatsService,
+    private clubStatsService: ClubStatsService,
     private comercioService: ComercioService
   ) {}
 
@@ -582,17 +621,168 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   switchView(view: 'config' | 'stats' | 'comercios'): void {
     this.currentView = view;
     this.showDropdownMenu = false;
-    if (view === 'stats') { this.loadStats(); }
+    if (view === 'stats') { this.loadStatsView(); }
     else if (view === 'comercios') { this.loadComercios(); }
     else { setTimeout(() => this.renderMermaid(), 100); }
   }
 
+  setStatsMode(mode: 'crm' | 'club'): void {
+    this.statsMode = mode;
+    this.loadStatsView();
+  }
+
+  setClubView(view: 'clientes' | 'comercios'): void {
+    this.clubView = view;
+    if (view === 'comercios' && this.comercios.length === 0) {
+      this.loadComercios();
+    }
+    this.loadClubStats();
+  }
+
+  loadStatsView(): void {
+    if (this.statsMode === 'crm') {
+      this.loadCrmStats();
+    } else {
+      this.loadClubStats();
+    }
+  }
+
   loadStats(): void {
+    this.loadStatsView();
+  }
+
+  loadCrmStats(): void {
     this.loadingStats = true;
     this.statsService.getStats().subscribe({
       next: (stats: BotStats) => { this.stats = stats; this.loadingStats = false; },
       error: () => { this.loadingStats = false; }
     });
+  }
+
+  loadClubStats(): void {
+    if (this.clubView === 'clientes') {
+      this.loadClientStats();
+      this.loadClientDetails();
+    } else {
+      this.loadCommerceStats();
+      this.loadCommerceDetails();
+    }
+  }
+
+  applyClientFilters(): void {
+    this.clientFilters.page = 1;
+    this.loadClientStats();
+    this.loadClientDetails();
+  }
+
+  applyCommerceFilters(): void {
+    this.commerceFilters.page = 1;
+    this.loadCommerceStats();
+    this.loadCommerceDetails();
+  }
+
+  loadClientStats(): void {
+    this.loadingClubStats = true;
+    this.clubStatsService.getClientStats({
+      start_date: this.clientFilters.startDate,
+      end_date: this.clientFilters.endDate,
+      dni: this.clientFilters.dni,
+      telefono: this.clientFilters.telefono,
+      resultado: this.clientFilters.resultado,
+      limit: this.clientFilters.limit
+    }).subscribe({
+      next: (stats) => {
+        this.clubClientStats = stats;
+        this.loadingClubStats = false;
+      },
+      error: () => { this.loadingClubStats = false; }
+    });
+  }
+
+  loadClientDetails(): void {
+    this.loadingClubDetails = true;
+    this.clubStatsService.getClientDetails({
+      start_date: this.clientFilters.startDate,
+      end_date: this.clientFilters.endDate,
+      dni: this.clientFilters.dni,
+      telefono: this.clientFilters.telefono,
+      resultado: this.clientFilters.resultado,
+      page: this.clientFilters.page,
+      per_page: this.clientFilters.perPage
+    }).subscribe({
+      next: (response) => {
+        this.clubClientDetails = response.data;
+        this.clubClientMeta = response.meta;
+        this.loadingClubDetails = false;
+      },
+      error: () => { this.loadingClubDetails = false; }
+    });
+  }
+
+  loadCommerceStats(): void {
+    this.loadingClubStats = true;
+    this.clubStatsService.getCommerceStats({
+      start_date: this.commerceFilters.startDate,
+      end_date: this.commerceFilters.endDate,
+      dni: this.commerceFilters.dni,
+      comercio_id: this.commerceFilters.comercioId,
+      resultado: this.commerceFilters.resultado,
+      limit: this.commerceFilters.limit
+    }).subscribe({
+      next: (stats) => {
+        this.clubCommerceStats = stats;
+        this.loadingClubStats = false;
+      },
+      error: () => { this.loadingClubStats = false; }
+    });
+  }
+
+  loadCommerceDetails(): void {
+    this.loadingClubDetails = true;
+    this.clubStatsService.getCommerceDetails({
+      start_date: this.commerceFilters.startDate,
+      end_date: this.commerceFilters.endDate,
+      dni: this.commerceFilters.dni,
+      comercio_id: this.commerceFilters.comercioId,
+      resultado: this.commerceFilters.resultado,
+      page: this.commerceFilters.page,
+      per_page: this.commerceFilters.perPage
+    }).subscribe({
+      next: (response) => {
+        this.clubCommerceDetails = response.data;
+        this.clubCommerceMeta = response.meta;
+        this.loadingClubDetails = false;
+      },
+      error: () => { this.loadingClubDetails = false; }
+    });
+  }
+
+  nextClientPage(): void {
+    if (!this.clubClientMeta) return;
+    if (this.clubClientMeta.current_page >= this.clubClientMeta.last_page) return;
+    this.clientFilters.page += 1;
+    this.loadClientDetails();
+  }
+
+  prevClientPage(): void {
+    if (!this.clubClientMeta) return;
+    if (this.clubClientMeta.current_page <= 1) return;
+    this.clientFilters.page -= 1;
+    this.loadClientDetails();
+  }
+
+  nextCommercePage(): void {
+    if (!this.clubCommerceMeta) return;
+    if (this.clubCommerceMeta.current_page >= this.clubCommerceMeta.last_page) return;
+    this.commerceFilters.page += 1;
+    this.loadCommerceDetails();
+  }
+
+  prevCommercePage(): void {
+    if (!this.clubCommerceMeta) return;
+    if (this.clubCommerceMeta.current_page <= 1) return;
+    this.commerceFilters.page -= 1;
+    this.loadCommerceDetails();
   }
 
   // ==================== COMERCIOS ====================

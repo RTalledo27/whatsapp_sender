@@ -450,9 +450,10 @@ class BotService
                 $comercioId = $context['comercio_id'] ?? null;
 
                 // Registrar evento en tabla consultas
+                $tipoEvento = $comercioId ? 'consumo' : 'consulta';
                 $this->dniValidationService->registrarEvento([
                     'dni'                 => $content,
-                    'tipo_evento'         => 'consulta',
+                    'tipo_evento'         => $tipoEvento,
                     'resultado'           => $apiResult['resultado'],
                     'telefono_origen'     => $conversation->contact->phone_number,
                     'comercio_id'         => $comercioId,
@@ -494,8 +495,9 @@ class BotService
                 }
 
                 // Si apunta a un paso intermedio (msg_apto, etc.), delegar a routeToNextState
-                // que ahora cuenta con lógica global de auto-avance para pasos terminales.
-                $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+                // con chainAdvance=true para que envíe todos los mensajes informativos en cadena
+                // sin esperar input del usuario entre cada uno.
+                $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow, true);
                 return;
 
             } catch (\Exception $e) {
@@ -554,7 +556,14 @@ class BotService
     }
 
     /**
-     * Redirigir al siguiente estado o finalizar el flujo
+     * Redirigir al siguiente estado o finalizar el flujo.
+     *
+     * @param bool $chainAdvance  Cuando es true (después de validación externa), el bot encadena
+     *                            automáticamente pasos informativos de una sola ruta (free_text,
+     *                            link_button) sin esperar input del usuario, enviando todos los
+     *                            mensajes seguidos hasta llegar a un paso que requiera interacción
+     *                            (buttons) o a un estado terminal.
+     * @param int  $chainDepth    Profundidad de la cadena para protección contra bucles infinitos.
      */
     private function routeToNextState(
         BotConversation $conversation,
@@ -562,7 +571,9 @@ class BotService
         array $currentStep,
         array $context,
         ?string $nextState,
-        array $flow
+        array $flow,
+        bool $chainAdvance = false,
+        int $chainDepth = 0
     ) {
         if (!$nextState) {
             Log::error('BotService: nextState is null', ['state' => $currentStep['state']]);
@@ -632,6 +643,37 @@ class BotService
                 $this->finishFlow($conversation, $terminalFinalState === 'finished', 'Cierre automático después de mensaje final', true);
             }
             return;
+        }
+
+        // ── Encadenamiento de pasos informativos (después de validación externa) ──
+        // Cuando chainAdvance está activo, el bot envía automáticamente los mensajes
+        // de pasos de una sola ruta (free_text, link_button) sin esperar que el usuario
+        // escriba algo. Solo se detiene cuando llega a un paso con múltiples opciones
+        // (buttons) o cuando se alcanza la profundidad máxima de seguridad.
+        if ($chainAdvance && $chainDepth < 10) {
+            $isSinglePathStep = in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_LINK_BUTTON])
+                                && count($nextActions) >= 1
+                                && !empty($nextActions[0]['next_state']);
+
+            if ($isSinglePathStep) {
+                $chainNextState = $nextActions[0]['next_state'];
+                Log::info('BotService: Chain-advancing through informational step', [
+                    'current_state' => $nextState,
+                    'chain_next'    => $chainNextState,
+                    'depth'         => $chainDepth,
+                ]);
+
+                // Enviar este mensaje como texto plano (sin esperar respuesta)
+                $this->sendMessage($conversation->contact, $nextStep['question']);
+                $this->updateState($conversation, $nextState, $context);
+
+                // Avanzar recursivamente al siguiente estado
+                $this->routeToNextState(
+                    $conversation, $message, $nextStep, $context,
+                    $chainNextState, $flow, true, $chainDepth + 1
+                );
+                return;
+            }
         }
 
         // Avanzar al siguiente estado y enviar la siguiente pregunta (comportamiento normal)
