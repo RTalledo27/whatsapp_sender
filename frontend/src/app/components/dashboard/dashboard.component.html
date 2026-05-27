@@ -20,6 +20,12 @@
               <span *ngIf="statistics?.overview?.community_number">{{ statistics?.overview?.community_number }}</span>
             </div>
           </div>
+          <div class="top-card" [class.selected]="selectedPhoneNumberId === statistics?.overview?.leads_comunicaciones_id" (click)="selectCard(statistics?.overview?.leads_comunicaciones_id || null)">
+            <div class="top-card-title">Lead Comunicaciones</div>
+            <div class="top-card-content">
+              <span *ngIf="statistics?.overview?.leads_comunicaciones_number">{{ statistics?.overview?.leads_comunicaciones_number }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="stats-grid" *ngIf="statistics">

@@ -83,10 +83,15 @@
   <div class="content-layout" [class.edit-mode]="isEditMode" *ngIf="currentView === 'config'">
     <!-- Sidebar: Lista de flujos -->
     <aside class="flows-sidebar" *ngIf="!isEditMode">
-      <h3>Flujos</h3>
+      <div class="sidebar-header">
+        <h3>Flujos</h3>
+        <select class="bot-number-select" [(ngModel)]="selectedBotNumber" (ngModelChange)="onBotNumberChange()">
+          <option *ngFor="let bot of botNumbers" [value]="bot.id">{{ bot.name }}</option>
+        </select>
+      </div>
       <div class="flows-list">
         <div 
-          *ngFor="let flow of flows" 
+          *ngFor="let flow of filteredFlows" 
           class="flow-item" 
           [class.active]="selectedFlow?.id === flow.id"
           (click)="selectFlow(flow)">
@@ -101,8 +106,8 @@
             </svg>
           </button>
         </div>
-        <div *ngIf="flows.length === 0" class="empty-state">
-          <p>No hay flujos configurados</p>
+        <div *ngIf="filteredFlows.length === 0" class="empty-state">
+          <p>No hay flujos para este número</p>
         </div>
       </div>
     </aside>
@@ -265,8 +270,19 @@
 
                 <!-- Pregunta -->
                 <div class="form-section">
-                  <label>Pregunta:</label>
-                  <textarea [(ngModel)]="selectedStep.question" [disabled]="!isEditingStep" class="form-control" rows="3"></textarea>
+                  <label *ngIf="selectedStep.action_type !== 'plantilla'">Pregunta:</label>
+                  <label *ngIf="selectedStep.action_type === 'plantilla'">Nombre / Referencia de la Plantilla:</label>
+                  
+                  <textarea *ngIf="selectedStep.action_type !== 'plantilla'" [(ngModel)]="selectedStep.question" [disabled]="!isEditingStep" class="form-control" rows="3"></textarea>
+                  
+                  <select *ngIf="selectedStep.action_type === 'plantilla'" 
+                          [ngModel]="selectedStep.question" 
+                          (ngModelChange)="onPlantillaChange($event, selectedStep)" 
+                          [disabled]="!isEditingStep" 
+                          class="form-control">
+                    <option value="">-- Seleccionar Plantilla --</option>
+                    <option *ngFor="let t of templates" [value]="t.name">{{ t.name }}</option>
+                  </select>
                 </div>
 
                 <!-- Tipo de Acción -->
@@ -298,7 +314,8 @@
 
                 <!-- ACCIONES: tipo BUTTONS -->
                 <div class="form-section" *ngIf="isButtonsType(selectedStep)">
-                  <label>Botones:</label>
+                  <label *ngIf="selectedStep.action_type !== 'plantilla'">Botones:</label>
+                  <label *ngIf="selectedStep.action_type === 'plantilla'">Opciones esperadas de la plantilla:</label>
                   <div class="buttons-editor">
                     <div *ngFor="let action of selectedStep.actions; let i = index" class="button-row">
                       <input
@@ -324,6 +341,15 @@
                       </svg>
                       Agregar Botón
                     </button>
+                  </div>
+
+                  <div class="fallback-section" *ngIf="selectedStep.action_type === 'plantilla'" style="margin-top: 15px;">
+                    <label>Ruta por defecto (si responde otra cosa):</label>
+                    <select [(ngModel)]="selectedStep.fallback_state" [disabled]="!isEditingStep" class="form-control">
+                      <option value="">-- Reintentar / Mostrar error --</option>
+                      <option value="end_flow">Terminar chat</option>
+                      <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                    </select>
                   </div>
                 </div>
 
@@ -467,8 +493,18 @@
 
                 <!-- Pregunta -->
                 <div class="form-section">
-                  <label>Pregunta:</label>
-                  <textarea [(ngModel)]="newQuestion.question" class="form-control" rows="3" placeholder="¿Cuál es tu pregunta?"></textarea>
+                  <label *ngIf="newQuestion.action_type !== 'plantilla'">Pregunta:</label>
+                  <label *ngIf="newQuestion.action_type === 'plantilla'">Nombre / Referencia de la Plantilla:</label>
+                  
+                  <textarea *ngIf="newQuestion.action_type !== 'plantilla'" [(ngModel)]="newQuestion.question" class="form-control" rows="3" placeholder="¿Cuál es tu pregunta?"></textarea>
+                  
+                  <select *ngIf="newQuestion.action_type === 'plantilla'" 
+                          [ngModel]="newQuestion.question" 
+                          (ngModelChange)="onPlantillaChange($event, newQuestion)" 
+                          class="form-control">
+                    <option value="">-- Seleccionar Plantilla --</option>
+                    <option *ngFor="let t of templates" [value]="t.name">{{ t.name }}</option>
+                  </select>
                 </div>
 
                 <!-- Tipo de Acción -->
@@ -492,7 +528,8 @@
 
                 <!-- ACCIONES: tipo BUTTONS -->
                 <div class="form-section" *ngIf="isButtonsType(newQuestion)">
-                  <label>Botones:</label>
+                  <label *ngIf="newQuestion.action_type !== 'plantilla'">Botones:</label>
+                  <label *ngIf="newQuestion.action_type === 'plantilla'">Opciones esperadas de la plantilla:</label>
                   <div class="buttons-editor">
                     <div *ngFor="let action of newQuestion.actions; let i = index" class="button-row">
                       <input type="text" [(ngModel)]="action.title" class="form-control" placeholder="Texto del botón">
@@ -513,6 +550,15 @@
                       </svg>
                       Agregar Botón
                     </button>
+                  </div>
+
+                  <div class="fallback-section" *ngIf="newQuestion.action_type === 'plantilla'" style="margin-top: 15px;">
+                    <label>Ruta por defecto (si responde otra cosa):</label>
+                    <select [(ngModel)]="newQuestion.fallback_state" class="form-control">
+                      <option value="">-- Reintentar / Mostrar error --</option>
+                      <option value="end_flow">Terminar chat</option>
+                      <option *ngFor="let s of selectedFlow.steps" [value]="s.state">{{ getStepLabel(s.state) }}</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1185,7 +1231,7 @@
           <label>Flujo de Chatbot:</label>
           <select [(ngModel)]="newComercioFlowId" class="form-control">
             <option value="">-- Flujo por defecto --</option>
-            <option *ngFor="let flow of flows" [value]="flow.id">{{ flow.name }}</option>
+            <option *ngFor="let flow of clubFlows" [value]="flow.id">{{ flow.name }}</option>
           </select>
           <small class="form-hint">Selecciona el flujo conversacional que usará este comercio</small>
         </div>
@@ -1281,7 +1327,7 @@
               <label>Flujo de Chatbot:</label>
               <select [(ngModel)]="editComercioFlowId" class="form-control">
                 <option value="">-- Flujo por defecto --</option>
-                <option *ngFor="let flow of flows" [value]="flow.id">{{ flow.name }}</option>
+                <option *ngFor="let flow of clubFlows" [value]="flow.id">{{ flow.name }}</option>
               </select>
               <small class="form-hint">Determina qué flujo conversacional usará el bot para este comercio</small>
             </div>

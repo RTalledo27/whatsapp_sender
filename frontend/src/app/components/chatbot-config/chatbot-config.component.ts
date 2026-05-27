@@ -14,6 +14,7 @@ import {
   PaginationMeta
 } from '../../services/club-stats.service';
 import { ComercioService, Comercio, ComercioTelefono } from '../../services/comercio.service';
+import { TemplateService, WhatsAppTemplate } from '../../services/template.service';
 import mermaid from 'mermaid';
 
 @Component({
@@ -35,6 +36,13 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   isEditMode = false;
   isSaving = false;
   newFlowName = '';
+
+  // Selector de número de bot
+  readonly botNumbers = [
+    { id: '1045508308650088', name: 'Bot Club de Beneficios', phone: '51 902 757 329' },
+    { id: '1167874003073763', name: 'Lead Comunicaciones', phone: '51 906 703 430' },
+  ];
+  selectedBotNumber: string = '1045508308650088';
   mermaidDiagram = '';
 
   // Menú desplegable y vistas
@@ -91,6 +99,11 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
   newTelefonoFlujo = 'normal';
   comercioError = '';
 
+
+
+  // Templates
+  templates: WhatsAppTemplate[] = [];
+
   // Pan y zoom
   zoomLevel = 100;
   currentScale = 1;
@@ -106,6 +119,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     { value: 'free_text',       label: 'Texto libre',      icon: '✏️', description: 'El usuario escribe libremente (nombre, comentario, etc.)' },
     { value: 'validated_input', label: 'Entrada validada', icon: '🔍', description: 'El usuario escribe y se valida el formato (DNI, email, etc.)' },
     { value: 'link_button',     label: 'Enlace / CTA',     icon: '🔗', description: 'Muestra un botón que abre una URL en el navegador. Avanza automáticamente.' },
+    { value: 'plantilla',       label: 'Plantilla',        icon: '📄', description: 'Envía una plantilla de WhatsApp' },
   ];
 
   // Opciones de tipo de validación
@@ -125,12 +139,19 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     private chatbotService: ChatbotService,
     private statsService: BotStatsService,
     private clubStatsService: ClubStatsService,
-    private comercioService: ComercioService
-  ) {}
+    private comercioService: ComercioService,
+    private templateService: TemplateService
+  ) {
+    mermaid.initialize({ 
+      startOnLoad: false,
+      theme: 'default',
+      flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+    });
+  }
 
   ngOnInit(): void {
-    this.initMermaid();
     this.loadFlows();
+    this.loadTemplates();
   }
 
   ngAfterViewInit(): void {
@@ -149,11 +170,54 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     this.chatbotService.getFlows().subscribe({
       next: (flows: BotFlow[]) => {
         this.flows = flows.map(f => ({ ...f, steps: f.steps.map(normalizeStep) }));
-        if (flows.length > 0 && !this.selectedFlow) {
-          this.selectFlow(this.flows[0]);
+        // Auto-seleccionar el primer flujo del número actual
+        const filtered = this.filteredFlows;
+        if (filtered.length > 0 && !this.selectedFlow) {
+          this.selectFlow(filtered[0]);
         }
       },
       error: (err: any) => console.error('Error al cargar flujos:', err)
+    });
+  }
+
+  /** Flujos filtrados por el número de bot seleccionado */
+  get filteredFlows(): BotFlow[] {
+    return this.flows.filter(f => {
+      // Flujos sin phone_number_id se asignan al bot original por defecto
+      const flowPhoneId = f.phone_number_id || '1045508308650088';
+      return flowPhoneId === this.selectedBotNumber;
+    });
+  }
+
+  /** Flujos solo del Club de Beneficios (para asignar a comercios) */
+  get clubFlows(): BotFlow[] {
+    return this.flows.filter(f => {
+      const flowPhoneId = f.phone_number_id || '1045508308650088';
+      return flowPhoneId === '1045508308650088';
+    });
+  }
+
+  /** Cambiar el número de bot seleccionado y limpiar selección */
+  onBotNumberChange(): void {
+    this.selectedFlow = null;
+    this.selectedStep = null;
+    this.isEditMode = false;
+    this.isEditingStep = false;
+    this.isAddingNewQuestion = false;
+    this.loadTemplates();
+    const filtered = this.filteredFlows;
+    if (filtered.length > 0) {
+      this.selectFlow(filtered[0]);
+    }
+  }
+
+  loadTemplates(): void {
+    this.templateService.getTemplates(this.selectedBotNumber).subscribe({
+      next: (res) => {
+        // Filtramos para asegurar que al menos tenga algún tipo de botón o componentes para plantillas (opcional)
+        this.templates = res.templates || [];
+      },
+      error: (err) => console.error('Error cargando templates:', err)
     });
   }
 
@@ -210,6 +274,40 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
         step.actions = [{ button_text: '', url: '', next_state: '' }];
         delete step.validation;
         break;
+
+      case 'plantilla':
+        step.actions = []; // Se autollenará al seleccionar la plantilla
+        step.fallback_state = '';
+        delete step.validation;
+        break;
+    }
+  }
+
+  onPlantillaChange(templateName: string, step: BotStep): void {
+    step.question = templateName; // Guardamos el nombre de la plantilla en question
+    
+    // Autocompletar acciones basado en los botones de respuesta rápida de la plantilla
+    const template = this.templates.find(t => t.name === templateName);
+    step.actions = [];
+    
+    if (template && template.components) {
+      const buttonComponent = template.components.find(c => c.type === 'BUTTONS');
+      if (buttonComponent && buttonComponent.buttons) {
+        buttonComponent.buttons.forEach((btn, index) => {
+          if (btn.type === 'QUICK_REPLY') {
+            step.actions.push({
+              id: `btn_${index + 1}`, // Podrías usar otro generador de IDs si prefieres
+              title: btn.text || `Opción ${index + 1}`,
+              next_state: ''
+            });
+          }
+        });
+      }
+    }
+    
+    // Si no tiene botones o falló la extracción, al menos agregamos uno vacío
+    if (step.actions.length === 0) {
+      step.actions = [{ id: '', title: '', next_state: '' }];
     }
   }
 
@@ -223,7 +321,8 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   isButtonsType(step: BotStep | null): boolean {
     if (!step) return false;
-    return (step.action_type ?? 'buttons') === 'buttons';
+    const type = step.action_type ?? 'buttons';
+    return type === 'buttons' || type === 'plantilla';
   }
 
   isValidatedType(step: BotStep | null): boolean {
@@ -346,6 +445,10 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
     if (this.newQuestion.action_type === 'validated_input' && this.newQuestion.validation) {
       step.validation = this.newQuestion.validation;
+    }
+    
+    if (this.newQuestion.action_type === 'plantilla' && this.newQuestion.fallback_state !== undefined) {
+      step.fallback_state = this.newQuestion.fallback_state;
     }
 
     this.isSaving = true;
@@ -471,7 +574,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       alert('Por favor ingresa un nombre para el flujo');
       return;
     }
-    this.chatbotService.createFlow(this.newFlowName).subscribe({
+    this.chatbotService.createFlow(this.newFlowName, this.selectedBotNumber).subscribe({
       next: (newFlow: BotFlow) => {
         this.flows.push(newFlow);
         this.selectFlow(newFlow);

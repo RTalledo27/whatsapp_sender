@@ -16,6 +16,7 @@ class BotService
     private ComercioService $comercioService;
     private DniValidationService $dniValidationService;
     private $botPhoneNumberId;
+    private $botPhoneNumberIds = [];  // Todos los IDs de bot válidos
     private $flows = null;
 
     // Estados posibles del bot
@@ -28,6 +29,7 @@ class BotService
     const ACTION_FREE_TEXT       = 'free_text';
     const ACTION_VALIDATED_INPUT = 'validated_input';
     const ACTION_LINK_BUTTON     = 'link_button';
+    const ACTION_PLANTILLA       = 'plantilla';
 
     // Tipos de validación disponibles
     const VALIDATION_DNI    = 'dni';
@@ -48,6 +50,13 @@ class BotService
         $this->comercioService      = $comercioService;
         $this->dniValidationService = $dniValidationService;
         $this->botPhoneNumberId     = config('services.whatsapp.leads_bot_id');
+
+        // Registrar todos los bot IDs que deben ser atendidos
+        $this->botPhoneNumberIds = array_filter([
+            config('services.whatsapp.leads_bot_id'),
+            config('services.whatsapp.leads_comunicaciones_bot_id'),
+        ]);
+
         $this->loadFlows();
     }
 
@@ -77,9 +86,18 @@ class BotService
     /**
      * Obtener el flujo activo (el primero por ahora)
      */
-    private function getActiveFlow(?string $flowId = null)
+    /**
+     * Obtener el flujo activo.
+     * @param string|null $flowId  ID específico del flujo (por comercio)
+     * @param string|null $phoneNumberId  ID del número que recibió el mensaje (para filtrar por número de bot)
+     */
+    private function getActiveFlow(?string $flowId = null, ?string $phoneNumberId = null)
     {
-        Log::info('BotService: getActiveFlow called', ['requested_flow_id' => $flowId, 'total_flows_loaded' => count($this->flows)]);
+        Log::info('BotService: getActiveFlow called', [
+            'requested_flow_id' => $flowId,
+            'phone_number_id' => $phoneNumberId,
+            'total_flows_loaded' => count($this->flows),
+        ]);
 
         if (empty($this->flows)) {
             Log::error('BotService: No flows available in memory!');
@@ -95,6 +113,23 @@ class BotService
                 }
             }
             Log::warning('BotService: Flow not found by ID, using default', ['requested_flow_id' => $flowId, 'available_flow_ids' => array_column($this->flows, 'id')]);
+        }
+
+        // Filtrar por phone_number_id si se proporcionó
+        if ($phoneNumberId) {
+            $defaultBotId = config('services.whatsapp.leads_bot_id');
+            foreach ($this->flows as $flow) {
+                $flowPhoneId = $flow['phone_number_id'] ?? $defaultBotId;
+                if ($flowPhoneId === $phoneNumberId) {
+                    Log::info('BotService: Flow matched by phone_number_id', [
+                        'flow_id' => $flow['id'],
+                        'flow_name' => $flow['name'] ?? 'Unknown',
+                        'phone_number_id' => $phoneNumberId,
+                    ]);
+                    return $flow;
+                }
+            }
+            Log::warning('BotService: No flow found for phone_number_id', ['phone_number_id' => $phoneNumberId]);
         }
 
         // Fallback: el primer flujo
@@ -115,9 +150,15 @@ class BotService
      */
     public function handleIncomingMessage(Contact $contact, Message $message)
     {
-        if (!$this->botPhoneNumberId || (string)$message->phone_number_id !== (string)$this->botPhoneNumberId) {
+        $incomingPhoneNumberId = (string)$message->phone_number_id;
+
+        // Verificar si el mensaje proviene de alguno de los números de bot registrados
+        if (empty($this->botPhoneNumberIds) || !in_array($incomingPhoneNumberId, array_map('strval', $this->botPhoneNumberIds))) {
             return;
         }
+
+        // Usar el phone_number_id del mensaje entrante como el bot activo para esta conversación
+        $this->botPhoneNumberId = $incomingPhoneNumberId;
 
         $conversation = $this->getOrCreateConversation($contact);
         Log::info("BotService: Conversation retrieved. State: {$conversation->state}, ID: {$conversation->id}");
@@ -214,11 +255,11 @@ class BotService
 
         try {
             if ($conversation->state === self::STATE_INITIAL) {
-                Log::info("BotService: Starting flow", ['flow_id' => $flowId]);
-                $this->startFlow($conversation, $flowId);
+                Log::info("BotService: Starting flow", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
+                $this->startFlow($conversation, $message, $flowId, $incomingPhoneNumberId);
             } else {
-                Log::info("BotService: Processing step", ['flow_id' => $flowId]);
-                $this->processStep($conversation, $message, $flowId);
+                Log::info("BotService: Processing step", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
+                $this->processStep($conversation, $message, $flowId, $incomingPhoneNumberId);
             }
         } catch (\Exception $e) {
             Log::error('Error in BotService', [
@@ -259,9 +300,9 @@ class BotService
     /**
      * Iniciar el flujo del bot con el primer paso
      */
-    private function startFlow(BotConversation $conversation, ?string $flowId = null)
+    private function startFlow(BotConversation $conversation, Message $message, ?string $flowId = null, ?string $phoneNumberId = null)
     {
-        $flow = $this->getActiveFlow($flowId);
+        $flow = $this->getActiveFlow($flowId, $phoneNumberId);
 
         if (!$flow || empty($flow['steps'])) {
             $this->sendMessage($conversation->contact, "Lo siento, el servicio no está disponible en este momento.");
@@ -270,15 +311,25 @@ class BotService
 
         $firstStep = $flow['steps'][0];
         $this->updateState($conversation, $firstStep['state'], ['retries' => 0, 'flow_id' => $flowId]);
-        $this->dispatchStep($conversation->contact, $firstStep);
+
+        $actionType = $firstStep['action_type'] ?? self::ACTION_BUTTONS;
+        
+        if ($actionType === self::ACTION_PLANTILLA) {
+            // No enviar nada, procesar el mensaje entrante directamente (es la respuesta a la plantilla)
+            Log::info("BotService: First step is Plantilla. Processing incoming message immediately.");
+            $this->processStep($conversation, $message, $flowId, $phoneNumberId);
+        } else {
+            // Comportamiento normal: enviar el primer mensaje
+            $this->dispatchStep($conversation->contact, $firstStep);
+        }
     }
 
     /**
      * Procesar el paso actual según el estado de la conversación
      */
-    private function processStep(BotConversation $conversation, Message $message, ?string $flowId = null)
+    private function processStep(BotConversation $conversation, Message $message, ?string $flowId = null, ?string $phoneNumberId = null)
     {
-        $flow = $this->getActiveFlow($flowId);
+        $flow = $this->getActiveFlow($flowId, $phoneNumberId);
         if (!$flow) {
             $this->sendMessage($conversation->contact, "Error: Configuración no disponible.");
             return;
@@ -309,6 +360,10 @@ class BotService
                 // Los link_button no esperan respuesta: avanzan solos al enviar
                 // Si el usuario escribe algo, simplemente re-enviamos el link
                 $this->handleLinkButtonStep($conversation, $currentStep, $flow);
+                break;
+
+            case self::ACTION_PLANTILLA:
+                $this->handlePlantillaStep($conversation, $message, $currentStep, $flow);
                 break;
 
             case self::ACTION_BUTTONS:
@@ -356,6 +411,50 @@ class BotService
         $context['responses'][$step['state']] = $selectedAction['title'];
 
         $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+    }
+
+    /**
+     * Manejar paso de tipo PLANTILLA
+     * Similar a botones, pero con soporte para fallback state si el usuario ingresa un texto no esperado.
+     */
+    private function handlePlantillaStep(BotConversation $conversation, Message $message, array $step, array $flow)
+    {
+        $content = trim($message->message_content);
+        $context = $conversation->context ?? [];
+        $actions = $this->normalizeActions($step);
+
+        // Buscar si el usuario seleccionó una de las opciones esperadas
+        $selectedAction = null;
+        foreach ($actions as $action) {
+            if (
+                strcasecmp($content, $action['title'] ?? '') === 0 ||
+                strcasecmp($content, $action['id'] ?? '') === 0
+            ) {
+                $selectedAction = $action;
+                break;
+            }
+        }
+
+        if ($selectedAction) {
+            $nextState = $selectedAction['next_state'] ?? $selectedAction['nextState'] ?? null;
+            $context['retries'] = 0;
+            $context['responses'][$step['state']] = $selectedAction['title'];
+            $this->routeToNextState($conversation, $message, $step, $context, $nextState, $flow);
+            return;
+        }
+
+        // Si no coincidió con ningún botón, verificar si hay fallback state configurado
+        $fallbackState = $step['fallback_state'] ?? null;
+        if ($fallbackState) {
+            Log::info("BotService: Plantilla input invalid, routing to fallback_state", ['fallback' => $fallbackState]);
+            $context['retries'] = 0;
+            $context['responses'][$step['state']] = 'INVALID_INPUT';
+            $this->routeToNextState($conversation, $message, $step, $context, $fallbackState, $flow);
+        } else {
+            // Comportamiento normal de error si no hay fallback (reintento)
+            $retries = $context['retries'] ?? 0;
+            $this->handleInvalidInput($conversation, $retries);
+        }
     }
 
     /**
@@ -700,6 +799,12 @@ class BotService
                 $this->sendInteractiveMessage($contact, $question, $buttons);
                 break;
 
+            case self::ACTION_PLANTILLA:
+                // No se envía ningún mensaje para un paso de tipo plantilla.
+                // Se asume que el usuario ya recibió la plantilla externamente.
+                Log::info('BotService: Not sending message for Plantilla step as it waits for external template response', ['state' => $step['state']]);
+                break;
+
             case self::ACTION_LINK_BUTTON:
                 $actions    = $step['actions'] ?? [];
                 $buttonText = $actions[0]['button_text'] ?? 'Ver más';
@@ -767,7 +872,14 @@ class BotService
             'conversation_id' => $conversation->id,
             'qualified'       => $qualified,
             'skip_message'    => $skipMessage,
+            'bot_phone_id'    => $this->botPhoneNumberId,
         ]);
+
+        // Solo enviar al CRM si es el bot de Leads Comunicaciones y el lead califica
+        $leadsComunicacionesBotId = config('services.whatsapp.leads_comunicaciones_bot_id');
+        if ($qualified && $leadsComunicacionesBotId && (string)$this->botPhoneNumberId === (string)$leadsComunicacionesBotId) {
+            $this->sendQualifiedLeadToCRM($conversation);
+        }
     }
 
     /**

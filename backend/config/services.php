@@ -18,6 +18,7 @@ return [
         'delay_on_error' => env('WHATSAPP_DELAY_ON_ERROR', 5),
         
         'leads_bot_id' => env('WHATSAPP_LEADS_PHONE_NUMBER_ID'),
+        'leads_comunicaciones_bot_id' => env('WHATSAPP_LEADS_COMUNICACIONES_PHONE_NUMBER_ID'),
         
         'available_numbers' => [
             [
@@ -40,6 +41,13 @@ return [
                 'phone' => env('WHATSAPP_LEADS_PHONE_NUMBER', '51 922 902 122'),
                 'access_token' => env('WHATSAPP_LEADS_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
                 'business_account_id' => env('WHATSAPP_LEADS_BUSINESS_ACCOUNT_ID'),
+            ],
+            [
+                'id' => env('WHATSAPP_LEADS_COMUNICACIONES_PHONE_NUMBER_ID'),
+                'name' => 'Leads Comunicaciones',
+                'phone' => env('WHATSAPP_LEADS_COMUNICACIONES_PHONE_NUMBER', '51 906 703 430'),
+                'access_token' => env('WHATSAPP_LEADS_COMUNICACIONES_ACCESS_TOKEN') ?: env('WHATSAPP_ACCESS_TOKEN'),
+                'business_account_id' => env('WHATSAPP_LEADS_COMUNICACIONES_BUSINESS_ACCOUNT_ID'),
             ],
         ],
     ],

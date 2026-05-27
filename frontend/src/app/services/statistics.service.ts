@@ -15,6 +15,10 @@ export interface Statistics {
     customer_service_id?: string;
     community_number?: string;
     community_id?: string;
+    leads_number?: string;
+    leads_id?: string;
+    leads_comunicaciones_number?: string;
+    leads_comunicaciones_id?: string;
   };
   campaigns_status: Array<{ status: string; count: number }>;
   recent_campaigns: any[];

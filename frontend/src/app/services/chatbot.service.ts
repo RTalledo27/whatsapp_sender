@@ -5,12 +5,12 @@ import { environment } from '../../environments/environment';
 
 // ==================== INTERFACES ====================
 
-export type ActionType = 'buttons' | 'free_text' | 'validated_input' | 'link_button';
+export type ActionType = 'buttons' | 'free_text' | 'validated_input' | 'link_button' | 'plantilla';
 export type ValidationType = 'dni' | 'phone' | 'email' | 'number' | 'text' | 'regex';
 
 export interface BotAction {
   id?: string;
-  title?: string;       // Para action_type = 'buttons'
+  title?: string;       // Para action_type = 'buttons' o 'plantilla'
   button_text?: string; // Para action_type = 'link_button'
   url?: string;         // Para action_type = 'link_button'
   resultado?: string;   // Para validated_input con external_validation ('apto', 'no_apto', 'no_encontrado')
@@ -30,6 +30,7 @@ export interface BotStep {
   action_type: ActionType;
   actions: BotAction[];
   validation?: BotValidation;
+  fallback_state?: string; // Para action_type = 'plantilla'
   order: number;
   // Retrocompatibilidad con el formato legacy
   buttons?: { id: string; title: string; nextState: string }[];
@@ -38,6 +39,7 @@ export interface BotStep {
 export interface BotFlow {
   id: string;
   name: string;
+  phone_number_id?: string;
   steps: BotStep[];
   created_at?: string;
   updated_at?: string;
@@ -90,8 +92,8 @@ export class ChatbotService {
     return this.http.get<BotFlow>(`${this.apiUrl}/flows/${id}`);
   }
 
-  createFlow(name: string): Observable<BotFlow> {
-    return this.http.post<BotFlow>(`${this.apiUrl}/flows`, { name });
+  createFlow(name: string, phoneNumberId?: string): Observable<BotFlow> {
+    return this.http.post<BotFlow>(`${this.apiUrl}/flows`, { name, phone_number_id: phoneNumberId });
   }
 
   updateFlow(id: string, data: Partial<BotFlow>): Observable<BotFlow> {

@@ -169,16 +169,18 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'phone_number_id' => 'sometimes|string|max:50',
         ]);
 
         $flows = $this->loadFlows();
 
         $newFlow = [
-            'id'         => 'flow_' . time(),
-            'name'       => $request->name,
-            'steps'      => [],
-            'created_at' => now()->toISOString(),
-            'updated_at' => now()->toISOString(),
+            'id'              => 'flow_' . time(),
+            'name'            => $request->name,
+            'phone_number_id' => $request->phone_number_id ?? null,
+            'steps'           => [],
+            'created_at'      => now()->toISOString(),
+            'updated_at'      => now()->toISOString(),
         ];
 
         $flows[] = $newFlow;
@@ -194,6 +196,7 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'name' => 'sometimes|string|max:255',
+            'phone_number_id' => 'sometimes|string|max:50',
         ]);
 
         $flows = $this->loadFlows();
@@ -203,8 +206,11 @@ class ChatbotConfigController extends Controller
             return response()->json(['error' => 'Flujo no encontrado'], 404);
         }
 
-        $flows[$index]['name']       = $request->name ?? $flows[$index]['name'];
-        $flows[$index]['updated_at'] = now()->toISOString();
+        $flows[$index]['name']            = $request->name ?? $flows[$index]['name'];
+        if ($request->has('phone_number_id')) {
+            $flows[$index]['phone_number_id'] = $request->phone_number_id;
+        }
+        $flows[$index]['updated_at']      = now()->toISOString();
 
         $this->saveFlows($flows);
         return response()->json($flows[$index]);
@@ -245,6 +251,9 @@ class ChatbotConfigController extends Controller
             'validation.regex_pattern'    => 'sometimes|nullable|string',
             'validation.external_validation' => 'sometimes|boolean',
 
+            // Para action_type = plantilla
+            'fallback_state'              => 'sometimes|nullable|string',
+
             // Retrocompatibilidad legacy
             'buttons'              => 'sometimes|array',
             'buttons.*.id'         => 'sometimes|string',
@@ -276,7 +285,7 @@ class ChatbotConfigController extends Controller
     {
         $request->validate([
             'question'    => 'sometimes|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button',
+            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button,plantilla',
             'order'       => 'sometimes|integer',
 
             'actions'              => 'sometimes|array',
@@ -290,6 +299,9 @@ class ChatbotConfigController extends Controller
             'validation.error_message' => 'sometimes|string',
             'validation.regex_pattern' => 'sometimes|nullable|string',
             'validation.external_validation' => 'sometimes|boolean',
+
+            // Para action_type = plantilla
+            'fallback_state'       => 'sometimes|nullable|string',
 
             // Retrocompatibilidad legacy
             'buttons'             => 'sometimes|array',
@@ -322,7 +334,7 @@ class ChatbotConfigController extends Controller
         $step['action_type'] = $actionType;
 
         // Actualizar acciones según el tipo
-        if ($actionType === 'buttons') {
+        if (in_array($actionType, ['buttons', 'plantilla'])) {
             if ($request->has('actions')) {
                 $step['actions'] = $this->normalizeActionsInput($request->actions);
                 // Limpiar campos de otros tipos
@@ -331,6 +343,9 @@ class ChatbotConfigController extends Controller
                 // Retrocompatibilidad: convertir buttons al nuevo formato
                 $step['actions'] = $this->convertLegacyButtons($request->buttons);
                 unset($step['buttons'], $step['validation']);
+            }
+            if ($actionType === 'plantilla' && $request->has('fallback_state')) {
+                $step['fallback_state'] = $request->fallback_state;
             }
         } elseif (in_array($actionType, ['free_text', 'validated_input'])) {
             if ($request->has('actions')) {
@@ -457,7 +472,7 @@ class ChatbotConfigController extends Controller
             'order'       => $request->order ?? $currentCount + 1,
         ];
 
-        if ($actionType === 'buttons') {
+        if (in_array($actionType, ['buttons', 'plantilla'])) {
             if ($request->has('actions')) {
                 $step['actions'] = $this->normalizeActionsInput($request->actions);
             } elseif ($request->has('buttons')) {
@@ -465,6 +480,9 @@ class ChatbotConfigController extends Controller
                 $step['actions'] = $this->convertLegacyButtons($request->buttons);
             } else {
                 $step['actions'] = [];
+            }
+            if ($actionType === 'plantilla' && $request->has('fallback_state')) {
+                $step['fallback_state'] = $request->fallback_state;
             }
         } elseif (in_array($actionType, ['free_text', 'validated_input'])) {
             if ($actionType === 'validated_input') {

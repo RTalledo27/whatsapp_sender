@@ -30,6 +30,10 @@ class StatisticsController extends Controller
                 'customer_service_id' => env('WHATSAPP_PHONE_NUMBER_ID', '1000703976450053'),
                 'community_number' => env('WHATSAPP_ALT_PHONE_NUMBER', '51 922 902 154'),
                 'community_id' => env('WHATSAPP_ALT_PHONE_NUMBER_ID', '1003622752825127'),
+                'leads_number' => env('WHATSAPP_LEADS_PHONE_NUMBER', '51 902 757 329'),
+                'leads_id' => env('WHATSAPP_LEADS_PHONE_NUMBER_ID', '1045508308650088') ?: env('LEADS_PHONE_NUMBER_ID', '1045508308650088'),
+                'leads_comunicaciones_number' => env('WHATSAPP_LEADS_COMUNICACIONES_PHONE_NUMBER', '51 906 703 430'),
+                'leads_comunicaciones_id' => env('WHATSAPP_LEADS_COMUNICACIONES_PHONE_NUMBER_ID', '1167874003073763'),
             ],
             'campaigns_status' => Campaign::byPhoneNumberId($phoneNumberId)
                 ->select('status', DB::raw('count(*) as count'))
