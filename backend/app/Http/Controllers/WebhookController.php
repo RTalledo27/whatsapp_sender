@@ -334,6 +334,20 @@ class WebhookController extends Controller
                 }
                 break;
                 
+            case 'button':
+                // Respuesta a botón de respuesta rápida de una PLANTILLA (template quick reply)
+                // WhatsApp envía type:"button" con button.text y button.payload
+                $buttonText    = $message['button']['text'] ?? '';
+                $buttonPayload = $message['button']['payload'] ?? $buttonText;
+
+                $content  = $buttonText;  // El texto visible del botón
+                $metadata = [
+                    'interactive_type' => 'template_button_reply',
+                    'button_title'     => $buttonText,
+                    'button_payload'   => $buttonPayload,
+                ];
+                break;
+                
             default:
                 $content = '[Mensaje de tipo: ' . $type . ']';
         }
