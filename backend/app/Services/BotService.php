@@ -242,6 +242,17 @@ class BotService
             $conversation->refresh();
         }
 
+        // Cuando llega una respuesta a un botón de plantilla (type=button), si la conversación
+        // tiene contexto sucio (retries > 0 de tests anteriores), resetear para empezar limpio.
+        if ($message->message_type === 'button') {
+            $staleRetries = ($conversation->context['retries'] ?? 0) > 0;
+            if ($staleRetries || $conversation->state === self::STATE_INITIAL) {
+                Log::info("BotService: Template button reply detected. Resetting to initial for clean processing.");
+                $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
+                $conversation->refresh();
+            }
+        }
+
         // El bot no interviene en estado handoff (legacy)
         if ($conversation->state === self::STATE_HANDOFF) {
             Log::info("BotService: Ignoring message because conversation is in HANDOFF state (legacy).");
@@ -311,15 +322,16 @@ class BotService
 
         $firstStep = $flow['steps'][0];
         $this->updateState($conversation, $firstStep['state'], ['retries' => 0, 'flow_id' => $flowId]);
+        $conversation->refresh(); // Asegurar que el objeto en memoria refleja el estado y contexto frescos
 
         $actionType = $firstStep['action_type'] ?? self::ACTION_BUTTONS;
         
         if ($actionType === self::ACTION_PLANTILLA) {
-            // No enviar nada, procesar el mensaje entrante directamente (es la respuesta a la plantilla)
+            // El mensaje entrante ES la respuesta al template: procesarlo directamente
             Log::info("BotService: First step is Plantilla. Processing incoming message immediately.");
             $this->processStep($conversation, $message, $flowId, $phoneNumberId);
         } else {
-            // Comportamiento normal: enviar el primer mensaje
+            // Comportamiento normal: enviar el primer mensaje del flujo
             $this->dispatchStep($conversation->contact, $firstStep);
         }
     }
