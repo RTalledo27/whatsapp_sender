@@ -234,31 +234,31 @@ class ChatbotConfigController extends Controller
         $request->validate([
             'state'       => 'required|string',
             'question'    => 'required|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button',
+            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button,plantilla',
             'order'       => 'sometimes|integer',
 
-            // Para action_type = buttons (y retrocompatibilidad con buttons legacy)
-            'actions'               => 'sometimes|array',
-            'actions.*.id'          => 'sometimes|string',
-            'actions.*.title'       => 'required_if_accepted:actions|string',
-            'actions.*.next_state'  => 'required_if_accepted:actions|string',
-            'actions.*.resultado'   => 'sometimes|string',
+            // Para action_type = buttons / plantilla
+            'actions'              => 'sometimes|array',
+            'actions.*.id'         => 'sometimes|string',
+            'actions.*.title'      => 'sometimes|string',
+            'actions.*.next_state' => 'sometimes|string',
+            'actions.*.resultado'  => 'sometimes|string',
 
             // Para action_type = validated_input
-            'validation'                  => 'sometimes|array',
-            'validation.type'             => 'required_with:validation|string|in:dni,phone,email,number,text,regex',
-            'validation.error_message'    => 'sometimes|string',
-            'validation.regex_pattern'    => 'sometimes|nullable|string',
+            'validation'                     => 'sometimes|array',
+            'validation.type'                => 'required_with:validation|string|in:dni,phone,email,number,text,regex',
+            'validation.error_message'       => 'sometimes|string',
+            'validation.regex_pattern'       => 'sometimes|nullable|string',
             'validation.external_validation' => 'sometimes|boolean',
 
             // Para action_type = plantilla
-            'fallback_state'              => 'sometimes|nullable|string',
+            'fallback_state' => 'sometimes|nullable|string',
 
             // Retrocompatibilidad legacy
-            'buttons'              => 'sometimes|array',
-            'buttons.*.id'         => 'sometimes|string',
-            'buttons.*.title'      => 'required_if_accepted:buttons|string',
-            'buttons.*.nextState'  => 'required_if_accepted:buttons|string',
+            'buttons'             => 'sometimes|array',
+            'buttons.*.id'        => 'sometimes|string',
+            'buttons.*.title'     => 'sometimes|string',
+            'buttons.*.nextState' => 'sometimes|string',
         ]);
 
         $flows     = $this->loadFlows();
