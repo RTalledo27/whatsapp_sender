@@ -380,9 +380,13 @@ class BotService
      */
     private function handleButtonsStep(BotConversation $conversation, Message $message, array $step, array $flow)
     {
-        $content = trim($message->message_content);
-        $context = $conversation->context ?? [];
-        $retries = $context['retries'] ?? 0;
+        $content  = trim($message->message_content);
+        $context  = $conversation->context ?? [];
+        $retries  = $context['retries'] ?? 0;
+        // Cuando el usuario presiona un botón interactivo de WhatsApp, el webhook
+        // guarda el button_id en message_content y el title en metadata.button_title.
+        $metadata    = $message->metadata ?? [];
+        $buttonTitle = $metadata['button_title'] ?? null;
 
         // Normalizar acciones (retrocompatibilidad buttons → actions)
         $actions = $this->normalizeActions($step);
@@ -392,7 +396,8 @@ class BotService
         foreach ($actions as $action) {
             if (
                 strcasecmp($content, $action['title'] ?? '') === 0 ||
-                strcasecmp($content, $action['id'] ?? '') === 0
+                strcasecmp($content, $action['id'] ?? '') === 0 ||
+                ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0)
             ) {
                 $selectedAction = $action;
                 break;
@@ -419,16 +424,19 @@ class BotService
      */
     private function handlePlantillaStep(BotConversation $conversation, Message $message, array $step, array $flow)
     {
-        $content = trim($message->message_content);
-        $context = $conversation->context ?? [];
-        $actions = $this->normalizeActions($step);
+        $content     = trim($message->message_content);
+        $context     = $conversation->context ?? [];
+        $actions     = $this->normalizeActions($step);
+        $metadata    = $message->metadata ?? [];
+        $buttonTitle = $metadata['button_title'] ?? null;
 
         // Buscar si el usuario seleccionó una de las opciones esperadas
         $selectedAction = null;
         foreach ($actions as $action) {
             if (
                 strcasecmp($content, $action['title'] ?? '') === 0 ||
-                strcasecmp($content, $action['id'] ?? '') === 0
+                strcasecmp($content, $action['id'] ?? '') === 0 ||
+                ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0)
             ) {
                 $selectedAction = $action;
                 break;
@@ -1144,21 +1152,41 @@ class BotService
 
         // Modo real
         try {
+            // WhatsApp limita el body de mensajes interactivos a 1024 chars.
+            // Si el texto supera ese límite, lo enviamos primero como texto plano
+            // y luego enviamos un segundo mensaje corto con los botones.
+            $bodyText = $text;
+            $prefix   = null;
+
+            if (mb_strlen($text) > 1024) {
+                $prefix   = $text;
+                $bodyText = 'Selecciona una opción 👇';
+                Log::info('BotService: Body too long for interactive, splitting into 2 messages', [
+                    'original_length' => mb_strlen($text),
+                ]);
+            }
+
             Log::info("BotService: Attempting to send interactive message", [
-                'to'           => $contact->phone_number,
+                'to'            => $contact->phone_number,
                 'buttons_count' => count($buttons),
+                'body_length'   => mb_strlen($bodyText),
             ]);
 
+            // Enviar el texto largo primero si aplica
+            if ($prefix) {
+                $this->sendMessage($contact, $prefix);
+            }
+
             $ws     = new WhatsAppService($this->botPhoneNumberId);
-            $result = $ws->sendInteractiveButtons($contact->phone_number, $text, $buttons);
+            $result = $ws->sendInteractiveButtons($contact->phone_number, $bodyText, $buttons);
 
             if ($result['success']) {
                 Message::create([
                     'contact_id'            => $contact->id,
                     'phone_number_id'       => $this->botPhoneNumberId,
                     'phone_number'          => $contact->phone_number,
-                    'message'               => $text,
-                    'message_content'       => $text,
+                    'message'               => $bodyText,
+                    'message_content'       => $bodyText,
                     'direction'             => 'outbound',
                     'status'                => 'sent',
                     'message_timestamp'     => now(),
@@ -1169,7 +1197,7 @@ class BotService
                 Log::info("BotService: Interactive message sent successfully");
             } else {
                 Log::warning("BotService: Interactive buttons failed, using text fallback", ['error' => $result['error']]);
-                $this->sendTextFallback($contact, $text, $buttons);
+                $this->sendTextFallback($contact, $bodyText, $buttons);
             }
         } catch (\Exception $e) {
             Log::error("BotService: Error sending interactive message", ['error' => $e->getMessage()]);
