@@ -45,6 +45,10 @@ class WebhookController extends Controller
         try {
             $data = $request->all();
             Log::info('Webhook received', ['data' => $data]);
+            Log::info('[BotFlow] Webhook payload received', [
+                'has_entry' => isset($data['entry']),
+                'entries_count' => isset($data['entry']) ? count($data['entry']) : 0
+            ]);
             
             // Meta envía la estructura: entry -> changes -> value -> messages
             if (!isset($data['entry'])) {
@@ -115,6 +119,13 @@ class WebhookController extends Controller
         Log::info('Processing incoming message', [
             'original_phone' => $message['from'],
             'normalized_phone' => $phoneNumber
+        ]);
+        
+        Log::info('[BotFlow] Incoming message details', [
+            'from' => $phoneNumber,
+            'message_id' => $messageId,
+            'message_type' => $messageType,
+            'phone_number_id' => $phoneNumberId,
         ]);
         
         // Buscar o crear contacto
@@ -199,6 +210,12 @@ class WebhookController extends Controller
         ]);
 
         // Invocar al bot si corresponde
+        Log::info('[BotFlow] Passing control to BotService->handleIncomingMessage', [
+            'contact_id' => $contact->id,
+            'message_id' => $savedMessage->id,
+            'message_type' => $savedMessage->message_type,
+            'message_content' => $savedMessage->message_content,
+        ]);
         $this->botService->handleIncomingMessage($contact, $savedMessage);
     }
     
@@ -317,6 +334,10 @@ class WebhookController extends Controller
                         'button_id' => $buttonId,
                         'button_title' => $buttonTitle,
                     ];
+                    Log::info('[BotFlow] Extracted interactive button reply', [
+                        'button_id' => $buttonId,
+                        'button_title' => $buttonTitle
+                    ]);
                     
                 } elseif ($interactiveType === 'list_reply') {
                     // Usuario seleccionó de lista
@@ -331,6 +352,10 @@ class WebhookController extends Controller
                         'list_title' => $listTitle,
                         'list_description' => $listDescription,
                     ];
+                    Log::info('[BotFlow] Extracted interactive list reply', [
+                        'list_id' => $listId,
+                        'list_title' => $listTitle
+                    ]);
                 }
                 break;
                 
@@ -339,13 +364,17 @@ class WebhookController extends Controller
                 // WhatsApp envía type:"button" con button.text y button.payload
                 $buttonText    = $message['button']['text'] ?? '';
                 $buttonPayload = $message['button']['payload'] ?? $buttonText;
-
+ 
                 $content  = $buttonText;  // El texto visible del botón
                 $metadata = [
                     'interactive_type' => 'template_button_reply',
                     'button_title'     => $buttonText,
                     'button_payload'   => $buttonPayload,
                 ];
+                Log::info('[BotFlow] Extracted template button reply', [
+                    'button_text' => $buttonText,
+                    'button_payload' => $buttonPayload
+                ]);
                 break;
                 
             default:

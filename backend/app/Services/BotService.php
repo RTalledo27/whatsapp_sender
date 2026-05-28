@@ -151,9 +151,18 @@ class BotService
     public function handleIncomingMessage(Contact $contact, Message $message)
     {
         $incomingPhoneNumberId = (string)$message->phone_number_id;
+        Log::info('[BotFlow] handleIncomingMessage triggered', [
+            'contact_phone' => $contact->phone_number,
+            'message_id' => $message->id,
+            'incoming_phone_number_id' => $incomingPhoneNumberId,
+            'valid_bot_ids' => $this->botPhoneNumberIds,
+        ]);
 
         // Verificar si el mensaje proviene de alguno de los números de bot registrados
         if (empty($this->botPhoneNumberIds) || !in_array($incomingPhoneNumberId, array_map('strval', $this->botPhoneNumberIds))) {
+            Log::warning('[BotFlow] Incoming phone_number_id is not registered as a bot ID. Ignoring.', [
+                'incoming' => $incomingPhoneNumberId
+            ]);
             return;
         }
 
@@ -161,15 +170,19 @@ class BotService
         $this->botPhoneNumberId = $incomingPhoneNumberId;
 
         $conversation = $this->getOrCreateConversation($contact);
-        Log::info("BotService: Conversation retrieved. State: {$conversation->state}, ID: {$conversation->id}");
+        Log::info("[BotFlow] Conversation loaded", [
+            'conversation_id' => $conversation->id,
+            'state' => $conversation->state,
+            'context' => $conversation->context
+        ]);
 
         // Detectar comercio por el número del remitente (quien escribe)
         $senderPhone = $contact->phone_number;
-        Log::info("BotService: Incoming message from phone", ['raw_sender_phone' => $senderPhone]);
+        Log::info("[BotFlow] Incoming message from phone", ['raw_sender_phone' => $senderPhone]);
 
         $comercio = $this->comercioService->detectarPorTelefono($senderPhone);
         if ($comercio) {
-            Log::info("BotService: Comercio object detected via ComercioService", [
+            Log::info("[BotFlow] Comercio object detected via ComercioService", [
                 'comercio_id' => $comercio->id,
                 'comercio_nombre' => $comercio->nombre,
                 'comercio_flow_id' => $comercio->flow_id
@@ -180,7 +193,7 @@ class BotService
             $needsRestart = false;
 
             if (empty($context['comercio_id'])) {
-                Log::info("BotService: Setting initial comercio_id in context");
+                Log::info("[BotFlow] Setting initial comercio_id in context");
                 $context['comercio_id']     = $comercio->id;
                 $context['comercio_nombre'] = $comercio->nombre;
                 $context['tipo_flujo']      = $this->comercioService->getTipoFlujo($senderPhone);
@@ -189,7 +202,7 @@ class BotService
 
             // Siempre sincronizar flow_id (por si se cambió desde el panel)
             if (($context['flow_id'] ?? null) !== $comercio->flow_id) {
-                Log::info("BotService: Syncing flow_id in context", [
+                Log::info("[BotFlow] Syncing flow_id in context", [
                     'old_flow_id' => $context['flow_id'] ?? null,
                     'new_flow_id' => $comercio->flow_id
                 ]);
@@ -200,18 +213,23 @@ class BotService
 
             if ($needsUpdate) {
                 $newState = $needsRestart ? self::STATE_INITIAL : $conversation->state;
+                Log::info("[BotFlow] Context update required. Updating state and context.", [
+                    'old_state' => $conversation->state,
+                    'new_state' => $newState,
+                    'new_context' => $context
+                ]);
                 $this->updateState($conversation, $newState, $context);
                 $conversation->refresh();
-                Log::info('BotService: Context updated successfully in DB', [
+                Log::info('[BotFlow] Context updated successfully in DB', [
                     'final_context' => $conversation->context,
                     'state_restarted' => $needsRestart
                 ]);
             }
         } else {
-            Log::info("BotService: No comercio detected for this phone number.");
+            Log::info("[BotFlow] No comercio detected for this phone number.");
             $context = $conversation->context ?? [];
             if (isset($context['flow_id']) || isset($context['comercio_id'])) {
-                Log::info("BotService: Phone is no longer a comercio, clearing context and resetting state.");
+                Log::info("[BotFlow] Phone is no longer a comercio, clearing context and resetting state.");
                 
                 // Limpiar el contexto de datos de comercio, manteniendo solo lo esencial
                 $cleanContext = [
@@ -224,20 +242,20 @@ class BotService
                 $conversation->context = $cleanContext;
                 $conversation->save();
                 $conversation->refresh();
-                Log::info('BotService: Conversation reset to INITIAL (Client flow) because commerce link was removed.');
+                Log::info('[BotFlow] Conversation reset to INITIAL (Client flow) because commerce link was removed.');
             }
         }
 
         // Reiniciar automáticamente si la conversación ya terminó
         if ($conversation->state === self::STATE_FINISHED) {
-            Log::info("BotService: Conversation was FINISHED. Auto-resetting for new incoming message.");
+            Log::info("[BotFlow] Conversation was FINISHED. Auto-resetting for new incoming message.");
             $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
             $conversation->refresh();
         }
 
         // Reiniciar si el usuario escribe hola/reset explícitamente
         if (strtolower(trim($message->message_content)) === 'hola' || strtolower(trim($message->message_content)) === 'reset') {
-            Log::info("BotService: Resetting conversation by user request.");
+            Log::info("[BotFlow] Resetting conversation by user request.");
             $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
             $conversation->refresh();
         }
@@ -246,8 +264,13 @@ class BotService
         // tiene contexto sucio (retries > 0 de tests anteriores), resetear para empezar limpio.
         if ($message->message_type === 'button') {
             $staleRetries = ($conversation->context['retries'] ?? 0) > 0;
+            Log::info("[BotFlow] Template button reply detected. Checking if reset is needed.", [
+                'stale_retries' => $staleRetries,
+                'current_state' => $conversation->state,
+                'current_retries' => $conversation->context['retries'] ?? 0
+            ]);
             if ($staleRetries || $conversation->state === self::STATE_INITIAL) {
-                Log::info("BotService: Template button reply detected. Resetting to initial for clean processing.");
+                Log::info("[BotFlow] Template button reset condition matched. Resetting to initial for clean processing.");
                 $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
                 $conversation->refresh();
             }
@@ -255,21 +278,21 @@ class BotService
 
         // El bot no interviene en estado handoff (legacy)
         if ($conversation->state === self::STATE_HANDOFF) {
-            Log::info("BotService: Ignoring message because conversation is in HANDOFF state (legacy).");
+            Log::info("[BotFlow] Ignoring message because conversation is in HANDOFF state (legacy).");
             return;
         }
 
-        Log::info("BotService: Processing message for state: {$conversation->state}");
+        Log::info("[BotFlow] Processing message for state: {$conversation->state}");
 
         // Obtener el flow_id del contexto (asignado por comercio o null)
         $flowId = $conversation->context['flow_id'] ?? null;
 
         try {
             if ($conversation->state === self::STATE_INITIAL) {
-                Log::info("BotService: Starting flow", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
+                Log::info("[BotFlow] Starting flow", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
                 $this->startFlow($conversation, $message, $flowId, $incomingPhoneNumberId);
             } else {
-                Log::info("BotService: Processing step", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
+                Log::info("[BotFlow] Processing step", ['flow_id' => $flowId, 'phone_number_id' => $incomingPhoneNumberId]);
                 $this->processStep($conversation, $message, $flowId, $incomingPhoneNumberId);
             }
         } catch (\Exception $e) {
@@ -316,11 +339,22 @@ class BotService
         $flow = $this->getActiveFlow($flowId, $phoneNumberId);
 
         if (!$flow || empty($flow['steps'])) {
+            Log::error('[BotFlow] startFlow: Flow or flow steps are empty!', [
+                'flow_id' => $flowId,
+                'phone_number_id' => $phoneNumberId,
+                'flow_found' => !empty($flow)
+            ]);
             $this->sendMessage($conversation->contact, "Lo siento, el servicio no está disponible en este momento.");
             return;
         }
 
         $firstStep = $flow['steps'][0];
+        Log::info('[BotFlow] startFlow: Starting flow with first step', [
+            'flow_name' => $flow['name'] ?? 'Unnamed',
+            'flow_id' => $flow['id'] ?? 'none',
+            'first_step_state' => $firstStep['state'],
+            'first_step_action_type' => $firstStep['action_type'] ?? 'buttons'
+        ]);
         $this->updateState($conversation, $firstStep['state'], ['retries' => 0, 'flow_id' => $flowId]);
         $conversation->refresh(); // Asegurar que el objeto en memoria refleja el estado y contexto frescos
 
@@ -328,10 +362,11 @@ class BotService
         
         if ($actionType === self::ACTION_PLANTILLA) {
             // El mensaje entrante ES la respuesta al template: procesarlo directamente
-            Log::info("BotService: First step is Plantilla. Processing incoming message immediately.");
+            Log::info("[BotFlow] First step is Plantilla. Processing incoming message immediately.");
             $this->processStep($conversation, $message, $flowId, $phoneNumberId);
         } else {
             // Comportamiento normal: enviar el primer mensaje del flujo
+            Log::info("[BotFlow] First step is normal. Dispatching first step message.");
             $this->dispatchStep($conversation->contact, $firstStep);
         }
     }
@@ -343,6 +378,10 @@ class BotService
     {
         $flow = $this->getActiveFlow($flowId, $phoneNumberId);
         if (!$flow) {
+            Log::error('[BotFlow] processStep: Flow not found!', [
+                'flow_id' => $flowId,
+                'phone_number_id' => $phoneNumberId
+            ]);
             $this->sendMessage($conversation->contact, "Error: Configuración no disponible.");
             return;
         }
@@ -351,13 +390,22 @@ class BotService
         $currentStep = $this->findStepByState($flow, $conversation->state);
 
         if (!$currentStep) {
-            Log::error('Step not found', ['state' => $conversation->state]);
+            Log::error('[BotFlow] processStep: Step not found in current flow state', [
+                'state' => $conversation->state,
+                'flow_id' => $flow['id'] ?? 'none'
+            ]);
             $this->sendMessage($conversation->contact, "Error: Paso no encontrado.");
             return;
         }
 
         // Resolver el tipo de acción (retrocompatibilidad: sin action_type => buttons)
         $actionType = $currentStep['action_type'] ?? self::ACTION_BUTTONS;
+        Log::info('[BotFlow] processStep: Dispatching step processing', [
+            'step_state' => $currentStep['state'],
+            'action_type' => $actionType,
+            'message_content' => $message->message_content,
+            'message_type' => $message->message_type
+        ]);
 
         switch ($actionType) {
             case self::ACTION_FREE_TEXT:
@@ -402,21 +450,36 @@ class BotService
 
         // Normalizar acciones (retrocompatibilidad buttons → actions)
         $actions = $this->normalizeActions($step);
+        Log::info('[BotFlow] handleButtonsStep: Starting button matching', [
+            'input_content' => $content,
+            'input_button_title' => $buttonTitle,
+            'configured_actions_count' => count($actions)
+        ]);
 
         // Buscar qué botón seleccionó el usuario
         $selectedAction = null;
-        foreach ($actions as $action) {
-            if (
-                strcasecmp($content, $action['title'] ?? '') === 0 ||
-                strcasecmp($content, $action['id'] ?? '') === 0 ||
-                ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0)
-            ) {
+        foreach ($actions as $index => $action) {
+            $titleMatch = strcasecmp($content, $action['title'] ?? '') === 0;
+            $idMatch = strcasecmp($content, $action['id'] ?? '') === 0;
+            $metaTitleMatch = ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0);
+            
+            Log::info("[BotFlow] handleButtonsStep: Comparing against action #{$index}", [
+                'action_id' => $action['id'] ?? 'none',
+                'action_title' => $action['title'] ?? 'none',
+                'title_match' => $titleMatch,
+                'id_match' => $idMatch,
+                'meta_title_match' => $metaTitleMatch
+            ]);
+
+            if ($titleMatch || $idMatch || $metaTitleMatch) {
                 $selectedAction = $action;
+                Log::info("[BotFlow] handleButtonsStep: Match found!", ['matched_action' => $action]);
                 break;
             }
         }
 
         if (!$selectedAction) {
+            Log::warning('[BotFlow] handleButtonsStep: No match found. Sending to handleInvalidInput.');
             $this->handleInvalidInput($conversation, $retries);
             return;
         }
@@ -442,15 +505,30 @@ class BotService
         $metadata    = $message->metadata ?? [];
         $buttonTitle = $metadata['button_title'] ?? null;
 
+        Log::info('[BotFlow] handlePlantillaStep: Starting template button matching', [
+            'input_content' => $content,
+            'input_button_title' => $buttonTitle,
+            'configured_actions_count' => count($actions)
+        ]);
+
         // Buscar si el usuario seleccionó una de las opciones esperadas
         $selectedAction = null;
-        foreach ($actions as $action) {
-            if (
-                strcasecmp($content, $action['title'] ?? '') === 0 ||
-                strcasecmp($content, $action['id'] ?? '') === 0 ||
-                ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0)
-            ) {
+        foreach ($actions as $index => $action) {
+            $titleMatch = strcasecmp($content, $action['title'] ?? '') === 0;
+            $idMatch = strcasecmp($content, $action['id'] ?? '') === 0;
+            $metaTitleMatch = ($buttonTitle && strcasecmp($buttonTitle, $action['title'] ?? '') === 0);
+
+            Log::info("[BotFlow] handlePlantillaStep: Comparing against action #{$index}", [
+                'action_id' => $action['id'] ?? 'none',
+                'action_title' => $action['title'] ?? 'none',
+                'title_match' => $titleMatch,
+                'id_match' => $idMatch,
+                'meta_title_match' => $metaTitleMatch
+            ]);
+
+            if ($titleMatch || $idMatch || $metaTitleMatch) {
                 $selectedAction = $action;
+                Log::info("[BotFlow] handlePlantillaStep: Match found!", ['matched_action' => $action]);
                 break;
             }
         }
@@ -463,16 +541,19 @@ class BotService
             return;
         }
 
+        Log::warning('[BotFlow] handlePlantillaStep: No action matched.');
+
         // Si no coincidió con ningún botón, verificar si hay fallback state configurado
         $fallbackState = $step['fallback_state'] ?? null;
         if ($fallbackState) {
-            Log::info("BotService: Plantilla input invalid, routing to fallback_state", ['fallback' => $fallbackState]);
+            Log::info("[BotFlow] handlePlantillaStep: Plantilla input invalid, routing to fallback_state", ['fallback' => $fallbackState]);
             $context['retries'] = 0;
             $context['responses'][$step['state']] = 'INVALID_INPUT';
             $this->routeToNextState($conversation, $message, $step, $context, $fallbackState, $flow);
         } else {
             // Comportamiento normal de error si no hay fallback (reintento)
             $retries = $context['retries'] ?? 0;
+            Log::info("[BotFlow] handlePlantillaStep: No fallback_state configured. Calling handleInvalidInput.", ['current_retries' => $retries]);
             $this->handleInvalidInput($conversation, $retries);
         }
     }
@@ -694,14 +775,22 @@ class BotService
         bool $chainAdvance = false,
         int $chainDepth = 0
     ) {
+        Log::info('[BotFlow] routeToNextState triggered', [
+            'from_state' => $currentStep['state'],
+            'to_state' => $nextState,
+            'chain_advance' => $chainAdvance,
+            'chain_depth' => $chainDepth
+        ]);
+
         if (!$nextState) {
-            Log::error('BotService: nextState is null', ['state' => $currentStep['state']]);
+            Log::error('[BotFlow] routeToNextState: nextState is null', ['state' => $currentStep['state']]);
             $this->sendMessage($conversation->contact, "Error de configuración: siguiente paso no definido.");
             return;
         }
 
         if ($nextState === 'finished') {
             // El flujo determinó que SÍ califica
+            Log::info('[BotFlow] routeToNextState: routing to qualified FINISHED state');
             $this->updateState($conversation, $currentStep['state'], $context);
             $this->finishFlow($conversation, true, "Cumple los requisitos para acceder al beneficio del club");
             return;
@@ -709,6 +798,7 @@ class BotService
 
         if ($nextState === 'nofinished') {
             // El flujo determinó que NO califica
+            Log::info('[BotFlow] routeToNextState: routing to unqualified NOFINISHED state');
             $this->updateState($conversation, $currentStep['state'], $context);
             $this->finishFlow($conversation, false, "No cumple uno o más requisitos para el beneficio del club");
             return;
@@ -716,6 +806,7 @@ class BotService
 
         if ($nextState === 'end_flow') {
             // Terminar chat sin mensaje extra
+            Log::info('[BotFlow] routeToNextState: routing to END_FLOW (silent finished) state');
             $this->updateState($conversation, $currentStep['state'], $context);
             $this->endFlowSilently($conversation, 'Finalizado por flujo');
             return;
@@ -725,7 +816,7 @@ class BotService
         $nextStep = $this->findStepByState($flow, $nextState);
 
         if (!$nextStep) {
-            Log::error('BotService: Next step not found', ['nextState' => $nextState]);
+            Log::error('[BotFlow] routeToNextState: Next step not found in flow', ['nextState' => $nextState]);
             $this->sendMessage($conversation->contact, "Error: Siguiente paso no encontrado.");
             return;
         }
@@ -750,9 +841,16 @@ class BotService
             }
         }
 
+        Log::info('[BotFlow] routeToNextState: Step analysis', [
+            'next_step_state' => $nextState,
+            'next_step_type' => $nextActionType,
+            'is_auto_advance' => $isAutoAdvance,
+            'terminal_state' => $terminalFinalState
+        ]);
+
         if ($isAutoAdvance) {
             // Es un paso de despedida: enviarlo como texto plano y cerrar inmediatamente
-            Log::info("BotService: Auto-advancing to terminal step", ['nextState' => $nextState, 'final' => $terminalFinalState]);
+            Log::info("[BotFlow] routeToNextState: Auto-advancing to terminal step", ['nextState' => $nextState, 'final' => $terminalFinalState]);
             $this->sendMessage($conversation->contact, $nextStep['question']); // Enviar directamente como texto
             $this->updateState($conversation, $nextState, $context);
             
@@ -776,7 +874,7 @@ class BotService
 
             if ($isSinglePathStep) {
                 $chainNextState = $nextActions[0]['next_state'];
-                Log::info('BotService: Chain-advancing through informational step', [
+                Log::info('[BotFlow] routeToNextState: Chain-advancing through informational step', [
                     'current_state' => $nextState,
                     'chain_next'    => $chainNextState,
                     'depth'         => $chainDepth,
@@ -796,6 +894,9 @@ class BotService
         }
 
         // Avanzar al siguiente estado y enviar la siguiente pregunta (comportamiento normal)
+        Log::info('[BotFlow] routeToNextState: Routing to normal step. Advancing state and dispatching.', [
+            'next_state' => $nextState
+        ]);
         $this->updateState($conversation, $nextState, $context);
         $this->dispatchStep($conversation->contact, $nextStep);
     }
@@ -807,6 +908,11 @@ class BotService
     {
         $actionType = $step['action_type'] ?? self::ACTION_BUTTONS;
         $question   = $step['question'];
+        Log::info('[BotFlow] dispatchStep: Dispatching step message to client', [
+            'state' => $step['state'],
+            'action_type' => $actionType,
+            'question_preview' => mb_substr($question, 0, 50) . '...'
+        ]);
 
         switch ($actionType) {
             case self::ACTION_BUTTONS:
@@ -1055,9 +1161,14 @@ class BotService
     private function handleInvalidInput(BotConversation $conversation, int $retries)
     {
         $retries++;
+        Log::info('[BotFlow] handleInvalidInput called', [
+            'previous_retries' => $retries - 1,
+            'new_retries' => $retries,
+            'conversation_state' => $conversation->state
+        ]);
 
         if ($retries >= 2) {
-            Log::info("BotService: Resetting conversation due to too many invalid attempts", ['state' => $conversation->state]);
+            Log::info("[BotFlow] handleInvalidInput: Resetting conversation due to too many invalid attempts", ['state' => $conversation->state]);
             $this->updateState($conversation, self::STATE_INITIAL, []);
             $this->sendMessage(
                 $conversation->contact,
