@@ -509,8 +509,9 @@ class WhatsAppService
                     throw new \Exception('Cada botón debe tener "id" y "title"');
                 }
                 // Validar longitud del título (máx 20 caracteres)
-                if (strlen($button['title']) > 20) {
-                    throw new \Exception('El título del botón no puede exceder 20 caracteres');
+                if (mb_strlen($button['title'], 'UTF-8') > 20) {
+                    Log::error('WhatsAppService: Button title too long', ['title' => $button['title'], 'length' => mb_strlen($button['title'], 'UTF-8')]);
+                    throw new \Exception('El título del botón no puede exceder 20 caracteres: ' . $button['title']);
                 }
             }
 

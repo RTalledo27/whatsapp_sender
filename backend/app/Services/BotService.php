@@ -1316,11 +1316,18 @@ class BotService
                 ]);
                 Log::info("BotService: Interactive message sent successfully");
             } else {
-                Log::warning("BotService: Interactive buttons failed, using text fallback", ['error' => $result['error']]);
+                Log::warning("BotService: Interactive buttons failed, using text fallback", [
+                    'error' => $result['error'] ?? 'Unknown error',
+                    'buttons' => $buttons,
+                    'text_length' => mb_strlen($bodyText, 'UTF-8')
+                ]);
                 $this->sendTextFallback($contact, $bodyText, $buttons);
             }
         } catch (\Exception $e) {
-            Log::error("BotService: Error sending interactive message", ['error' => $e->getMessage()]);
+            Log::error("BotService: Error sending interactive message", [
+                'error' => $e->getMessage(),
+                'buttons' => $buttons
+            ]);
             $this->sendTextFallback($contact, $text, $buttons);
         }
     }
