@@ -1180,7 +1180,7 @@ class BotService
         $context['retries'] = $retries;
         $this->updateState($conversation, $conversation->state, $context);
 
-        $this->sendMessage($conversation->contact, "⚠️ No entendí tu respuesta. Por favor, usa los botones de respuesta o escribe **1** (Sí) o **2** (No).");
+        $this->sendMessage($conversation->contact, "⚠️ No entendí tu respuesta. Por favor, inténtalo de nuevo.");
     }
 
     /**
