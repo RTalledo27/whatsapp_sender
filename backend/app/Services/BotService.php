@@ -863,8 +863,21 @@ class BotService
         $nextActions = $nextStep['actions'] ?? $nextStep['buttons'] ?? [];
         $nextActionType = $nextStep['action_type'] ?? self::ACTION_BUTTONS;
 
-        // Si tiene exactamente 1 acción (o es de tipo free_text/validated_input/crm_lead)
-        if (count($nextActions) === 1 || in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT, self::ACTION_CRM_LEAD])) {
+        // ── Caso especial: crm_lead SIEMPRE es auto-advance ──
+        // Tiene actions vacío, no hay next_state que detectar.
+        // Enviar mensaje + CRM + cerrar, sin esperar respuesta del usuario.
+        if ($nextActionType === self::ACTION_CRM_LEAD) {
+            Log::info('[BotFlow] routeToNextState: crm_lead step — auto-advancing with CRM send.', [
+                'next_state' => $nextState,
+            ]);
+            $this->sendMessage($conversation->contact, $nextStep['question']);
+            $this->updateState($conversation, $nextState, $context);
+            $this->handleCrmLeadStep($conversation, $nextStep);
+            return;
+        }
+
+        // Si tiene exactamente 1 acción (o es de tipo free_text/validated_input)
+        if (count($nextActions) === 1 || in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT])) {
             $potentialFinalState = $nextActions[0]['next_state'] ?? null;
             
             // Si esa única opción de ruta apunta a terminar el flujo
