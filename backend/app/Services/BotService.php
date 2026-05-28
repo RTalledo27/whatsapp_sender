@@ -260,20 +260,17 @@ class BotService
             $conversation->refresh();
         }
 
-        // Cuando llega una respuesta a un botón de plantilla (type=button), si la conversación
-        // tiene contexto sucio (retries > 0 de tests anteriores), resetear para empezar limpio.
+        // Cuando llega una respuesta a un botón de plantilla (type=button), SIEMPRE
+        // resetear al estado inicial para que el flujo empiece limpio desde el paso plantilla.
+        // Esto corrige el caso donde la conversación quedó atascada en un paso intermedio
+        // (con retries=0), haciendo que el bot no reconociera el botón de plantilla.
         if ($message->message_type === 'button') {
-            $staleRetries = ($conversation->context['retries'] ?? 0) > 0;
-            Log::info("[BotFlow] Template button reply detected. Checking if reset is needed.", [
-                'stale_retries' => $staleRetries,
-                'current_state' => $conversation->state,
-                'current_retries' => $conversation->context['retries'] ?? 0
+            Log::info("[BotFlow] Template button reply detected. Forcing reset to INITIAL for clean processing.", [
+                'previous_state'   => $conversation->state,
+                'previous_retries' => $conversation->context['retries'] ?? 0,
             ]);
-            if ($staleRetries || $conversation->state === self::STATE_INITIAL) {
-                Log::info("[BotFlow] Template button reset condition matched. Resetting to initial for clean processing.");
-                $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
-                $conversation->refresh();
-            }
+            $this->updateState($conversation, self::STATE_INITIAL, ['retries' => 0]);
+            $conversation->refresh();
         }
 
         // El bot no interviene en estado handoff (legacy)
