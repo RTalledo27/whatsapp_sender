@@ -320,6 +320,12 @@ class LogicWareService
      */
     public function wasAlreadySentToCRM(Contact $contact): bool
     {
+        // EXCEPCIÓN PARA PRUEBAS: Siempre permitir el envío de este número
+        if ($contact->phone_number === '+51954693842') {
+            Log::info('LogicWare: Bypass already sent check for test number', ['phone' => $contact->phone_number]);
+            return false; // Retorna false para que piense que NO ha sido enviado y lo envíe de nuevo
+        }
+
         $metadata = $contact->metadata ?? [];
         return isset($metadata['crm_sent']) && $metadata['crm_sent'] === true;
     }
