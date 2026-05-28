@@ -120,6 +120,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     { value: 'validated_input', label: 'Entrada validada', icon: '🔍', description: 'El usuario escribe y se valida el formato (DNI, email, etc.)' },
     { value: 'link_button',     label: 'Enlace / CTA',     icon: '🔗', description: 'Muestra un botón que abre una URL en el navegador. Avanza automáticamente.' },
     { value: 'plantilla',       label: 'Plantilla',        icon: '📄', description: 'Envía una plantilla de WhatsApp' },
+    { value: 'crm_lead',        label: 'Enviar al CRM',    icon: '📤', description: 'El usuario elige una opción, el lead se envía al CRM de LogicWare y el chat termina. Solo disponible para Leads Comunicaciones.' },
   ];
 
   // Opciones de tipo de validación
@@ -187,6 +188,19 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       const flowPhoneId = f.phone_number_id || '1045508308650088';
       return flowPhoneId === this.selectedBotNumber;
     });
+  }
+
+  /** Indica si el flujo seleccionado pertenece al número Leads Comunicaciones */
+  get isLeadsComunicacionesFlow(): boolean {
+    return this.selectedBotNumber === '1167874003073763';
+  }
+
+  /** Tipos de acción disponibles según el número seleccionado */
+  get availableActionTypes() {
+    if (this.isLeadsComunicacionesFlow) {
+      return this.actionTypes; // Todos, incluyendo crm_lead
+    }
+    return this.actionTypes.filter(t => t.value !== 'crm_lead');
   }
 
   /** Flujos solo del Club de Beneficios (para asignar a comercios) */
@@ -280,6 +294,13 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
         step.fallback_state = '';
         delete step.validation;
         break;
+
+      case 'crm_lead':
+        step.actions = []; // No necesita acciones — el CRM se envía automáticamente
+        step.utm_campaign = '';
+        step.utm_term = '';
+        delete step.validation;
+        break;
     }
   }
 
@@ -335,6 +356,10 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
 
   isLinkButtonType(step: BotStep | null): boolean {
     return step?.action_type === 'link_button';
+  }
+
+  isCrmLeadType(step: BotStep | null): boolean {
+    return step?.action_type === 'crm_lead';
   }
 
   /** Tipos que usan un solo next_state sin botones de respuesta */

@@ -30,6 +30,7 @@ class BotService
     const ACTION_VALIDATED_INPUT = 'validated_input';
     const ACTION_LINK_BUTTON     = 'link_button';
     const ACTION_PLANTILLA       = 'plantilla';
+    const ACTION_CRM_LEAD        = 'crm_lead';
 
     // Tipos de validación disponibles
     const VALIDATION_DNI    = 'dni';
@@ -423,6 +424,12 @@ class BotService
                 $this->handlePlantillaStep($conversation, $message, $currentStep, $flow);
                 break;
 
+            case self::ACTION_CRM_LEAD:
+                // crm_lead auto-avanza igual que link_button: no espera respuesta del usuario
+                // Si el usuario escribe algo mientras está en este estado, simplemente re-envía CRM y cierra
+                $this->handleCrmLeadStep($conversation, $currentStep);
+                break;
+
             case self::ACTION_BUTTONS:
             default:
                 $this->handleButtonsStep($conversation, $message, $currentStep, $flow);
@@ -556,10 +563,39 @@ class BotService
     }
 
     /**
-     * Manejar paso de tipo LINK_BUTTON
-     * Envía el texto con el botón CTA y avanza automáticamente al siguiente estado.
-     * No espera respuesta del usuario.
+     * Manejar paso de tipo CRM_LEAD (auto-advance)
+     * Se envía el lead al CRM con los utm_campaign / utm_term configurados en el PASO
+     * (no en un botón — el usuario no necesita presionar nada).
+     * Después cierra el chat silenciosamente.
+     * Solo envía si el lead no fue enviado antes (wasAlreadySentToCRM).
      */
+    private function handleCrmLeadStep(BotConversation $conversation, array $step): void
+    {
+        $context     = $conversation->context ?? [];
+        $utmCampaign = $step['utm_campaign'] ?? null;
+        $utmTerm     = $step['utm_term'] ?? null;
+
+        $context['retries']                    = 0;
+        $context['responses'][$step['state']] = 'crm_lead_auto';
+
+        Log::info('[BotFlow] handleCrmLeadStep: Auto-advancing, sending to CRM', [
+            'step_state'   => $step['state'],
+            'utm_campaign' => $utmCampaign,
+            'utm_term'     => $utmTerm,
+        ]);
+
+        // Enviar al CRM con los UTMs configurados en el paso
+        $this->sendQualifiedLeadToCRM($conversation, $utmCampaign, $utmTerm);
+
+        // Cerrar el chat silenciosamente (sin mensaje adicional)
+        $this->updateState($conversation, self::STATE_FINISHED, $context);
+
+        Log::info('[BotFlow] handleCrmLeadStep: Conversation closed silently after CRM send.', [
+            'contact_id'      => $conversation->contact_id,
+            'conversation_id' => $conversation->id,
+        ]);
+    }
+
     private function handleLinkButtonStep(BotConversation $conversation, array $step, array $flow)
     {
         $context   = $conversation->context ?? [];
@@ -827,8 +863,8 @@ class BotService
         $nextActions = $nextStep['actions'] ?? $nextStep['buttons'] ?? [];
         $nextActionType = $nextStep['action_type'] ?? self::ACTION_BUTTONS;
 
-        // Si tiene exactamente 1 acción (o es de tipo free_text/validated_input)
-        if (count($nextActions) === 1 || in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT])) {
+        // Si tiene exactamente 1 acción (o es de tipo free_text/validated_input/crm_lead)
+        if (count($nextActions) === 1 || in_array($nextActionType, [self::ACTION_FREE_TEXT, self::ACTION_VALIDATED_INPUT, self::ACTION_CRM_LEAD])) {
             $potentialFinalState = $nextActions[0]['next_state'] ?? null;
             
             // Si esa única opción de ruta apunta a terminar el flujo
@@ -848,6 +884,15 @@ class BotService
         if ($isAutoAdvance) {
             // Es un paso de despedida: enviarlo como texto plano y cerrar inmediatamente
             Log::info("[BotFlow] routeToNextState: Auto-advancing to terminal step", ['nextState' => $nextState, 'final' => $terminalFinalState]);
+
+            // Para crm_lead: enviar el mensaje Y mandar al CRM antes de cerrar
+            if ($nextActionType === self::ACTION_CRM_LEAD) {
+                $this->sendMessage($conversation->contact, $nextStep['question']);
+                $this->updateState($conversation, $nextState, $context);
+                $this->handleCrmLeadStep($conversation, $nextStep);
+                return;
+            }
+
             $this->sendMessage($conversation->contact, $nextStep['question']); // Enviar directamente como texto
             $this->updateState($conversation, $nextState, $context);
             
@@ -920,6 +965,12 @@ class BotService
                     'title' => $a['title'],
                 ], $actions);
                 $this->sendInteractiveMessage($contact, $question, $buttons);
+                break;
+
+            case self::ACTION_CRM_LEAD:
+                // crm_lead: solo envía el texto del mensaje (sin botones)
+                // El CRM se envía automáticamente al llegar al paso (desde routeToNextState)
+                $this->sendMessage($contact, $question);
                 break;
 
             case self::ACTION_PLANTILLA:
@@ -1025,7 +1076,7 @@ class BotService
     /**
      * Enviar lead calificado al CRM de LogicWare
      */
-    private function sendQualifiedLeadToCRM(BotConversation $conversation): void
+    private function sendQualifiedLeadToCRM(BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): void
     {
         try {
             $contact = $conversation->contact;
@@ -1041,13 +1092,15 @@ class BotService
                 return;
             }
 
-            $result = $this->logicwareService->createQualifiedLead($contact, $conversation);
+            $result = $this->logicwareService->createQualifiedLead($contact, $conversation, $utmCampaign, $utmTerm);
 
             if ($result['success']) {
                 Log::info('BotService: Lead sent to CRM successfully', [
-                    'contact_id'  => $contact->id,
-                    'lead_id'     => $result['lead_id'] ?? null,
-                    'assigned_to' => $result['assigned_to'] ?? null,
+                    'contact_id'   => $contact->id,
+                    'lead_id'      => $result['lead_id'] ?? null,
+                    'assigned_to'  => $result['assigned_to'] ?? null,
+                    'utm_campaign' => $utmCampaign,
+                    'utm_term'     => $utmTerm,
                 ]);
             } else {
                 Log::error('BotService: Failed to send lead to CRM', [
@@ -1131,9 +1184,12 @@ class BotService
         if (!empty($step['actions'])) {
             return array_map(function ($a) {
                 return [
-                    'id'         => $a['id'] ?? 'btn_' . uniqid(),
-                    'title'      => $a['title'] ?? '',
-                    'next_state' => $a['next_state'] ?? $a['nextState'] ?? '',
+                    'id'           => $a['id'] ?? 'btn_' . uniqid(),
+                    'title'        => $a['title'] ?? '',
+                    'next_state'   => $a['next_state'] ?? $a['nextState'] ?? '',
+                    // Preservar campos extra (utm, etc.) si existen
+                    'utm_campaign' => $a['utm_campaign'] ?? null,
+                    'utm_term'     => $a['utm_term'] ?? null,
                 ];
             }, $step['actions']);
         }

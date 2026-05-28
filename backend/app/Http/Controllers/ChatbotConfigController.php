@@ -236,10 +236,10 @@ class ChatbotConfigController extends Controller
             $request->validate([
                 'state'       => 'required|string',
                 'question'    => 'required|string',
-                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla',
+                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla,crm_lead',
                 'order'       => 'sometimes|nullable|integer',
 
-                // Para action_type = buttons / plantilla
+                // Para action_type = buttons / plantilla / crm_lead
                 'actions'                   => 'sometimes|nullable|array',
                 'actions.*.id'              => 'sometimes|nullable|string',
                 'actions.*.title'           => 'sometimes|nullable|string',
@@ -247,6 +247,12 @@ class ChatbotConfigController extends Controller
                 'actions.*.resultado'       => 'sometimes|nullable|string',
                 'actions.*.button_text'     => 'sometimes|nullable|string',
                 'actions.*.url'             => 'sometimes|nullable|string',
+                'actions.*.utm_campaign'    => 'sometimes|nullable|string|max:100',
+                'actions.*.utm_term'        => 'sometimes|nullable|string|max:100',
+
+                // Campos UTM a nivel de paso (para crm_lead)
+                'utm_campaign' => 'sometimes|nullable|string|max:100',
+                'utm_term'     => 'sometimes|nullable|string|max:100',
 
                 // Para action_type = validated_input
                 'validation'                     => 'sometimes|nullable|array',
@@ -297,7 +303,7 @@ class ChatbotConfigController extends Controller
         try {
             $request->validate([
                 'question'    => 'sometimes|nullable|string',
-                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla',
+                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla,crm_lead',
                 'order'       => 'sometimes|nullable|integer',
 
                 'actions'                   => 'sometimes|nullable|array',
@@ -307,6 +313,12 @@ class ChatbotConfigController extends Controller
                 'actions.*.resultado'       => 'sometimes|nullable|string',
                 'actions.*.button_text'     => 'sometimes|nullable|string',
                 'actions.*.url'             => 'sometimes|nullable|string',
+                'actions.*.utm_campaign'    => 'sometimes|nullable|string|max:100',
+                'actions.*.utm_term'        => 'sometimes|nullable|string|max:100',
+
+                // Campos UTM a nivel de paso (para crm_lead)
+                'utm_campaign' => 'sometimes|nullable|string|max:100',
+                'utm_term'     => 'sometimes|nullable|string|max:100',
 
                 'validation'                     => 'sometimes|nullable|array',
                 'validation.type'                => 'sometimes|nullable|string|in:dni,phone,email,number,text,regex',
@@ -357,7 +369,7 @@ class ChatbotConfigController extends Controller
         $step['action_type'] = $actionType;
 
         // Actualizar acciones según el tipo
-        if (in_array($actionType, ['buttons', 'plantilla'])) {
+        if (in_array($actionType, ['buttons', 'plantilla', 'crm_lead'])) {
             if ($request->has('actions')) {
                 $step['actions'] = $this->normalizeActionsInput($request->actions);
                 // Limpiar campos de otros tipos
@@ -401,6 +413,15 @@ class ChatbotConfigController extends Controller
                 ]];
             }
             unset($step['buttons'], $step['validation']);
+        }
+
+        // Para crm_lead: guardar UTMs a nivel de paso y limpiar acciones
+        if ($actionType === 'crm_lead') {
+            $step['actions'] = [];
+            $step['utm_campaign'] = $request->utm_campaign ?? null;
+            $step['utm_term']     = $request->utm_term ?? null;
+            // Limpiar campos de otros tipos
+            unset($step['validation'], $step['buttons'], $step['fallback_state']);
         }
 
         if ($request->has('order')) {
@@ -495,8 +516,15 @@ class ChatbotConfigController extends Controller
             'order'       => $request->order ?? $currentCount + 1,
         ];
 
-        if (in_array($actionType, ['buttons', 'plantilla'])) {
-            if ($request->has('actions')) {
+        if (in_array($actionType, ['buttons', 'plantilla', 'crm_lead'])) {
+            if ($actionType === 'crm_lead') {
+                // crm_lead: guardar UTMs a nivel del paso, acciones vacías
+                $step['actions']      = [];
+                $step['utm_campaign'] = $request->utm_campaign ?? null;
+                $step['utm_term']     = $request->utm_term ?? null;
+                // Limpiar nulos para JSON limpio
+                $step = array_filter($step, fn($v) => $v !== null);
+            } elseif ($request->has('actions')) {
                 $step['actions'] = $this->normalizeActionsInput($request->actions);
             } elseif ($request->has('buttons')) {
                 // Retrocompatibilidad
@@ -543,10 +571,16 @@ class ChatbotConfigController extends Controller
     private function normalizeActionsInput(array $actions): array
     {
         return collect($actions)->map(fn($a) => [
-            'id'         => $a['id'] ?? 'btn_' . uniqid(),
-            'title'      => $a['title'] ?? '',
-            'next_state' => $a['next_state'] ?? $a['nextState'] ?? '',
-        ])->toArray();
+            'id'          => $a['id'] ?? 'btn_' . uniqid(),
+            'title'       => $a['title'] ?? '',
+            'next_state'  => $a['next_state'] ?? $a['nextState'] ?? '',
+            // Preservar UTM si vienen (para crm_lead)
+            'utm_campaign' => $a['utm_campaign'] ?? null,
+            'utm_term'     => $a['utm_term'] ?? null,
+        ])->map(function ($a) {
+            // Limpiar nulls para no contaminar el JSON con campos vacíos
+            return array_filter($a, fn($v) => $v !== null);
+        })->toArray();
     }
 
     /**

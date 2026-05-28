@@ -80,7 +80,7 @@ class LogicWareService
      * Este método envía leads que YA ESTÁN en el CRM para reactivarlos
      * cuando califican a través del bot de WhatsApp
      */
-    public function createQualifiedLead(Contact $contact, BotConversation $conversation): array
+    public function createQualifiedLead(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): array
     {
         try {
             // Verificar si ya fue enviado
@@ -105,7 +105,7 @@ class LogicWareService
             }
 
             // Construir payload del lead
-            $leadData = $this->buildLeadPayload($contact, $conversation);
+            $leadData = $this->buildLeadPayload($contact, $conversation, $utmCampaign, $utmTerm);
             
             Log::info('LogicWare: Sending qualified lead', [
                 'contact_id' => $contact->id,
@@ -182,7 +182,7 @@ class LogicWareService
     /**
      * Construir payload del lead según especificaciones de LogicWare
      */
-    private function buildLeadPayload(Contact $contact, BotConversation $conversation): array
+    private function buildLeadPayload(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): array
     {
         // Parsear nombre completo en partes
         $nameParts = preg_split('/\s+/', trim($contact->name), 3);
@@ -225,6 +225,14 @@ class LogicWareService
         $comment = $this->buildCommentFromBot($conversation);
         if ($comment) {
             $payload['comment'] = $comment;
+        }
+
+        // Agregar campos UTM si están presentes
+        if (!empty($utmCampaign)) {
+            $payload['utmCampaign'] = $utmCampaign;
+        }
+        if (!empty($utmTerm)) {
+            $payload['utmTerm'] = $utmTerm;
         }
 
         return $payload;

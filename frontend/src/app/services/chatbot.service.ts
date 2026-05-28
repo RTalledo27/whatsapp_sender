@@ -5,12 +5,12 @@ import { environment } from '../../environments/environment';
 
 // ==================== INTERFACES ====================
 
-export type ActionType = 'buttons' | 'free_text' | 'validated_input' | 'link_button' | 'plantilla';
+export type ActionType = 'buttons' | 'free_text' | 'validated_input' | 'link_button' | 'plantilla' | 'crm_lead';
 export type ValidationType = 'dni' | 'phone' | 'email' | 'number' | 'text' | 'regex';
 
 export interface BotAction {
   id?: string;
-  title?: string;       // Para action_type = 'buttons' o 'plantilla'
+  title?: string;       // Para action_type = 'buttons', 'plantilla'
   button_text?: string; // Para action_type = 'link_button'
   url?: string;         // Para action_type = 'link_button'
   resultado?: string;   // Para validated_input con external_validation ('apto', 'no_apto', 'no_encontrado')
@@ -31,6 +31,8 @@ export interface BotStep {
   actions: BotAction[];
   validation?: BotValidation;
   fallback_state?: string; // Para action_type = 'plantilla'
+  utm_campaign?: string;   // Para action_type = 'crm_lead'
+  utm_term?: string;       // Para action_type = 'crm_lead'
   order: number;
   // Retrocompatibilidad con el formato legacy
   buttons?: { id: string; title: string; nextState: string }[];

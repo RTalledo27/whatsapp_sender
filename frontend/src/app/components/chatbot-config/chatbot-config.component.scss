@@ -2402,3 +2402,40 @@
   color: var(--text-secondary, #888);
   font-style: italic;
 }
+
+/* ====== CRM LEAD SECTION ====== */
+.crm-lead-section {
+  label {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .crm-button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+    background: rgba(249, 115, 22, 0.05);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .crm-hint {
+    color: #b45309;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    margin-top: 10px;
+  }
+}
+
+/* Badge para tipo crm_lead en lista de pasos */
+.badge-crm_lead {
+  background: rgba(249, 115, 22, 0.15);
+  color: #ea580c;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
