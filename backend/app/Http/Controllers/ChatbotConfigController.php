@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class ChatbotConfigController extends Controller
 {
@@ -231,35 +232,45 @@ class ChatbotConfigController extends Controller
      */
     public function addStep(Request $request, $id)
     {
-        $request->validate([
-            'state'       => 'required|string',
-            'question'    => 'required|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button,plantilla',
-            'order'       => 'sometimes|integer',
+        try {
+            $request->validate([
+                'state'       => 'required|string',
+                'question'    => 'required|string',
+                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla',
+                'order'       => 'sometimes|nullable|integer',
 
-            // Para action_type = buttons / plantilla
-            'actions'              => 'sometimes|array',
-            'actions.*.id'         => 'sometimes|string',
-            'actions.*.title'      => 'sometimes|string',
-            'actions.*.next_state' => 'sometimes|string',
-            'actions.*.resultado'  => 'sometimes|string',
+                // Para action_type = buttons / plantilla
+                'actions'                   => 'sometimes|nullable|array',
+                'actions.*.id'              => 'sometimes|nullable|string',
+                'actions.*.title'           => 'sometimes|nullable|string',
+                'actions.*.next_state'      => 'sometimes|nullable|string',
+                'actions.*.resultado'       => 'sometimes|nullable|string',
+                'actions.*.button_text'     => 'sometimes|nullable|string',
+                'actions.*.url'             => 'sometimes|nullable|string',
 
-            // Para action_type = validated_input
-            'validation'                     => 'sometimes|array',
-            'validation.type'                => 'required_with:validation|string|in:dni,phone,email,number,text,regex',
-            'validation.error_message'       => 'sometimes|string',
-            'validation.regex_pattern'       => 'sometimes|nullable|string',
-            'validation.external_validation' => 'sometimes|boolean',
+                // Para action_type = validated_input
+                'validation'                     => 'sometimes|nullable|array',
+                'validation.type'                => 'sometimes|nullable|string|in:dni,phone,email,number,text,regex',
+                'validation.error_message'       => 'sometimes|nullable|string',
+                'validation.regex_pattern'       => 'sometimes|nullable|string',
+                'validation.external_validation' => 'sometimes|nullable|boolean',
 
-            // Para action_type = plantilla
-            'fallback_state' => 'sometimes|nullable|string',
+                // Para action_type = plantilla
+                'fallback_state' => 'sometimes|nullable|string',
 
-            // Retrocompatibilidad legacy
-            'buttons'             => 'sometimes|array',
-            'buttons.*.id'        => 'sometimes|string',
-            'buttons.*.title'     => 'sometimes|string',
-            'buttons.*.nextState' => 'sometimes|string',
-        ]);
+                // Retrocompatibilidad legacy
+                'buttons'             => 'sometimes|nullable|array',
+                'buttons.*.id'        => 'sometimes|nullable|string',
+                'buttons.*.title'     => 'sometimes|nullable|string',
+                'buttons.*.nextState' => 'sometimes|nullable|string',
+            ]);
+        } catch (ValidationException $e) {
+            Log::error('[ChatbotConfig] addStep validation failed', [
+                'errors'  => $e->errors(),
+                'payload' => $request->all(),
+            ]);
+            throw $e;
+        }
 
         $flows     = $this->loadFlows();
         $flowIndex = collect($flows)->search(fn($flow) => $flow['id'] === $id);
@@ -283,32 +294,44 @@ class ChatbotConfigController extends Controller
      */
     public function updateStep(Request $request, $id, $state)
     {
-        $request->validate([
-            'question'    => 'sometimes|string',
-            'action_type' => 'sometimes|string|in:buttons,free_text,validated_input,link_button,plantilla',
-            'order'       => 'sometimes|integer',
+        try {
+            $request->validate([
+                'question'    => 'sometimes|nullable|string',
+                'action_type' => 'sometimes|nullable|string|in:buttons,free_text,validated_input,link_button,plantilla',
+                'order'       => 'sometimes|nullable|integer',
 
-            'actions'              => 'sometimes|array',
-            'actions.*.id'         => 'sometimes|string',
-            'actions.*.title'      => 'sometimes|string',
-            'actions.*.next_state' => 'sometimes|string',
-            'actions.*.resultado'  => 'sometimes|string',
+                'actions'                   => 'sometimes|nullable|array',
+                'actions.*.id'              => 'sometimes|nullable|string',
+                'actions.*.title'           => 'sometimes|nullable|string',
+                'actions.*.next_state'      => 'sometimes|nullable|string',
+                'actions.*.resultado'       => 'sometimes|nullable|string',
+                'actions.*.button_text'     => 'sometimes|nullable|string',
+                'actions.*.url'             => 'sometimes|nullable|string',
 
-            'validation'               => 'sometimes|array',
-            'validation.type'          => 'sometimes|string|in:dni,phone,email,number,text,regex',
-            'validation.error_message' => 'sometimes|string',
-            'validation.regex_pattern' => 'sometimes|nullable|string',
-            'validation.external_validation' => 'sometimes|boolean',
+                'validation'                     => 'sometimes|nullable|array',
+                'validation.type'                => 'sometimes|nullable|string|in:dni,phone,email,number,text,regex',
+                'validation.error_message'       => 'sometimes|nullable|string',
+                'validation.regex_pattern'       => 'sometimes|nullable|string',
+                'validation.external_validation' => 'sometimes|nullable|boolean',
 
-            // Para action_type = plantilla
-            'fallback_state'       => 'sometimes|nullable|string',
+                // Para action_type = plantilla
+                'fallback_state'       => 'sometimes|nullable|string',
 
-            // Retrocompatibilidad legacy
-            'buttons'             => 'sometimes|array',
-            'buttons.*.id'        => 'sometimes|string',
-            'buttons.*.title'     => 'sometimes|string',
-            'buttons.*.nextState' => 'sometimes|string',
-        ]);
+                // Retrocompatibilidad legacy
+                'buttons'             => 'sometimes|nullable|array',
+                'buttons.*.id'        => 'sometimes|nullable|string',
+                'buttons.*.title'     => 'sometimes|nullable|string',
+                'buttons.*.nextState' => 'sometimes|nullable|string',
+            ]);
+        } catch (ValidationException $e) {
+            Log::error('[ChatbotConfig] updateStep validation failed', [
+                'flow_id' => $id,
+                'state'   => $state,
+                'errors'  => $e->errors(),
+                'payload' => $request->all(),
+            ]);
+            throw $e;
+        }
 
         $flows     = $this->loadFlows();
         $flowIndex = collect($flows)->search(fn($flow) => $flow['id'] === $id);
@@ -521,7 +544,7 @@ class ChatbotConfigController extends Controller
     {
         return collect($actions)->map(fn($a) => [
             'id'         => $a['id'] ?? 'btn_' . uniqid(),
-            'title'      => $a['title'],
+            'title'      => $a['title'] ?? '',
             'next_state' => $a['next_state'] ?? $a['nextState'] ?? '',
         ])->toArray();
     }
