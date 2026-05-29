@@ -23,7 +23,7 @@ class LogicWareService
         $this->apiKey = config('services.logicware.api_key');
         $this->subdomain = config('services.logicware.subdomain');
         $this->version = config('services.logicware.version', 'v1.0');
-        $this->portalCode = config('services.logicware.portal_code', 'WHATSAPP_BOT');
+        $this->portalCode = config('services.logicware.portal_code', 'CHATBOTREMA');
         $this->projectCode = config('services.logicware.project_code', 'CASABONITA');
     }
 

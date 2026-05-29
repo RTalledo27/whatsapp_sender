@@ -57,7 +57,7 @@ return [
         'api_key' => env('LOGICWARE_API_KEY'),
         'subdomain' => env('LOGICWARE_SUBDOMAIN'),
         'version' => env('LOGICWARE_VERSION', 'v1.0'),
-        'portal_code' => env('LOGICWARE_PORTAL_CODE', 'WEB'),
+        'portal_code' => env('LOGICWARE_PORTAL_CODE', 'CHATBOTREMA'),
         'project_code' => env('LOGICWARE_PROJECT_CODE', 'CASABONITA'),
     ],
 
