@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Models\BotConversation;
+use App\Models\Campaign;
 use App\Services\ComercioService;
 use App\Services\DniValidationService;
 use Illuminate\Support\Facades\Log;
@@ -139,6 +140,48 @@ class BotService
     }
 
     /**
+     * Buscar flujo correspondiente al nombre de la plantilla
+     */
+    private function findFlowByTemplateName(string $templateName, ?string $phoneNumberId = null): ?array
+    {
+        if (empty($this->flows)) {
+            return null;
+        }
+
+        Log::info('BotService: findFlowByTemplateName called', [
+            'template_name' => $templateName,
+            'phone_number_id' => $phoneNumberId,
+        ]);
+
+        foreach ($this->flows as $flow) {
+            // Si el primer paso del flujo es de tipo plantilla y su "question" coincide con el templateName
+            if (!empty($flow['steps'][0])) {
+                $firstStep = $flow['steps'][0];
+                $actionType = $firstStep['action_type'] ?? null;
+                $templateQuestion = $firstStep['question'] ?? '';
+
+                if ($actionType === self::ACTION_PLANTILLA && strcasecmp($templateQuestion, $templateName) === 0) {
+                    // Adicionalmente verificar que coincida con el phone_number_id (si se proporciona)
+                    if ($phoneNumberId) {
+                        $flowPhoneId = $flow['phone_number_id'] ?? null;
+                        if ($flowPhoneId && $flowPhoneId !== $phoneNumberId) {
+                            continue;
+                        }
+                    }
+                    
+                    Log::info('BotService: Found matching flow by plantilla step question', [
+                        'flow_id' => $flow['id'],
+                        'flow_name' => $flow['name'] ?? 'Unknown',
+                    ]);
+                    return $flow;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Permite sobreescribir el ID del bot para pruebas
      */
     public function setBotChannelId($id)
@@ -229,7 +272,9 @@ class BotService
         } else {
             Log::info("[BotFlow] No comercio detected for this phone number.");
             $context = $conversation->context ?? [];
-            if (isset($context['flow_id']) || isset($context['comercio_id'])) {
+            // Solo limpiar si el contacto tenía datos de comercio (comercio_id)
+            // No limpiar si solo tiene flow_id, que puede ser un flujo resuelto para Leads Comunicaciones
+            if (isset($context['comercio_id'])) {
                 Log::info("[BotFlow] Phone is no longer a comercio, clearing context and resetting state.");
                 
                 // Limpiar el contexto de datos de comercio, manteniendo solo lo esencial
@@ -278,6 +323,48 @@ class BotService
         if ($conversation->state === self::STATE_HANDOFF) {
             Log::info("[BotFlow] Ignoring message because conversation is in HANDOFF state (legacy).");
             return;
+        }
+
+        // --- Lógica de Resolución para Múltiples Flujos (Solo Leads Comunicaciones) ---
+        $leadsComunicacionesBotId = config('services.whatsapp.leads_comunicaciones_bot_id');
+        $isLeadsComunicaciones = ($leadsComunicacionesBotId && (string)$this->botPhoneNumberId === (string)$leadsComunicacionesBotId);
+
+        if ($conversation->state === self::STATE_INITIAL && !$comercio && $isLeadsComunicaciones) {
+            $resolvedFlowId = null;
+
+            // Buscar el último mensaje saliente de tipo campaña del número de Leads Comunicaciones
+            // Filtrar por phone_number_id para no mezclar campañas de otros bots (Club de Beneficios, etc.)
+            $outboundMessage = Message::where('contact_id', $contact->id)
+                ->where('direction', 'outbound')
+                ->where('phone_number_id', $this->botPhoneNumberId)
+                ->whereNotNull('campaign_id')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($outboundMessage && $outboundMessage->campaign_id) {
+                $campaign = Campaign::find($outboundMessage->campaign_id);
+                if ($campaign && $campaign->template_name) {
+                    $templateName = $campaign->template_name;
+                    $matchedFlow = $this->findFlowByTemplateName($templateName, $incomingPhoneNumberId);
+                    if ($matchedFlow) {
+                        $resolvedFlowId = $matchedFlow['id'];
+                        Log::info("[BotFlow] Resolved flow ID from last sent campaign template", [
+                            'template_name' => $templateName,
+                            'flow_id' => $resolvedFlowId
+                        ]);
+                    } else {
+                        Log::warning("[BotFlow] No flow found matching template name", ['template_name' => $templateName]);
+                    }
+                }
+            }
+
+            // Actualizar context['flow_id'] (ya sea con el nuevo resolvedFlowId o con null si no se resolvió ninguno)
+            $context = $conversation->context ?? [];
+            if (($context['flow_id'] ?? null) !== $resolvedFlowId) {
+                $context['flow_id'] = $resolvedFlowId;
+                $this->updateState($conversation, self::STATE_INITIAL, $context);
+                $conversation->refresh();
+            }
         }
 
         Log::info("[BotFlow] Processing message for state: {$conversation->state}");
