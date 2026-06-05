@@ -32,7 +32,7 @@ export interface BotStep {
   validation?: BotValidation;
   fallback_state?: string; // Para action_type = 'plantilla'
   utm_campaign?: string;   // Para action_type = 'crm_lead'
-  utm_term?: string;       // Para action_type = 'crm_lead'
+  tag_id?: number | null;  // Para action_type = 'crm_lead' — ID de etiqueta en LogicWare CRM
   order: number;
   // Retrocompatibilidad con el formato legacy
   buttons?: { id: string; title: string; nextState: string }[];

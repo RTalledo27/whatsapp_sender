@@ -80,7 +80,7 @@ class LogicWareService
      * Este método envía leads que YA ESTÁN en el CRM para reactivarlos
      * cuando califican a través del bot de WhatsApp
      */
-    public function createQualifiedLead(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): array
+    public function createQualifiedLead(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?int $tagId = null): array
     {
         try {
             // Verificar si ya fue enviado
@@ -105,7 +105,7 @@ class LogicWareService
             }
 
             // Construir payload del lead
-            $leadData = $this->buildLeadPayload($contact, $conversation, $utmCampaign, $utmTerm);
+            $leadData = $this->buildLeadPayload($contact, $conversation, $utmCampaign);
             
             Log::info('LogicWare: Sending qualified lead', [
                 'contact_id' => $contact->id,
@@ -138,10 +138,16 @@ class LogicWareService
                     
                     Log::info('LogicWare: Lead created/reactivated successfully', [
                         'contact_id' => $contact->id,
-                        'lead_id' => $data['data']['leadId'] ?? null,
+                        'lead_id'    => $data['data']['leadId'] ?? null,
                         'assigned_to' => $data['data']['assignedTo'] ?? null
                     ]);
-                    
+
+                    // Asignar etiqueta al lead si se configuró un tag_id en el paso
+                    $leadId = $data['data']['leadId'] ?? null;
+                    if ($tagId && $leadId) {
+                        $this->assignTagToLead($leadId, $tagId);
+                    }
+
                     return [
                         'success' => true,
                         'lead_id' => $data['data']['leadId'] ?? null,
@@ -182,7 +188,7 @@ class LogicWareService
     /**
      * Construir payload del lead según especificaciones de LogicWare
      */
-    private function buildLeadPayload(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): array
+    private function buildLeadPayload(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null): array
     {
         // Parsear nombre completo en partes
         $nameParts = preg_split('/\s+/', trim($contact->name), 3);
@@ -227,12 +233,9 @@ class LogicWareService
             $payload['comment'] = $comment;
         }
 
-        // Agregar campos UTM si están presentes
+        // Agregar campo UTM Campaign si está presente
         if (!empty($utmCampaign)) {
             $payload['utmCampaign'] = $utmCampaign;
-        }
-        if (!empty($utmTerm)) {
-            $payload['utmTerm'] = $utmTerm;
         }
 
         return $payload;
@@ -337,5 +340,62 @@ class LogicWareService
     {
         Cache::forget('logicware_token');
         Log::info('LogicWare: Token cache cleared');
+    }
+
+    /**
+     * Asignar una etiqueta a un lead existente en el CRM
+     * POST /external/leads/{leadId}/tags
+     */
+    private function assignTagToLead(int $leadId, int $tagId): void
+    {
+        try {
+            $token = $this->getValidToken();
+            if (!$token) {
+                Log::warning('LogicWare: Cannot assign tag — no valid token', [
+                    'lead_id' => $leadId,
+                    'tag_id'  => $tagId,
+                ]);
+                return;
+            }
+
+            Log::info('LogicWare: Assigning tag to lead', [
+                'lead_id' => $leadId,
+                'tag_id'  => $tagId,
+            ]);
+
+            $response = Http::withoutVerifying()
+                ->timeout(15)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$token}",
+                    'X-Subdomain'   => $this->subdomain,
+                    'Content-Type'  => 'application/json',
+                    'Accept'        => 'application/json',
+                    'User-Agent'    => 'MASIVO-WSP-Bot/1.0'
+                ])
+                ->post("{$this->apiUrl}/external/leads/{$leadId}/tags", [
+                    'tagId' => $tagId,
+                ]);
+
+            if ($response->successful() && ($response->json()['succeeded'] ?? false)) {
+                Log::info('LogicWare: Tag assigned successfully', [
+                    'lead_id'  => $leadId,
+                    'tag_id'   => $tagId,
+                    'tag_name' => $response->json()['data']['tagName'] ?? null,
+                ]);
+            } else {
+                Log::warning('LogicWare: Tag assignment failed or non-successful response', [
+                    'lead_id'  => $leadId,
+                    'tag_id'   => $tagId,
+                    'status'   => $response->status(),
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('LogicWare: Exception assigning tag to lead', [
+                'lead_id' => $leadId,
+                'tag_id'  => $tagId,
+                'error'   => $e->getMessage(),
+            ]);
+        }
     }
 }

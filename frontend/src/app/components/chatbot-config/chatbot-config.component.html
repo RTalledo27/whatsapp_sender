@@ -474,7 +474,7 @@
                   <p class="hint-text">⚡ El bot enviará el mensaje con el botón y avanzará automáticamente al siguiente paso sin esperar respuesta.</p>
                 </div>
 
-                <!-- ENVIAR AL CRM: solo para crm_lead -->
+                  <!-- ENVIAR AL CRM: solo para crm_lead -->
                 <div class="form-section crm-lead-section" *ngIf="isCrmLeadType(selectedStep)">
                   <label>📤 Configuración CRM — envía el lead automáticamente al llegar a este paso:</label>
                   <div class="validation-config">
@@ -488,16 +488,18 @@
                         placeholder="Ej: Remarketing-Sender">
                     </div>
                     <div class="form-row">
-                      <label>UTM Term:</label>
+                      <label>ID de Etiqueta (Tag ID):</label>
                       <input
-                        type="text"
-                        [(ngModel)]="selectedStep.utm_term"
+                        type="number"
+                        [(ngModel)]="selectedStep.tag_id"
                         [disabled]="!isEditingStep"
                         class="form-control"
-                        placeholder="Ej: visita-oficina">
+                        placeholder="Ej: 2"
+                        min="1">
+                      <p class="hint-text">El ID debe corresponder a una etiqueta existente en el catálogo de LogicWare.</p>
                     </div>
                   </div>
-                  <p class="hint-text crm-hint">📤 Cuando el flujo llegue a este paso, el mensaje arriba se enviará al usuario, el lead se registrará en LogicWare con esos UTMs y el chat terminará. No se envía si ya fue enviado antes.</p>
+                  <p class="hint-text crm-hint">📤 Cuando el flujo llegue a este paso, el lead se registrará en LogicWare, se le asignará la etiqueta indicada (si se configuró) y el chat terminará. No se envía si ya fue enviado antes.</p>
                 </div>
 
                 <div *ngIf="isEditingStep" class="editor-actions">
@@ -718,15 +720,17 @@
                         placeholder="Ej: Remarketing-Sender">
                     </div>
                     <div class="form-row">
-                      <label>UTM Term:</label>
+                      <label>ID de Etiqueta (Tag ID):</label>
                       <input
-                        type="text"
-                        [(ngModel)]="newQuestion.utm_term"
+                        type="number"
+                        [(ngModel)]="newQuestion.tag_id"
                         class="form-control"
-                        placeholder="Ej: visita-oficina">
+                        placeholder="Ej: 2"
+                        min="1">
+                      <p class="hint-text">El ID debe corresponder a una etiqueta existente en el catálogo de LogicWare.</p>
                     </div>
                   </div>
-                  <p class="hint-text crm-hint">📤 Cuando el flujo llegue a este paso, el mensaje arriba se enviará al usuario, el lead se registrará en LogicWare con esos UTMs y el chat terminará. No se envía si ya fue enviado antes.</p>
+                  <p class="hint-text crm-hint">📤 Cuando el flujo llegue a este paso, el lead se registrará en LogicWare, se le asignará la etiqueta indicada (si se configuró) y el chat terminará. No se envía si ya fue enviado antes.</p>
                 </div>
 
                 <div class="editor-actions">

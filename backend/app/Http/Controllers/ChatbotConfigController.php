@@ -248,11 +248,10 @@ class ChatbotConfigController extends Controller
                 'actions.*.button_text'     => 'sometimes|nullable|string',
                 'actions.*.url'             => 'sometimes|nullable|string',
                 'actions.*.utm_campaign'    => 'sometimes|nullable|string|max:100',
-                'actions.*.utm_term'        => 'sometimes|nullable|string|max:100',
 
-                // Campos UTM a nivel de paso (para crm_lead)
+                // Campos UTM / Tag a nivel de paso (para crm_lead)
                 'utm_campaign' => 'sometimes|nullable|string|max:100',
-                'utm_term'     => 'sometimes|nullable|string|max:100',
+                'tag_id'       => 'sometimes|nullable|integer',
 
                 // Para action_type = validated_input
                 'validation'                     => 'sometimes|nullable|array',
@@ -314,11 +313,10 @@ class ChatbotConfigController extends Controller
                 'actions.*.button_text'     => 'sometimes|nullable|string',
                 'actions.*.url'             => 'sometimes|nullable|string',
                 'actions.*.utm_campaign'    => 'sometimes|nullable|string|max:100',
-                'actions.*.utm_term'        => 'sometimes|nullable|string|max:100',
 
-                // Campos UTM a nivel de paso (para crm_lead)
+                // Campos UTM / Tag a nivel de paso (para crm_lead)
                 'utm_campaign' => 'sometimes|nullable|string|max:100',
-                'utm_term'     => 'sometimes|nullable|string|max:100',
+                'tag_id'       => 'sometimes|nullable|integer',
 
                 'validation'                     => 'sometimes|nullable|array',
                 'validation.type'                => 'sometimes|nullable|string|in:dni,phone,email,number,text,regex',
@@ -415,11 +413,11 @@ class ChatbotConfigController extends Controller
             unset($step['buttons'], $step['validation']);
         }
 
-        // Para crm_lead: guardar UTMs a nivel de paso y limpiar acciones
+        // Para crm_lead: guardar UTM campaign + tag_id a nivel de paso y limpiar acciones
         if ($actionType === 'crm_lead') {
             $step['actions'] = [];
-            $step['utm_campaign'] = $request->utm_campaign ?? null;
-            $step['utm_term']     = $request->utm_term ?? null;
+            $step['utm_campaign'] = $request->input('utm_campaign');
+            $step['tag_id']       = $request->has('tag_id') && $request->input('tag_id') !== null && $request->input('tag_id') !== '' ? (int) $request->input('tag_id') : null;
             // Limpiar campos de otros tipos
             unset($step['validation'], $step['buttons'], $step['fallback_state']);
         }
@@ -518,10 +516,10 @@ class ChatbotConfigController extends Controller
 
         if (in_array($actionType, ['buttons', 'plantilla', 'crm_lead'])) {
             if ($actionType === 'crm_lead') {
-                // crm_lead: guardar UTMs a nivel del paso, acciones vacías
+                // crm_lead: guardar utm_campaign + tag_id a nivel del paso, acciones vacías
                 $step['actions']      = [];
-                $step['utm_campaign'] = $request->utm_campaign ?? null;
-                $step['utm_term']     = $request->utm_term ?? null;
+                $step['utm_campaign'] = $request->input('utm_campaign');
+                $step['tag_id']       = $request->has('tag_id') && $request->input('tag_id') !== null && $request->input('tag_id') !== '' ? (int) $request->input('tag_id') : null;
                 // Limpiar nulos para JSON limpio
                 $step = array_filter($step, fn($v) => $v !== null);
             } elseif ($request->has('actions')) {
@@ -574,9 +572,8 @@ class ChatbotConfigController extends Controller
             'id'          => $a['id'] ?? 'btn_' . uniqid(),
             'title'       => $a['title'] ?? '',
             'next_state'  => $a['next_state'] ?? $a['nextState'] ?? '',
-            // Preservar UTM si vienen (para crm_lead)
+            // Preservar utm_campaign si viene (para crm_lead)
             'utm_campaign' => $a['utm_campaign'] ?? null,
-            'utm_term'     => $a['utm_term'] ?? null,
         ])->map(function ($a) {
             // Limpiar nulls para no contaminar el JSON con campos vacíos
             return array_filter($a, fn($v) => $v !== null);

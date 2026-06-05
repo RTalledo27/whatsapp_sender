@@ -298,7 +298,7 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
       case 'crm_lead':
         step.actions = []; // No necesita acciones — el CRM se envía automáticamente
         step.utm_campaign = '';
-        step.utm_term = '';
+        step.tag_id = null;
         delete step.validation;
         break;
     }
@@ -474,6 +474,11 @@ export class ChatbotConfigComponent implements OnInit, AfterViewInit {
     
     if (this.newQuestion.action_type === 'plantilla' && this.newQuestion.fallback_state !== undefined) {
       step.fallback_state = this.newQuestion.fallback_state;
+    }
+
+    if (this.newQuestion.action_type === 'crm_lead') {
+      step.utm_campaign = this.newQuestion.utm_campaign;
+      step.tag_id = this.newQuestion.tag_id;
     }
 
     this.isSaving = true;

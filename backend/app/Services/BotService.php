@@ -564,7 +564,7 @@ class BotService
 
     /**
      * Manejar paso de tipo CRM_LEAD (auto-advance)
-     * Se envía el lead al CRM con los utm_campaign / utm_term configurados en el PASO
+     * Se envía el lead al CRM con el utm_campaign y el tag_id configurados en el PASO
      * (no en un botón — el usuario no necesita presionar nada).
      * Después cierra el chat silenciosamente.
      * Solo envía si el lead no fue enviado antes (wasAlreadySentToCRM).
@@ -573,7 +573,7 @@ class BotService
     {
         $context     = $conversation->context ?? [];
         $utmCampaign = $step['utm_campaign'] ?? null;
-        $utmTerm     = $step['utm_term'] ?? null;
+        $tagId       = isset($step['tag_id']) ? (int) $step['tag_id'] : null;
 
         $context['retries']                    = 0;
         $context['responses'][$step['state']] = 'crm_lead_auto';
@@ -581,11 +581,11 @@ class BotService
         Log::info('[BotFlow] handleCrmLeadStep: Auto-advancing, sending to CRM', [
             'step_state'   => $step['state'],
             'utm_campaign' => $utmCampaign,
-            'utm_term'     => $utmTerm,
+            'tag_id'       => $tagId,
         ]);
 
-        // Enviar al CRM con los UTMs configurados en el paso
-        $this->sendQualifiedLeadToCRM($conversation, $utmCampaign, $utmTerm);
+        // Enviar al CRM con el UTM Campaign y tag configurados en el paso
+        $this->sendQualifiedLeadToCRM($conversation, $utmCampaign, $tagId);
 
         // Cerrar el chat silenciosamente (sin mensaje adicional)
         $this->updateState($conversation, self::STATE_FINISHED, $context);
@@ -1089,7 +1089,7 @@ class BotService
     /**
      * Enviar lead calificado al CRM de LogicWare
      */
-    private function sendQualifiedLeadToCRM(BotConversation $conversation, ?string $utmCampaign = null, ?string $utmTerm = null): void
+    private function sendQualifiedLeadToCRM(BotConversation $conversation, ?string $utmCampaign = null, ?int $tagId = null): void
     {
         try {
             $contact = $conversation->contact;
@@ -1105,7 +1105,7 @@ class BotService
                 return;
             }
 
-            $result = $this->logicwareService->createQualifiedLead($contact, $conversation, $utmCampaign, $utmTerm);
+            $result = $this->logicwareService->createQualifiedLead($contact, $conversation, $utmCampaign, $tagId);
 
             if ($result['success']) {
                 Log::info('BotService: Lead sent to CRM successfully', [
@@ -1113,7 +1113,7 @@ class BotService
                     'lead_id'      => $result['lead_id'] ?? null,
                     'assigned_to'  => $result['assigned_to'] ?? null,
                     'utm_campaign' => $utmCampaign,
-                    'utm_term'     => $utmTerm,
+                    'tag_id'       => $tagId,
                 ]);
             } else {
                 Log::error('BotService: Failed to send lead to CRM', [
@@ -1200,9 +1200,8 @@ class BotService
                     'id'           => $a['id'] ?? 'btn_' . uniqid(),
                     'title'        => $a['title'] ?? '',
                     'next_state'   => $a['next_state'] ?? $a['nextState'] ?? '',
-                    // Preservar campos extra (utm, etc.) si existen
+                    // Preservar campos extra (utm_campaign, tag_id) si existen
                     'utm_campaign' => $a['utm_campaign'] ?? null,
-                    'utm_term'     => $a['utm_term'] ?? null,
                 ];
             }, $step['actions']);
         }
