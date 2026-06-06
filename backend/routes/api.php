@@ -51,6 +51,7 @@ Route::middleware(['api', 'auth:api'])->group(function () {
         Route::get('/{contactId}', [ConversationController::class, 'show']);
         Route::post('/{contactId}/mark-read', [ConversationController::class, 'markAsRead']);
         Route::post('/{contactId}/send', [ConversationController::class, 'sendMessage']);
+        Route::post('/{contactId}/bot-status', [ConversationController::class, 'setBotStatus']);
     });
     
     // Contacts

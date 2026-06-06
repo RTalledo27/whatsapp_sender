@@ -46,6 +46,7 @@ export interface WhatsAppNumber {
   name: string;
   phone: string;
   access_token?: string;
+  is_leads_comunicaciones?: boolean;
 }
 
 export interface CampaignStatistics {

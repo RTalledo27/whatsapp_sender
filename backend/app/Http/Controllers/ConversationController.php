@@ -162,9 +162,73 @@ class ConversationController extends Controller
         
         $updateQuery->update(['read_at' => now()]);
         
+        // Obtener estado actual del bot si se filtra por número de WhatsApp
+        $botState = null;
+        if ($phoneNumberId) {
+            $botConversation = \App\Models\BotConversation::where('contact_id', $contactId)
+                ->where('phone_number_id', $phoneNumberId)
+                ->first();
+            $botState = $botConversation?->state;
+        }
+
         return response()->json([
-            'contact' => $contact,
-            'messages' => $messages
+            'contact'   => $contact,
+            'messages'  => $messages,
+            'bot_state' => $botState, // null si no hay bot, 'handoff' si está pausado, etc.
+        ]);
+    }
+
+    /**
+     * Pausar o reanudar el bot para un contacto específico.
+     * Cambia el estado de BotConversation a 'handoff' (pausar) o 'initial' (reanudar).
+     * Si no existe registro previo, lo crea (el contacto aún no ha interactuado con el bot).
+     */
+    public function setBotStatus(Request $request, $contactId)
+    {
+        $request->validate([
+            'active'          => 'required|boolean',
+            'phone_number_id' => 'required|string',
+        ]);
+
+        $contact       = Contact::findOrFail($contactId);
+        $phoneNumberId = $request->input('phone_number_id');
+        $active        = $request->boolean('active');
+
+        // Obtener o crear el registro de BotConversation.
+        // Si el contacto nunca ha interactuado con el bot, no habrá registro previo y se crea aquí.
+        $botConversation = \App\Models\BotConversation::firstOrCreate(
+            [
+                'contact_id'      => $contact->id,
+                'phone_number_id' => $phoneNumberId,
+            ],
+            [
+                'state'   => 'initial',
+                'context' => ['retries' => 0],
+            ]
+        );
+
+        if ($active) {
+            // Reanudar: volver al inicio del flujo con contexto limpio.
+            // El wasAlreadySentToCRM() en LogicWareService evita reenvíos duplicados al CRM.
+            $botConversation->state   = 'initial';
+            $botConversation->context = array_merge($botConversation->context ?? [], ['retries' => 0]);
+        } else {
+            // Pausar: estado handoff → el bot ignora todos los mensajes entrantes.
+            $botConversation->state = 'handoff';
+        }
+
+        $botConversation->save();
+
+        Log::info('[BotToggle] Bot status changed by advisor', [
+            'contact_id'      => $contact->id,
+            'phone_number_id' => $phoneNumberId,
+            'new_state'       => $botConversation->state,
+        ]);
+
+        return response()->json([
+            'success'    => true,
+            'bot_active' => $active,
+            'state'      => $botConversation->state,
         ]);
     }
     

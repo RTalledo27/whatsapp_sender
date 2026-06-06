@@ -56,6 +56,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   selectedBotStatus = 'all'; // 'all', 'qualified', 'not_qualified', 'inactive'
   showInactiveClients = false; // Para canales no-bot: mostrar deshabilitados
 
+  // Estado del toggle de bot (solo para Leads Comunicaciones)
+  botPaused = false;    // true = bot en 'handoff' (asesor atiende), false = bot activo
+  togglingBot = false;  // true = petición en curso, evita doble click
+
   // Paginación
   currentPage = 1;
   totalPages = 1;
@@ -157,6 +161,39 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   canViewInactiveTab(): boolean {
     const user = this.authService.getCurrentUser();
     return this.isBotChannel() && (user?.role === 'admin' || user?.phone_number_id === this.selectedPhoneNumberId);
+  }
+
+  /**
+   * Verificar si el canal seleccionado es el bot de Leads Comunicaciones.
+   * Usa el flag is_leads_comunicaciones que devuelve el backend en getAvailableNumbers().
+   */
+  isLeadsComunicacionesChannel(): boolean {
+    if (!this.selectedPhoneNumberId) return false;
+    const num = this.availableNumbers.find(n => n.id === this.selectedPhoneNumberId);
+    return !!num?.is_leads_comunicaciones;
+  }
+
+  /**
+   * Pausar o reanudar el bot para la conversación actualmente abierta.
+   */
+  toggleBot(): void {
+    if (!this.selectedConversation || this.togglingBot || !this.selectedPhoneNumberId) return;
+
+    this.togglingBot = true;
+    const contactId     = this.selectedConversation.contact.id;
+    const phoneNumberId = this.selectedPhoneNumberId;
+    const newActive     = this.botPaused; // si está pausado → activar, si activo → pausar
+
+    this.conversationService.setBotStatus(contactId, newActive, phoneNumberId).subscribe({
+      next: () => {
+        this.botPaused   = !newActive;
+        this.togglingBot = false;
+      },
+      error: (err) => {
+        console.error('Error al cambiar estado del bot:', err);
+        this.togglingBot = false;
+      }
+    });
   }
 
   /**
@@ -457,13 +494,18 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   selectConversation(conversation: Conversation): void {
     this.loadingMessages = true;
+    this.botPaused = false; // Resetear hasta que llegue la respuesta del backend
     const phoneNumberId = this.selectedPhoneNumberId || null;
     this.conversationService.getConversation(conversation.id, 1, 50, phoneNumberId).subscribe({
-      next: (detail) => {
+      next: (detail: any) => {
         this.selectedConversation = detail;
+        // Leer estado del bot desde la respuesta
+        if (this.isLeadsComunicacionesChannel()) {
+          this.botPaused = detail.bot_state === 'handoff';
+        }
         // Filtrar mensajes de tipo 'reaction' - solo mostrar mensajes normales
         this.messages = detail.messages.data
-          .filter(msg => msg.message_type !== 'reaction')
+          .filter((msg: any) => msg.message_type !== 'reaction')
           .reverse(); // Más antiguos primero
         this.loadingMessages = false;
 

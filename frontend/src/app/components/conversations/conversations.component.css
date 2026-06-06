@@ -188,7 +188,48 @@
 
 /* Menú de 3 puntos en el header del chat */
 
+/* Botón toggle para pausar/reanudar el bot */
+.bot-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.25s, box-shadow 0.25s, opacity 0.2s, transform 0.15s;
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.bot-toggle-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.5);
+}
+
+.bot-toggle-btn.bot-paused {
+  background: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
+.bot-toggle-btn.bot-paused:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+}
+
+.bot-toggle-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .chat-menu {
+
   position: relative;
   margin-left: auto;
   cursor: pointer;

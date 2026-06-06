@@ -47,9 +47,18 @@ class WhatsAppService
     
     public static function getAvailableNumbers(): array
     {
-        return array_filter(config('services.whatsapp.available_numbers', []), function($number) {
-            return !empty($number['id']);
-        });
+        $leadsComunicacionesId = (string) config('services.whatsapp.leads_comunicaciones_bot_id');
+
+        return array_values(array_filter(
+            array_map(function ($number) use ($leadsComunicacionesId) {
+                if (empty($number['id'])) {
+                    return null;
+                }
+                $number['is_leads_comunicaciones'] = ($leadsComunicacionesId && (string)$number['id'] === $leadsComunicacionesId);
+                return $number;
+            }, config('services.whatsapp.available_numbers', [])),
+            fn($n) => $n !== null
+        ));
     }
 
     /**

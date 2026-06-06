@@ -180,4 +180,14 @@ export class ConversationService {
     }
     return this.http.post(`${this.apiUrl}/${contactId}/send`, formData);
   }
+
+  /**
+   * Pausar (active=false) o reanudar (active=true) el bot para un contacto.
+   */
+  setBotStatus(contactId: number, active: boolean, phoneNumberId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${contactId}/bot-status`, {
+      active,
+      phone_number_id: phoneNumberId,
+    });
+  }
 }
