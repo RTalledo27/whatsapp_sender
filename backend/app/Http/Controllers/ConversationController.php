@@ -259,88 +259,80 @@ class ConversationController extends Controller
         $botPhoneNumberId = '950764051457024';
         $isBotChannel     = $phoneNumberId === $botPhoneNumberId;
 
-        // Caché de 60 segundos por canal (driver 'file', no requiere Redis)
-        // El frontend llama este endpoint cada 15s; con caché reducimos DB un ~75%.
-        $cacheKey = 'conversation_stats_' . ($phoneNumberId ?? 'all');
+        $messageQuery = Message::query();
+        $contactQuery = Contact::query();
 
-        $stats = cache()->remember($cacheKey, 60, function () use ($phoneNumberId, $botPhoneNumberId, $isBotChannel) {
-            $messageQuery = Message::query();
-            $contactQuery = Contact::query();
+        if ($phoneNumberId) {
+            $messageQuery->where('phone_number_id', $phoneNumberId);
+            $contactQuery->whereHas('messages', function ($query) use ($phoneNumberId) {
+                $query->where('phone_number_id', $phoneNumberId);
+            });
+        }
 
-            if ($phoneNumberId) {
-                $messageQuery->where('phone_number_id', $phoneNumberId);
-                $contactQuery->whereHas('messages', function ($query) use ($phoneNumberId) {
-                    $query->where('phone_number_id', $phoneNumberId);
-                });
-            }
+        $stats = [
+            'total_conversations' => $contactQuery->has('messages')->count(),
+            'unread_messages'     => (clone $messageQuery)->where('direction', 'inbound')
+                ->whereNull('read_at')
+                ->count(),
+            'messages_today'  => (clone $messageQuery)->whereDate('message_timestamp', today())->count(),
+            'incoming_today'  => (clone $messageQuery)->where('direction', 'inbound')
+                ->whereDate('message_timestamp', today())
+                ->count(),
+            'outgoing_today'  => (clone $messageQuery)->where('direction', 'outbound')
+                ->whereDate('message_timestamp', today())
+                ->count(),
+        ];
 
-            $data = [
-                'total_conversations' => $contactQuery->has('messages')->count(),
-                'unread_messages'     => (clone $messageQuery)->where('direction', 'inbound')
-                    ->whereNull('read_at')
-                    ->count(),
-                'messages_today'  => (clone $messageQuery)->whereDate('message_timestamp', today())->count(),
-                'incoming_today'  => (clone $messageQuery)->where('direction', 'inbound')
-                    ->whereDate('message_timestamp', today())
-                    ->count(),
-                'outgoing_today'  => (clone $messageQuery)->where('direction', 'outbound')
-                    ->whereDate('message_timestamp', today())
-                    ->count(),
-            ];
+        if ($isBotChannel) {
+            $stats['qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->where('state', 'finished')
+                ->whereJsonContains('context->qualified', true)
+                ->count();
 
-            if ($isBotChannel) {
-                $data['qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
-                    ->where('state', 'finished')
-                    ->whereJsonContains('context->qualified', true)
-                    ->count();
+            $stats['not_qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->where('state', 'finished')
+                ->whereJsonContains('context->qualified', false)
+                ->count();
 
-                $data['not_qualified'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
-                    ->where('state', 'finished')
-                    ->whereJsonContains('context->qualified', false)
-                    ->count();
+            $stats['inactive'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
+                ->whereNotIn('state', ['finished', 'handoff'])
+                ->where('last_interaction_at', '<', now()->subHours(24))
+                ->count();
+        } else {
+            $baseQuery = Contact::whereHas('messages', function ($q) use ($phoneNumberId) {
+                if ($phoneNumberId) {
+                    $q->where('phone_number_id', $phoneNumberId);
+                }
+            });
 
-                $data['inactive'] = \App\Models\BotConversation::where('phone_number_id', $botPhoneNumberId)
-                    ->whereNotIn('state', ['finished', 'handoff'])
-                    ->where('last_interaction_at', '<', now()->subHours(24))
-                    ->count();
-            } else {
-                $baseQuery = Contact::whereHas('messages', function ($q) use ($phoneNumberId) {
+            $stats['active_conversations'] = (clone $baseQuery)
+                ->whereHas('messages', function ($q) use ($phoneNumberId) {
+                    $q->where('direction', 'inbound')
+                        ->where('message_timestamp', '>=', now()->subHours(24));
                     if ($phoneNumberId) {
                         $q->where('phone_number_id', $phoneNumberId);
                     }
-                });
+                })
+                ->count();
 
-                $data['active_conversations'] = (clone $baseQuery)
-                    ->whereHas('messages', function ($q) use ($phoneNumberId) {
-                        $q->where('direction', 'inbound')
-                          ->where('message_timestamp', '>=', now()->subHours(24));
+            $stats['inactive_conversations'] = (clone $baseQuery)
+                ->where(function ($query) use ($phoneNumberId) {
+                    $query->whereDoesntHave('messages', function ($q) use ($phoneNumberId) {
+                        $q->where('direction', 'inbound');
                         if ($phoneNumberId) {
                             $q->where('phone_number_id', $phoneNumberId);
                         }
                     })
-                    ->count();
-
-                $data['inactive_conversations'] = (clone $baseQuery)
-                    ->where(function ($query) use ($phoneNumberId) {
-                        $query->whereDoesntHave('messages', function ($q) use ($phoneNumberId) {
-                            $q->where('direction', 'inbound');
-                            if ($phoneNumberId) {
-                                $q->where('phone_number_id', $phoneNumberId);
-                            }
-                        })
-                        ->orWhereHas('messages', function ($q) use ($phoneNumberId) {
-                            $q->where('direction', 'inbound')
-                              ->where('message_timestamp', '<', now()->subHours(24));
-                            if ($phoneNumberId) {
-                                $q->where('phone_number_id', $phoneNumberId);
-                            }
-                        });
-                    })
-                    ->count();
-            }
-
-            return $data;
-        });
+                    ->orWhereHas('messages', function ($q) use ($phoneNumberId) {
+                        $q->where('direction', 'inbound')
+                            ->where('message_timestamp', '<', now()->subHours(24));
+                        if ($phoneNumberId) {
+                            $q->where('phone_number_id', $phoneNumberId);
+                        }
+                    });
+                })
+                ->count();
+        }
 
         return response()->json($stats);
     }

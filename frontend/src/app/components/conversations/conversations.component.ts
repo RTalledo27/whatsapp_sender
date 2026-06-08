@@ -70,10 +70,10 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   messagesTotalPages = 1;
   loadingOlderMessages = false;
 
-  // Polling para nuevos mensajes (reducido a 15s para mejor rendimiento)
+  // Polling para nuevos mensajes (5s para sensación de tiempo real)
   private pollingSubscription?: Subscription;
   private navigationSubscription?: Subscription;
-  pollingInterval = 15000; // 15 segundos (optimizado desde 5s)
+  private readonly pollingInterval = 5000;
 
   // Estadísticas
   stats: ConversationStats = {
