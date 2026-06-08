@@ -622,30 +622,45 @@ export class ConversationsComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (stats) => {
-          const hadNewMessages = stats.unread_messages > this.stats.unread_messages;
+          // Detectar nuevos mensajes de forma confiable (incluso si se leen rápido)
+          const hadNewMessages = 
+            stats.messages_today > (this.stats.messages_today || 0) || 
+            stats.unread_messages > this.stats.unread_messages;
+            
           const activeChanged = (stats.active_conversations || 0) !== (this.stats.active_conversations || 0);
           const inactiveChanged = (stats.inactive_conversations || 0) !== (this.stats.inactive_conversations || 0);
           
-          const previousStats = { ...this.stats };
           this.stats = stats;
 
-          // Si hay cambios relevantes, recargar conversaciones
+          // Si hay cambios relevantes, recargar conversaciones (sidebar)
           if (hadNewMessages || activeChanged || inactiveChanged) {
+            // Refrescar el sidebar
             this.loadConversations();
 
-            // Si la conversación seleccionada tiene nuevos mensajes, recargarla
+            // Si hay una conversación abierta, verificar si recibió el nuevo mensaje
             if (this.selectedConversation) {
               const phoneNumberId = this.selectedPhoneNumberId || null;
               this.conversationService.getConversation(this.selectedConversation.contact.id, 1, 50, phoneNumberId)
                 .subscribe({
-                  next: (detail) => {
+                  next: (detail: any) => {
                     const newMessages = detail.messages.data
-                      .filter(msg => msg.message_type !== 'reaction')
+                      .filter((msg: any) => msg.message_type !== 'reaction')
                       .reverse();
 
-                    // Solo actualizar si hay cambios en la cantidad de mensajes
-                    if (newMessages.length !== this.messages.length) {
+                    if (newMessages.length > 0 && this.messages.length > 0) {
+                      const latestNewMsg = newMessages[newMessages.length - 1];
+                      const latestCurrentMsg = this.messages[this.messages.length - 1];
+                      
+                      // Actualizar si el último mensaje es diferente
+                      if (latestNewMsg.id !== latestCurrentMsg.id) {
+                        this.messages = newMessages;
+                        this.messagesPage = 1;
+                        this.messagesTotalPages = detail.messages.last_page ?? 1;
+                        setTimeout(() => this.scrollToBottom(), 100);
+                      }
+                    } else if (newMessages.length > 0 && this.messages.length === 0) {
                       this.messages = newMessages;
+                      this.messagesTotalPages = detail.messages.last_page ?? 1;
                       setTimeout(() => this.scrollToBottom(), 100);
                     }
                   },
