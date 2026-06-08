@@ -225,7 +225,21 @@
         </div>
 
         <!-- Mensajes -->
-        <div class="messages-container">
+        <div class="messages-container" (scroll)="onMessagesScroll($event)">
+
+          <!-- Indicador de carga de mensajes anteriores -->
+          <div *ngIf="loadingOlderMessages" class="loading-older-messages">
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            Cargando mensajes anteriores...
+          </div>
+
+          <!-- Indicador de no hay más historial -->
+          <div *ngIf="!loadingOlderMessages && messagesPage >= messagesTotalPages && messages.length > 0" class="no-more-messages">
+            — Inicio de la conversación —
+          </div>
+
           <div *ngFor="let message of messages" class="message"
             [class.message-outbound]="message.direction === 'outbound'"
             [class.message-inbound]="message.direction === 'inbound'">

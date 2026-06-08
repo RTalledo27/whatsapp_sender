@@ -40,14 +40,18 @@ class SendLeadToCRMJob implements ShouldQueue
 
     protected Contact $contact;
     protected BotConversation $conversation;
+    protected ?string $utmCampaign;
+    protected ?int $tagId;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Contact $contact, BotConversation $conversation)
+    public function __construct(Contact $contact, BotConversation $conversation, ?string $utmCampaign = null, ?int $tagId = null)
     {
-        $this->contact = $contact;
+        $this->contact      = $contact;
         $this->conversation = $conversation;
+        $this->utmCampaign  = $utmCampaign;
+        $this->tagId        = $tagId;
     }
 
     /**
@@ -63,8 +67,13 @@ class SendLeadToCRMJob implements ShouldQueue
         ]);
 
         try {
-            // Enviar lead al CRM
-            $result = $logicwareService->createQualifiedLead($this->contact, $this->conversation);
+            // Enviar lead al CRM (con utm_campaign y tag_id si fueron provistos por el bot)
+            $result = $logicwareService->createQualifiedLead(
+                $this->contact,
+                $this->conversation,
+                $this->utmCampaign,
+                $this->tagId
+            );
 
             if (!$result['success']) {
                 // Si falla, lanzar excepción para que se reintente

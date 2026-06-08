@@ -32,7 +32,7 @@ class DniValidationService
         $startTime = microtime(true);
 
         try {
-            $response = Http::timeout(15)->get($this->apiUrl, [
+            $response = Http::timeout(5)->get($this->apiUrl, [
                 'dni' => $dni,
             ]);
 

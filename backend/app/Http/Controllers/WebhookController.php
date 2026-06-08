@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\PhoneHelper;
+use App\Jobs\ProcessIncomingMessageJob;
 use App\Models\Contact;
 use App\Models\Message;
 use App\Services\WhatsAppService;
 use App\Services\BotService;
-use App\Helpers\PhoneHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -44,37 +45,51 @@ class WebhookController extends Controller
     {
         try {
             $data = $request->all();
-            Log::info('Webhook received', ['data' => $data]);
-            Log::info('[BotFlow] Webhook payload received', [
-                'has_entry' => isset($data['entry']),
-                'entries_count' => isset($data['entry']) ? count($data['entry']) : 0
-            ]);
-            
-            // Meta envía la estructura: entry -> changes -> value -> messages
+            Log::info('Webhook received', ['has_entry' => isset($data['entry'])]);
+
             if (!isset($data['entry'])) {
                 return response()->json(['status' => 'ok']);
             }
-            
+
             foreach ($data['entry'] as $entry) {
                 if (!isset($entry['changes'])) {
                     continue;
                 }
-                
+
                 foreach ($entry['changes'] as $change) {
                     if (!isset($change['value'])) {
                         continue;
                     }
-                    
+
                     $value = $change['value'];
-                    
-                    // Procesar mensajes entrantes
+
+                    // Procesar mensajes entrantes de forma ASÍNCRONA
+                    // El webhook responde a Meta de inmediato (< 50ms) y el trabajo pesado
+                    // (descarga de media, bot, CRM) se ejecuta en segundo plano.
                     if (isset($value['messages'])) {
                         foreach ($value['messages'] as $message) {
-                            $this->processIncomingMessage($message, $value);
+                            $wamid = $message['id'] ?? null;
+
+                            // Deduplicación rápida: Meta puede reenviar si no respondemos a tiempo
+                            if ($wamid && Message::where('whatsapp_message_id', $wamid)->exists()) {
+                                Log::info('Webhook: duplicate wamid, skipping dispatch', ['wamid' => $wamid]);
+                                continue;
+                            }
+
+                            dispatch(new ProcessIncomingMessageJob($message, $value))
+                                ->onQueue('webhooks');
+
+                            Log::info('Webhook: message queued for async processing', [
+                                'wamid'          => $wamid,
+                                'type'           => $message['type'] ?? 'unknown',
+                                'phone_number_id' => $value['metadata']['phone_number_id'] ?? null,
+                            ]);
                         }
                     }
-                    
-                    // Procesar estados de mensajes (enviado, entregado, leído)
+
+                    // Procesar estados de mensajes de forma SÍNCRONA
+                    // Son simples UPDATE a una fila (sent, delivered, read, failed) y toman < 5ms.
+                    // No tiene sentido encolarlos: la latencia de la cola sería mayor.
                     if (isset($value['statuses'])) {
                         foreach ($value['statuses'] as $status) {
                             $this->processMessageStatus($status);
@@ -82,16 +97,17 @@ class WebhookController extends Controller
                     }
                 }
             }
-            
+
             return response()->json(['status' => 'ok']);
-            
+
         } catch (\Exception $e) {
             Log::error('Error processing webhook', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
-            return response()->json(['status' => 'error'], 500);
+
+            // Siempre devolver 200 a Meta para evitar que deje de enviar eventos
+            return response()->json(['status' => 'error_queued'], 200);
         }
     }
     

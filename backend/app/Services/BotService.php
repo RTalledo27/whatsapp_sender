@@ -8,6 +8,7 @@ use App\Models\BotConversation;
 use App\Models\Campaign;
 use App\Services\ComercioService;
 use App\Services\DniValidationService;
+use App\Jobs\SendLeadToCRMJob;
 use Illuminate\Support\Facades\Log;
 
 class BotService
@@ -1178,45 +1179,29 @@ class BotService
      */
     private function sendQualifiedLeadToCRM(BotConversation $conversation, ?string $utmCampaign = null, ?int $tagId = null): void
     {
-        try {
-            $contact = $conversation->contact;
+        $contact = $conversation->contact;
 
-            Log::info('BotService: Attempting to send qualified lead to CRM', [
-                'contact_id'      => $contact->id,
-                'phone'           => $contact->phone_number,
-                'conversation_id' => $conversation->id,
-            ]);
+        Log::info('BotService: Checking if lead was already sent to CRM', [
+            'contact_id'      => $contact->id,
+            'phone'           => $contact->phone_number,
+            'conversation_id' => $conversation->id,
+        ]);
 
-            if ($this->logicwareService->wasAlreadySentToCRM($contact)) {
-                Log::info('BotService: Lead already sent to CRM, skipping', ['contact_id' => $contact->id]);
-                return;
-            }
-
-            $result = $this->logicwareService->createQualifiedLead($contact, $conversation, $utmCampaign, $tagId);
-
-            if ($result['success']) {
-                Log::info('BotService: Lead sent to CRM successfully', [
-                    'contact_id'   => $contact->id,
-                    'lead_id'      => $result['lead_id'] ?? null,
-                    'assigned_to'  => $result['assigned_to'] ?? null,
-                    'utm_campaign' => $utmCampaign,
-                    'tag_id'       => $tagId,
-                ]);
-            } else {
-                Log::error('BotService: Failed to send lead to CRM', [
-                    'contact_id' => $contact->id,
-                    'error'      => $result['error'] ?? 'Unknown error',
-                    'response'   => $result['response'] ?? null,
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('BotService: Exception sending qualified lead to CRM', [
-                'contact_id'      => $conversation->contact_id,
-                'conversation_id' => $conversation->id,
-                'error'           => $e->getMessage(),
-                'trace'           => $e->getTraceAsString(),
-            ]);
+        // Verificación rápida (solo lectura de metadata local, sin HTTP)
+        if ($this->logicwareService->wasAlreadySentToCRM($contact)) {
+            Log::info('BotService: Lead already sent to CRM, skipping', ['contact_id' => $contact->id]);
+            return;
         }
+
+        // Despachar el Job asíncrono existente (no bloquear el hilo del webhook)
+        dispatch(new SendLeadToCRMJob($contact, $conversation, $utmCampaign, $tagId))
+            ->onQueue('crm');
+
+        Log::info('BotService: Lead queued for async CRM dispatch', [
+            'contact_id'   => $contact->id,
+            'utm_campaign' => $utmCampaign,
+            'tag_id'       => $tagId,
+        ]);
     }
 
     // ==================== VALIDADORES ====================

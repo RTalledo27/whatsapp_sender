@@ -60,10 +60,15 @@ export class ConversationsComponent implements OnInit, OnDestroy {
   botPaused = false;    // true = bot en 'handoff' (asesor atiende), false = bot activo
   togglingBot = false;  // true = petición en curso, evita doble click
 
-  // Paginación
+  // Paginación de conversaciones
   currentPage = 1;
   totalPages = 1;
   loadingMoreConversations = false;
+
+  // Paginación de historial de mensajes (scroll-up para cargar más antiguos)
+  messagesPage = 1;
+  messagesTotalPages = 1;
+  loadingOlderMessages = false;
 
   // Polling para nuevos mensajes (reducido a 15s para mejor rendimiento)
   private pollingSubscription?: Subscription;
@@ -494,29 +499,31 @@ export class ConversationsComponent implements OnInit, OnDestroy {
    */
   selectConversation(conversation: Conversation): void {
     this.loadingMessages = true;
-    this.botPaused = false; // Resetear hasta que llegue la respuesta del backend
+    this.botPaused = false;
+    // Resetear paginación de mensajes al cambiar de conversación
+    this.messagesPage = 1;
+    this.messagesTotalPages = 1;
+    this.loadingOlderMessages = false;
+
     const phoneNumberId = this.selectedPhoneNumberId || null;
     this.conversationService.getConversation(conversation.id, 1, 50, phoneNumberId).subscribe({
       next: (detail: any) => {
         this.selectedConversation = detail;
-        // Leer estado del bot desde la respuesta
         if (this.isLeadsComunicacionesChannel()) {
           this.botPaused = detail.bot_state === 'handoff';
         }
-        // Filtrar mensajes de tipo 'reaction' - solo mostrar mensajes normales
+        this.messagesTotalPages = detail.messages.last_page ?? 1;
         this.messages = detail.messages.data
           .filter((msg: any) => msg.message_type !== 'reaction')
-          .reverse(); // Más antiguos primero
+          .reverse();
         this.loadingMessages = false;
 
-        // Marcar como leído
         if (conversation.unread_count > 0) {
           this.conversationService.markAsRead(conversation.id).subscribe();
           conversation.unread_count = 0;
           this.stats.unread_messages = Math.max(0, this.stats.unread_messages - conversation.unread_count);
         }
 
-        // Scroll al final después de que se rendericen los mensajes
         setTimeout(() => this.scrollToBottom(), 200);
       },
       error: (error) => {
@@ -524,6 +531,64 @@ export class ConversationsComponent implements OnInit, OnDestroy {
         this.loadingMessages = false;
       }
     });
+  }
+
+  /**
+   * Cargar mensajes más antiguos (scroll-up al tope del historial).
+   * Inserta los mensajes al inicio sin mover la vista del usuario.
+   */
+  loadOlderMessages(): void {
+    if (
+      this.loadingOlderMessages ||
+      !this.selectedConversation ||
+      this.messagesPage >= this.messagesTotalPages
+    ) {
+      return;
+    }
+
+    this.loadingOlderMessages = true;
+    const nextPage = this.messagesPage + 1;
+    const phoneNumberId = this.selectedPhoneNumberId || null;
+
+    this.conversationService.getConversation(this.selectedConversation.contact.id, nextPage, 50, phoneNumberId)
+      .subscribe({
+        next: (detail: any) => {
+          const olderMessages = detail.messages.data
+            .filter((msg: any) => msg.message_type !== 'reaction')
+            .reverse();
+
+          // Guardar altura actual del scroll para restaurarla después de insertar mensajes
+          const container = document.querySelector('.messages-container') as HTMLElement | null;
+          const prevScrollHeight = container?.scrollHeight ?? 0;
+
+          this.messages = [...olderMessages, ...this.messages];
+          this.messagesPage = nextPage;
+          this.messagesTotalPages = detail.messages.last_page ?? this.messagesTotalPages;
+          this.loadingOlderMessages = false;
+
+          // Restaurar posición de scroll para que el usuario vea los mismos mensajes
+          if (container) {
+            requestAnimationFrame(() => {
+              container.scrollTop = container.scrollHeight - prevScrollHeight;
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error loading older messages:', error);
+          this.loadingOlderMessages = false;
+        }
+      });
+  }
+
+  /**
+   * Detectar scroll al tope del contenedor de mensajes para cargar historial.
+   * Llamar desde el evento (scroll) del elemento .messages-container en el template.
+   */
+  onMessagesScroll(event: Event): void {
+    const container = event.target as HTMLElement;
+    if (container.scrollTop === 0) {
+      this.loadOlderMessages();
+    }
   }
 
   /**
